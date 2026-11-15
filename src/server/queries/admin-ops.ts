@@ -301,7 +301,8 @@ export async function listStripeEvents(f: { status?: WebhookEventStatus; page: n
   return { items, total, counts: Object.fromEntries(counts.map((c) => [c.status, c._count])) as Record<string, number> };
 }
 
-export async function paymentKpis(since: Date) {
+export async function paymentKpis(days = 30) {
+  const since = new Date(Date.now() - days * 86400000);
   const [succeeded, failed, refunded] = await Promise.all([
     db.payment.aggregate({ where: { status: { in: ["SUCCEEDED", "PARTIALLY_REFUNDED", "REFUNDED"] }, createdAt: { gte: since } }, _sum: { amountCents: true }, _count: true }),
     db.payment.count({ where: { status: "FAILED", createdAt: { gte: since } } }),

@@ -59,7 +59,7 @@ describe("Parcours commande → stock → expédition → crédits", () => {
     const { order, item } = await stockedItem(client.actor, prep.actor, prep.location.id);
     expect((await db.supplierOrder.findUniqueOrThrow({ where: { id: order.id } })).status).toBe("IN_STOCK");
     const events = await db.supplierOrderEvent.findMany({ where: { supplierOrderId: order.id }, orderBy: { createdAt: "asc" } });
-    expect(events.map((e) => e.status)).toEqual(["REGISTERED", "PICKED_UP", "RECEIVED", "IN_STOCK"]);
+    expect(events.map((e) => e.status)).toEqual(["REGISTERED", "IN_TRANSIT", "PICKED_UP", "RECEIVED", "IN_STOCK"]);
 
     const shipment = await requestShipment(client.actor, { items: [{ itemId: item.id, quantity: 2 }], ...address, labelMode: "PREPARER_PROVIDED" });
     expect(shipment.status).toBe("AWAITING_CLASSIFICATION");

@@ -18,7 +18,8 @@ import { CheckboxField, TextAreaField, TextField } from "@/components/shared/for
 import { PasswordForm, ProfileForm, SettingsNav } from "@/components/settings/account-forms";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CheckboxGroup, Notice } from "@/components/admin/ops/ui";
+import { Notice } from "@/components/admin/ops/ui";
+import { CheckboxGroup } from "@/components/admin/ops/checkbox-group";
 import { InviteAdminForm } from "@/components/admin/ops/client";
 import { LOCATION_TYPE, PICKUP_NETWORKS, networkLabel } from "@/lib/labels";
 import { formatDate } from "@/lib/format";
@@ -321,7 +322,7 @@ async function TeamTab({ actor }: { actor: Actor }) {
           </ActionDialog>
         }
       >
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid items-start gap-4 lg:grid-cols-2">
           {roles.map((r) => {
             const isSuper = r.key === "super_admin";
             return (

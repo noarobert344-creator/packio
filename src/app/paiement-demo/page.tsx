@@ -12,6 +12,7 @@ import { formatMoney } from "@/lib/format";
 import { one, type SearchParams } from "@/lib/params";
 
 export const metadata: Metadata = { title: "Paiement (démonstration)", robots: { index: false } };
+export const dynamic = "force-dynamic";
 
 /** Écran de paiement simulé — disponible uniquement si BILLING_MODE=dev hors production. */
 export default async function DemoCheckoutPage({ searchParams }: { searchParams: SearchParams }) {

@@ -49,8 +49,7 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
   const q = one(sp.q);
   const status = oneOf(sp.statut, STATUSES);
   const kind = oneOf(sp.type, KINDS.map((k) => k.value));
-  const since = new Date(Date.now() - 30 * 86400000);
-  const kpis = await paymentKpis(since);
+  const kpis = await paymentKpis(30);
 
   return (
     <>

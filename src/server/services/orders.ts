@@ -178,7 +178,15 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
             carrier: input.carrier || null,
           },
         },
-        events: { create: { status: "REGISTERED", actorId: actor.userId } },
+        events: {
+          create: input.trackingNumber?.trim()
+            ? [
+                { status: "REGISTERED", actorId: actor.userId },
+                { status: "IN_TRANSIT", actorId: actor.userId, note: "Numéro de suivi fourni à l'enregistrement" },
+              ]
+            : [{ status: "REGISTERED", actorId: actor.userId }],
+        },
+        ...(input.trackingNumber?.trim() ? { status: "IN_TRANSIT" as const } : {}),
       },
     });
     if (input.photoIds?.length) await linkPhotos(tx, actor, input.photoIds, { supplierOrderId: order.id, customerId });
