@@ -23,7 +23,7 @@ export default async function PreparerSettingsPage({ searchParams }: { searchPar
       <SettingsNav tabs={TABS} current={tab} basePath="/preparateur/parametres" />
       {tab === "profil" && (
         <Section title="Profil" description="Vos clients voient votre nom et votre photo.">
-          <ProfileForm user={await loadProfile(actor)} />
+          <ProfileForm user={await loadProfile(actor)} avatarHint="Photo de profil visible par vos clients (page « Mon préparateur » et messagerie). JPEG, PNG ou WebP." />
         </Section>
       )}
       {tab === "securite" && (

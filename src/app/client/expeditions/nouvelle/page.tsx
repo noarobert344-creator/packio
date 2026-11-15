@@ -9,6 +9,7 @@ import { requireSubscribedCustomer } from "@/server/customer-page";
 import { db } from "@/server/db";
 import { getWalletOverview } from "@/server/services/credits";
 import { getSizeRules } from "@/server/services/shipments";
+import { getSetting } from "@/server/services/settings";
 import { one, type SearchParams } from "@/lib/params";
 
 export const metadata: Metadata = { title: "Demander une expédition" };
@@ -16,7 +17,7 @@ export const metadata: Metadata = { title: "Demander une expédition" };
 export default async function NewShipmentPage({ searchParams }: { searchParams: SearchParams }) {
   const { customer } = await requireSubscribedCustomer();
   const sp = await searchParams;
-  const [items, rules, wallet] = await Promise.all([
+  const [items, rules, wallet, shipping] = await Promise.all([
     db.inventoryItem.findMany({
       where: { customerId: customer.id, quantityAvailable: { gt: 0 }, ...(customer.currentPreparerId ? { preparerId: customer.currentPreparerId } : {}) },
       orderBy: { receivedAt: "desc" },
@@ -24,14 +25,35 @@ export default async function NewShipmentPage({ searchParams }: { searchParams: 
     }),
     getSizeRules(),
     getWalletOverview(customer.id),
+    getSetting("shipping"),
   ]);
+  const isReturn = one(sp.retour) === "1";
+  const returnAddress =
+    customer.returnAddressLine1 && customer.returnPostalCode && customer.returnCity
+      ? {
+          name: customer.returnName ?? "",
+          phone: customer.returnPhone,
+          addressLine1: customer.returnAddressLine1,
+          addressLine2: customer.returnAddressLine2,
+          postalCode: customer.returnPostalCode,
+          city: customer.returnCity,
+          country: customer.returnCountry ?? "FR",
+        }
+      : null;
   return (
     <div className="space-y-6">
-      <PageHeader back={{ href: "/client/expeditions", label: "Mes expéditions" }} title="Demander une expédition" description="La demande apparaît immédiatement dans l'espace de votre préparateur." />
+      <PageHeader
+        back={{ href: "/client/expeditions", label: "Mes expéditions" }}
+        title={isReturn ? "Me renvoyer des articles" : "Demander une expédition"}
+        description={`La demande apparaît immédiatement dans l'espace de votre préparateur, qui l'expédie sous ${shipping.slaHours} h.`}
+      />
       {customer.status !== "ACTIVE" && <p className="rounded-xl bg-danger-soft p-3 text-sm text-danger">Votre abonnement doit être actif et à jour pour demander une expédition.</p>}
       {items.length ? (
         <ShipmentRequestForm
           preselect={one(sp.article)}
+          defaultKind={isReturn ? "RETURN_TO_CUSTOMER" : "SALE"}
+          returnAddress={returnAddress}
+          shippingHours={shipping.slaHours}
           available={wallet.available}
           sizes={rules.map((r) => ({ label: r.label, creditCost: r.creditCost, dims: r.maxLengthCm ? `≤ ${r.maxLengthCm}×${r.maxWidthCm}×${r.maxHeightCm} cm` : "hors gabarit" }))}
           items={items.map((i) => ({ id: i.id, name: i.name, sku: i.sku, available: i.quantityAvailable, photoId: i.files[0]?.id ?? null, storageLocation: i.storageLocation }))}

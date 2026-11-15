@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Boxes, Download, ExternalLink, Hourglass, Info, MessagesSquare } from "lucide-react";
+import { Boxes, Download, ExternalLink, Hourglass, Info, MessagesSquare, Timer } from "lucide-react";
 import { requirePreparer } from "@/server/auth/current";
 import { getShipmentForActor, getSizeRules } from "@/server/services/shipments";
 import { getShipmentConversationId } from "@/server/queries/preparer";
@@ -13,7 +13,8 @@ import { CopyButton } from "@/components/shared/copy-button";
 import { Button } from "@/components/ui/button";
 import { ClientCode } from "@/components/preparer/cards";
 import { ClassificationForm, ShipmentIncidentDialog, ShipmentStepPanel } from "@/components/preparer/shipment-actions";
-import { CREDIT_STATE, INCIDENT_STATUS, PARCEL_SIZE, SHIPMENT_FLOW, SHIPMENT_STATUS, carrierLabel, shipmentOptionLabel } from "@/lib/labels";
+import { CREDIT_STATE, INCIDENT_STATUS, PARCEL_SIZE, SHIPMENT_FLOW, SHIPMENT_KIND, SHIPMENT_STATUS, carrierLabel, shipmentOptionLabel } from "@/lib/labels";
+import { nowMs } from "@/server/lib/clock";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Expédition" };
@@ -58,10 +59,11 @@ export default async function PreparerShipmentPage({ params }: { params: Promise
       <PageHeader
         back={{ href: "/preparateur/expeditions", label: "Expéditions" }}
         eyebrow={shipment.reference}
-        title={`${units} article${units > 1 ? "s" : ""} pour ${shipment.recipientName}`}
+        title={shipment.kind === "RETURN_TO_CUSTOMER" ? `${units} article${units > 1 ? "s" : ""} à renvoyer au client` : `${units} article${units > 1 ? "s" : ""} pour ${shipment.recipientName}`}
         description={`Demandée le ${formatDateTime(shipment.createdAt)} · transporteur souhaité : ${carrierLabel(shipment.requestedCarrier)}`}
         actions={
           <>
+            {shipment.kind !== "SALE" && <StatusFrom map={SHIPMENT_KIND} value={shipment.kind} />}
             <StatusFrom map={SHIPMENT_STATUS} value={shipment.status} />
             {shipment.creditState !== "NONE" && <StatusFrom map={CREDIT_STATE} value={shipment.creditState} />}
             {conversationId && (
@@ -74,6 +76,20 @@ export default async function PreparerShipmentPage({ params }: { params: Promise
           </>
         }
       />
+      {shipment.dueAt && ["REQUESTED", "AWAITING_CLASSIFICATION", "CLASSIFIED", "PREPARING", "READY", "LABEL_READY"].includes(shipment.status) && (
+        <p
+          className={
+            shipment.dueAt.getTime() < nowMs()
+              ? "flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-medium text-danger"
+              : "flex items-center gap-2 rounded-xl bg-brand-soft px-4 py-3 text-sm"
+          }
+        >
+          <Timer className="size-4 shrink-0" />
+          {shipment.dueAt.getTime() < nowMs() ? "En retard : à expédier au plus vite (échéance " : "À déposer chez le transporteur avant le "}
+          {formatDateTime(shipment.dueAt)}
+          {shipment.dueAt.getTime() < nowMs() ? " dépassée)." : "."}
+        </p>
+      )}
       {shipment.status !== "CANCELLED" && (
         <div className="rounded-2xl border bg-card p-4 shadow-soft">
           <StepProgress steps={SHIPMENT_FLOW.map((s) => ({ key: s, label: SHIPMENT_STATUS[s].label }))} current={flowCurrent} failed={shipment.status === "INCIDENT" || shipment.status === "AWAITING_CREDITS"} />

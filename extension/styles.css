@@ -1,0 +1,22 @@
+:root { color-scheme: dark; --bg: #0b0d12; --card: #12151c; --border: #252a35; --fg: #f3f5f8; --muted: #9aa3b2; --brand: #3b6ef5; --ok: #34c77b; --warn: #f0a429; --danger: #ef5350; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1 { font-size: 16px; margin: 0; }
+p { margin: 0; }
+.muted { color: var(--muted); font-size: 12px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.stack { display: grid; gap: 10px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand img { width: 24px; height: 24px; }
+button, .button { appearance: none; border: 0; border-radius: 8px; background: var(--brand); color: white; font: inherit; font-weight: 600; padding: 8px 12px; cursor: pointer; text-decoration: none; text-align: center; }
+button.secondary, .button.secondary { background: transparent; border: 1px solid var(--border); color: var(--fg); }
+button:disabled { opacity: 0.6; cursor: progress; }
+label { display: grid; gap: 4px; font-size: 13px; }
+input, select { background: #0e1117; border: 1px solid var(--border); border-radius: 8px; color: var(--fg); font: inherit; padding: 8px 10px; }
+.check { display: flex; align-items: center; gap: 8px; }
+.badge { border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 600; background: var(--border); }
+.badge.ok { background: rgba(52, 199, 123, 0.15); color: var(--ok); }
+.badge.warn { background: rgba(240, 164, 41, 0.15); color: var(--warn); }
+.badge.danger { background: rgba(239, 83, 80, 0.15); color: var(--danger); }
+.result { font-size: 12px; white-space: pre-wrap; }

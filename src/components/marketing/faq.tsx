@@ -1,4 +1,6 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import type { Settings } from "@/server/services/settings";
+import { durationLabel } from "./pricing";
 import { Container, SectionHeading } from "./section";
 
 export type FaqContext = {
@@ -9,11 +11,17 @@ export type FaqContext = {
   purchasedDays: number;
   storage: { name: string; limit: number | null }[];
   sizes: { label: string; cost: number }[];
+  storageRules: Settings["storage"];
+  shippingHours: number;
+  /** Avantage de la formule annuelle (« 1 mois offert »), null si non proposée. */
+  annualBadge: string | null;
 };
 
 export function Faq({ ctx }: { ctx: FaqContext }) {
   const sizes = ctx.sizes.map((s) => `${s.label.toLowerCase()} : ${s.cost} crédit${s.cost > 1 ? "s" : ""}`).join(", ");
   const storage = ctx.storage.map((s) => `${s.name} : ${s.limit === null ? "illimité" : `${s.limit} articles`}`).join(" · ");
+  const r = ctx.storageRules;
+  const extension = `${r.extensionCredits} crédit${r.extensionCredits > 1 ? "s" : ""}`;
   const items: { q: string; a: React.ReactNode }[] = [
     {
       q: "Comment mon préparateur est-il choisi ?",
@@ -28,8 +36,9 @@ export function Faq({ ctx }: { ctx: FaqContext }) {
       q: "Qu'est-ce qu'un crédit ?",
       a: (
         <>
-          Un crédit rémunère la préparation d&apos;un colis : réception, stockage, emballage et dépôt. Le coût dépend de la taille du colis expédié ({sizes}). Votre
-          abonnement inclut un nombre de crédits chaque mois ; vous pouvez en racheter à tout moment.
+          Un crédit rémunère la préparation d&apos;un colis : réception, stockage, emballage et dépôt. Le coût dépend de la taille du colis expédié ({sizes}). Les
+          crédits servent aussi à prolonger le stockage d&apos;un article ou à ajouter des places. Votre abonnement inclut un nombre de crédits chaque mois ; vous
+          pouvez en racheter à tout moment.
         </>
       ),
     },
@@ -69,15 +78,46 @@ export function Faq({ ctx }: { ctx: FaqContext }) {
     },
     {
       q: "Combien d'articles puis-je stocker ?",
-      a: `La capacité de stockage dépend de votre offre (${storage}). Au-delà, vous pouvez expédier des articles ou changer d'offre à tout moment.`,
+      a: `Le nombre de places dépend de votre offre (${storage}) : c'est le nombre d'articles stockés en même temps, commandes en cours d'acheminement comprises. Pour aller au-delà, ajoutez des places avec vos crédits (1 crédit = ${r.slotsPerCredit} places pendant ${durationLabel(r.extraSlotsDays)}), expédiez des articles ou passez à l'offre supérieure.`,
+    },
+    {
+      q: "Combien de temps un article peut-il rester en stock ?",
+      a:
+        r.extensionCredits > 0
+          ? `Chaque article dispose de ${durationLabel(r.includedDays)} de stockage incluses. Au-delà, ${extension} par article est prélevé automatiquement pour ${durationLabel(r.extensionDays)} de plus${r.reminderDaysBefore > 0 ? ` ; vous êtes prévenu ${durationLabel(r.reminderDaysBefore)} avant` : ""}. Si votre solde ne suffit pas, l'article passe « en dépassement » et la prolongation est prélevée dès que vous avez des crédits ; vous pouvez aussi l'expédier ou vous le faire renvoyer.`
+          : `Chaque article dispose de ${durationLabel(r.includedDays)} de stockage incluses, prolongées par périodes de ${durationLabel(r.extensionDays)}.`,
+    },
+    {
+      q: "Que se passe-t-il si une commande dépasse mes places ?",
+      a: `Le formulaire de commande vous l'indique avant l'envoi, avec le nombre de crédits nécessaires pour les places manquantes (1 crédit = ${r.slotsPerCredit} places pendant ${durationLabel(r.extraSlotsDays)}). Ces crédits ne sont débités qu'avec votre accord ; si votre solde ne suffit pas, la commande est refusée. Les commandes en dropshipping n'occupent aucune place.`,
     },
     {
       q: "Les frais de port sont-ils inclus ?",
       a: "Non. Les crédits couvrent la préparation ; l'affranchissement est distinct. Vous pouvez fournir votre propre étiquette (celle générée par une plateforme de vente, par exemple), ou les frais de transport vous sont indiqués séparément.",
     },
     {
+      q: `En combien de temps mes colis sont-ils expédiés ?`,
+      a: `Votre préparateur s'engage à déposer chaque colis chez le transporteur dans les ${ctx.shippingHours} heures suivant votre demande. L'échéance s'affiche sur l'expédition ; si elle est dépassée, votre préparateur et l'équipe Packio sont alertés. Le délai est suspendu tant qu'une expédition attend des crédits, et repart dès qu'ils sont réservés. Les délais de livraison du transporteur s'ajoutent ensuite.`,
+    },
+    {
+      q: "Puis-je me faire renvoyer un article ?",
+      a: "Oui. Depuis la fiche de l'article ou la demande d'expédition, choisissez le retour à votre adresse : votre préparateur prépare le colis comme une expédition classique, avec les mêmes crédits de préparation. Les frais de transport restent à votre charge, avec votre propre étiquette ou celle indiquée par votre préparateur.",
+    },
+    {
+      q: "Comment fonctionne le dropshipping Vinted ?",
+      a: `Vous avez vendu un article que vous n'avez pas encore ? Commandez-le chez votre fournisseur en livraison vers votre préparateur et déclarez la commande en dropshipping, avec le bordereau de la vente (ou l'adresse de l'acheteur). À la réception, votre préparateur l'expédie directement à l'acheteur, sous ${ctx.shippingHours} h : l'article n'occupe aucune place de stock. Vous restez l'interlocuteur de votre acheteur et respectez les règles de la plateforme de vente.`,
+    },
+    {
+      q: "Puis-je récupérer les photos de mes articles ?",
+      a: "Oui. Votre préparateur photographie vos articles en stock ; vous êtes prévenu dès que les photos sont disponibles et vous les téléchargez depuis la fiche de l'article, pour créer vos annonces vous-même.",
+    },
+    {
+      q: "Qu'est-ce que Packio Connect ?",
+      a: "Une extension de navigateur, en version bêta, que vous installez sur votre ordinateur. Elle relie vos comptes Vinted et Vestiaire Collective à Packio : elle repère quel article s'est vendu et quand, puis récupère le bordereau d'expédition et le joint à l'article, pour que votre préparateur n'ait plus qu'à l'imprimer. Elle utilise vos sessions déjà ouvertes dans votre navigateur, ne lit que les données utiles à vos ventes et ne connaît jamais vos mots de passe. Vous pouvez la déconnecter à tout moment depuis votre espace. Les plateformes ne proposent pas d'accès officiel : leur fonctionnement peut évoluer, et vous restez responsable du respect de leurs conditions d'utilisation.",
+    },
+    {
       q: "Comment fonctionne la formule annuelle ?",
-      a: "Vous payez l'année en une fois, à un prix réduit (deux mois offerts sur les tarifs actuels), et vous recevez vos crédits chaque mois comme en formule mensuelle : le premier mois au paiement, puis le même jour les mois suivants. Elle est renouvelée automatiquement chaque année, sauf si vous désactivez le renouvellement.",
+      a: `Vous payez l'année en une fois, à un prix réduit${ctx.annualBadge ? ` (${ctx.annualBadge} sur les tarifs actuels)` : ""}, et vous recevez vos crédits chaque mois comme en formule mensuelle : le premier mois au paiement, puis le même jour les mois suivants. Elle vous engage pour 12 mois et se renouvelle automatiquement chaque année, sauf si vous désactivez le renouvellement.`,
     },
     {
       q: "Comment résilier ou changer d'offre ?",

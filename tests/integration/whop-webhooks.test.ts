@@ -56,7 +56,7 @@ describe("Webhooks Whop", () => {
       id,
       status: "paid",
       substatus: "succeeded",
-      total: { amount: "29.90", currency: "eur", decimals: 2 },
+      total: { amount: "39.00", currency: "eur", decimals: 2 },
       currency: "eur",
       membership_id: "mem_1",
       variant_id: "plan_auto_starter",
@@ -117,7 +117,7 @@ describe("Webhooks Whop", () => {
     expect(w.monthlyBalance).toBe(20);
     expect(await db.creditTransaction.count({ where: { type: "MONTHLY_GRANT" } })).toBe(1);
     const pay = await db.payment.findUniqueOrThrow({ where: { externalId: "pay_1" } });
-    expect(pay).toMatchObject({ status: "SUCCEEDED", amountCents: 2990, membershipId: "mem_1", provider: "whop" });
+    expect(pay).toMatchObject({ status: "SUCCEEDED", amountCents: 3900, membershipId: "mem_1", provider: "whop" });
     expect((await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } })).status).toBe("ACTIVE");
   });
 
@@ -126,11 +126,11 @@ describe("Webhooks Whop", () => {
     const sub = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } });
     await db.subscription.update({ where: { id: sub.id }, data: { pendingPlanId: proId, pendingSyncedAt: new Date() } });
     memberships.mem_1 = membership({ current_period_start: new Date(Date.now() + 30 * DAY).toISOString(), current_period_end: new Date(Date.now() + 60 * DAY).toISOString() });
-    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2", { total: { amount: "69.90", currency: "eur" } })), deps);
+    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2", { total: { amount: "79.00", currency: "eur" } })), deps);
     const after = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" }, include: { plan: true } });
     expect(after.plan.code).toBe("PRO");
     expect(after.pendingPlanId).toBeNull();
-    expect((await wallet(customerId)).monthlyBalance).toBe(55); // politique EXPIRE : 20 expirent, 55 accordés
+    expect((await wallet(customerId)).monthlyBalance).toBe(50); // politique EXPIRE : 20 expirent, 50 accordés
     expect(await db.notification.count({ where: { userId, type: "SUBSCRIPTION_RENEWED" } })).toBe(1);
   });
 
@@ -205,13 +205,13 @@ describe("Webhooks Whop", () => {
       current_period_end: new Date(Date.now() + 365 * DAY).toISOString(),
       metadata: { kind: "subscription", packio_customer_id: customerId, plan_id: starterId, billing_interval: "yearly" },
     });
-    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_y1", { total: { amount: "299.00", currency: "eur" } })), deps);
+    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_y1", { total: { amount: "429.00", currency: "eur" } })), deps);
     const sub = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } });
     expect(sub.billingInterval).toBe("YEARLY");
     expect(sub.creditMonthsGranted).toBe(1);
     expect(sub.nextCreditGrantAt).not.toBeNull();
     expect((await wallet(customerId)).monthlyBalance).toBe(20);
-    expect((await db.payment.findUniqueOrThrow({ where: { externalId: "pay_y1" } })).amountCents).toBe(29900);
+    expect((await db.payment.findUniqueOrThrow({ where: { externalId: "pay_y1" } })).amountCents).toBe(42900);
   });
 
   it("formule annuelle sans métadonnée de périodicité : déduite de la durée de la période", async () => {
@@ -227,13 +227,13 @@ describe("Webhooks Whop", () => {
       variant_id: "plan_auto_pro",
       metadata: { kind: "subscription", packio_customer_id: customerId, plan_id: proId, billing_interval: "monthly", replaces: "mem_1" },
     });
-    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2", { membership_id: "mem_2", total: { amount: "69.90", currency: "eur" } })), deps);
+    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2", { membership_id: "mem_2", total: { amount: "79.00", currency: "eur" } })), deps);
     const old = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } });
     expect(old.supersededAt).not.toBeNull();
     expect(old.cancelAtPeriodEnd).toBe(true);
     const customer = await db.customerProfile.findUniqueOrThrow({ where: { id: customerId } });
     expect(customer.status).toBe("ACTIVE");
-    expect((await wallet(customerId)).monthlyBalance).toBe(75);
+    expect((await wallet(customerId)).monthlyBalance).toBe(70);
     // Sans clé API dans les tests, l'arrêt chez Whop échoue : les admins sont alertés.
     expect(await db.notification.count({ where: { title: "Ancienne adhésion Whop à arrêter" } })).toBe(1);
     // L'avis de Whop sur l'ancienne adhésion ne déclenche pas d'avis de résiliation.

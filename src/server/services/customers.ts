@@ -29,3 +29,29 @@ export async function assertCustomerOperational(client: Tx | typeof db, customer
   }
   return customer;
 }
+
+export type ReturnAddressInput = {
+  returnName: string;
+  returnPhone?: string | null;
+  returnAddressLine1: string;
+  returnAddressLine2?: string | null;
+  returnPostalCode: string;
+  returnCity: string;
+  returnCountry: string;
+};
+
+/** Adresse de retour à domicile du client (pré-remplie dans les demandes de retour). */
+export async function updateReturnAddress(customerId: string, input: ReturnAddressInput) {
+  return db.customerProfile.update({
+    where: { id: customerId },
+    data: {
+      returnName: input.returnName.trim(),
+      returnPhone: input.returnPhone?.trim() || null,
+      returnAddressLine1: input.returnAddressLine1.trim(),
+      returnAddressLine2: input.returnAddressLine2?.trim() || null,
+      returnPostalCode: input.returnPostalCode.trim(),
+      returnCity: input.returnCity.trim(),
+      returnCountry: input.returnCountry.trim().toUpperCase() || "FR",
+    },
+  });
+}

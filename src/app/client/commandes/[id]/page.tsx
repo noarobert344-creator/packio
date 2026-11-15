@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink, MessagesSquare } from "lucide-react";
+import { ExternalLink, MessagesSquare, PackagePlus, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatusFrom } from "@/components/shared/status-badge";
@@ -34,6 +34,27 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         description={`${order.supplier.code === "OTHER" ? order.supplierLabel : order.supplier.name} · ${order.quantity} article(s) · enregistrée le ${formatDate(order.createdAt)}`}
         actions={<StatusFrom map={SUPPLIER_ORDER_STATUS} value={order.status} />}
       />
+      {order.mode === "DROPSHIP" && (
+        <div className="flex flex-col gap-2 rounded-2xl border border-brand/30 bg-brand-soft p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-start gap-2">
+            <Zap className="mt-0.5 size-4 shrink-0 text-brand" />
+            <span>
+              Commande en dropshipping{order.saleReference ? ` (vente ${order.saleReference})` : ""} : votre préparateur expédie l&apos;article à votre acheteur dès réception, sous 48 h.
+            </span>
+          </p>
+          {order.dropshipShipmentId && (
+            <Link href={`/client/expeditions/${order.dropshipShipmentId}`} className="font-medium text-brand underline-offset-2 hover:underline">
+              Suivre l&apos;expédition
+            </Link>
+          )}
+        </div>
+      )}
+      {order.storageCreditsCharged > 0 && (
+        <p className="flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+          <PackagePlus className="size-4" /> {order.storageCreditsCharged} crédit{order.storageCreditsCharged > 1 ? "s" : ""} débité{order.storageCreditsCharged > 1 ? "s" : ""} pour des places de stock
+          supplémentaires lors de cette commande.
+        </p>
+      )}
       <Section>
         <StepProgress steps={SUPPLIER_ORDER_FLOW.map((s) => ({ key: s, label: SUPPLIER_ORDER_STATUS[s].label }))} current={failed ? "REGISTERED" : order.status} failed={failed} />
         {failed && <p className="mt-3 text-sm text-danger">{SUPPLIER_ORDER_STATUS[order.status].label}</p>}

@@ -1,16 +1,15 @@
 import { Camera, Eye, Lock, MapPin, MessagesSquare, Ruler, Truck, UserRoundCheck, Warehouse } from "lucide-react";
 import { Container, SectionHeading } from "./section";
 
-const TASKS = [
-  { icon: MapPin, title: "Récupération aux lockers et points relais", text: "Il retire vos colis au point de réception validé, avec le code de retrait que vous lui transmettez." },
-  { icon: Camera, title: "Contrôle et photos", text: "Quantités vérifiées, état contrôlé, photos à la réception : un défaut est signalé immédiatement." },
-  { icon: Warehouse, title: "Stockage organisé", text: "Chaque article reçoit une référence interne et un emplacement. Le stock est inventorié régulièrement." },
-  { icon: Ruler, title: "Préparation et classification", text: "Il emballe vos expéditions et détermine la taille réelle du colis selon les règles définies par Packio." },
-  { icon: Truck, title: "Dépôt et suivi", text: "Il dépose le colis chez le transporteur et renseigne le numéro de suivi dans votre espace." },
-  { icon: MessagesSquare, title: "Échanges directs", text: "Il vous répond dans la messagerie et vous tient informé à chaque étape importante." },
-];
-
-export function Preparers() {
+export function Preparers({ shippingHours }: { shippingHours: number }) {
+  const TASKS = [
+    { icon: MapPin, title: "Récupération aux lockers et points relais", text: "Il retire vos colis au point de réception validé, avec le code de retrait que vous lui transmettez." },
+    { icon: Camera, title: "Contrôle et photos", text: "Quantités vérifiées, état contrôlé, photos de vos articles prêtes pour vos annonces : un défaut est signalé immédiatement." },
+    { icon: Warehouse, title: "Stockage organisé", text: "Chaque article reçoit une référence interne et un emplacement. Le stock est inventorié régulièrement." },
+    { icon: Ruler, title: "Préparation et classification", text: "Il emballe vos expéditions et détermine la taille réelle du colis selon les règles définies par Packio." },
+    { icon: Truck, title: `Dépôt sous ${shippingHours} h et suivi`, text: `Il dépose le colis chez le transporteur dans les ${shippingHours} heures suivant votre demande et renseigne le numéro de suivi.` },
+    { icon: MessagesSquare, title: "Échanges directs", text: "Il vous répond dans la messagerie et vous tient informé à chaque étape importante." },
+  ];
   return (
     <section id="preparateurs" className="scroll-mt-20 overflow-hidden border-y bg-muted/30 py-24 sm:py-28">
       <Container className="grid items-center gap-14 lg:grid-cols-[1.1fr_1fr]">

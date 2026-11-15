@@ -8,6 +8,7 @@ const COLUMNS = [
     title: "Produit",
     links: [
       { href: "/#fonctionnement", label: "Fonctionnement" },
+      { href: "/#services", label: "Services" },
       { href: "/#preparateurs", label: "Préparateurs" },
       { href: "/#lockers", label: "Lockers et points relais" },
       { href: "/#tarifs", label: "Tarifs" },

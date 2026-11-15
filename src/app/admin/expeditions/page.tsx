@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Truck } from "lucide-react";
+import { Timer, Truck } from "lucide-react";
 import { requireAdmin } from "@/server/auth/current";
 import { PAGE_SIZE, SHIPMENT_GROUPS, filterOptions, listShipments } from "@/server/queries/admin-ops";
 import { PageHeader, Section } from "@/components/shared/page-header";
@@ -9,8 +9,9 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { FilterSelect, FilterTabs, Pagination, SearchInput } from "@/components/shared/list-controls";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CustomerLink, ExportLink, PreparerLink } from "@/components/admin/ops/ui";
-import { CREDIT_STATE, PARCEL_SIZE, SHIPMENT_STATUS, carrierLabel } from "@/lib/labels";
-import { formatCredits, formatDate } from "@/lib/format";
+import { CREDIT_STATE, PARCEL_SIZE, SHIPMENT_KIND, SHIPMENT_STATUS, carrierLabel } from "@/lib/labels";
+import { formatCredits, formatDate, formatDateTime } from "@/lib/format";
+import { nowMs } from "@/server/lib/clock";
 import { one, parsePage, type SearchParams } from "@/lib/params";
 
 export const metadata: Metadata = { title: "Expéditions" };
@@ -19,8 +20,10 @@ export default async function AdminShipmentsPage({ searchParams }: { searchParam
   await requireAdmin("operations.read");
   const sp = await searchParams;
   const page = parsePage(sp.page);
-  const f = { q: one(sp.q), group: one(sp.groupe), preparerId: one(sp.preparateur) };
-  const [{ items, total, groupCounts, all }, options] = await Promise.all([listShipments({ ...f, page }), filterOptions()]);
+  const late = one(sp.retard) === "1";
+  const f = { q: one(sp.q), group: one(sp.groupe), preparerId: one(sp.preparateur), late };
+  const [{ items, total, groupCounts, all, lateCount }, options] = await Promise.all([listShipments({ ...f, page }), filterOptions()]);
+  const now = nowMs();
 
   return (
     <>
@@ -30,7 +33,17 @@ export default async function AdminShipmentsPage({ searchParams }: { searchParam
           param="groupe"
           options={[{ value: "", label: "Toutes", count: all }, ...Object.entries(SHIPMENT_GROUPS).map(([value, g]) => ({ value, label: g.label, count: groupCounts[value] }))]}
         />
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Link
+            href={late ? "/admin/expeditions" : "/admin/expeditions?retard=1"}
+            className={
+              late
+                ? "inline-flex h-9 items-center gap-1.5 rounded-lg border border-danger/40 bg-danger-soft px-3 text-sm font-medium text-danger"
+                : "inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm hover:bg-muted"
+            }
+          >
+            <Timer className="size-4" /> Hors délai 48 h ({lateCount})
+          </Link>
           <SearchInput placeholder="Référence, suivi, destinataire, client…" />
           <FilterSelect param="preparateur" options={options.preparers} placeholder="Tous les préparateurs" />
         </div>
@@ -61,6 +74,7 @@ export default async function AdminShipmentsPage({ searchParams }: { searchParam
                       {s.reference}
                     </Link>
                     <span className="block font-sans text-muted-foreground">{s._count.items} article(s)</span>
+                    {s.kind !== "SALE" && <span className="mt-1 block font-sans text-xs text-brand">{SHIPMENT_KIND[s.kind].label}</span>}
                   </TableCell>
                   <TableCell>
                     <CustomerLink customer={s.customer} />
@@ -81,6 +95,12 @@ export default async function AdminShipmentsPage({ searchParams }: { searchParam
                   </TableCell>
                   <TableCell>
                     <StatusFrom map={SHIPMENT_STATUS} value={s.status} />
+                    {s.dueAt && ["REQUESTED", "AWAITING_CLASSIFICATION", "CLASSIFIED", "PREPARING", "READY", "LABEL_READY"].includes(s.status) && (
+                      <span className={s.dueAt.getTime() < now ? "mt-1 block text-xs font-medium text-danger" : "mt-1 block text-xs text-muted-foreground"}>
+                        {s.dueAt.getTime() < now ? "En retard · " : "Avant le "}
+                        {formatDateTime(s.dueAt)}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs">
                     {s.trackingNumber ? (

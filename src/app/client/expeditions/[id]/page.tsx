@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Coins, ExternalLink, MessagesSquare, Scale, XCircle } from "lucide-react";
+import { Coins, ExternalLink, MessagesSquare, Scale, Timer, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatusBadge, StatusFrom } from "@/components/shared/status-badge";
@@ -14,7 +14,7 @@ import { requireSubscribedCustomer } from "@/server/customer-page";
 import { getShipmentForActor } from "@/server/services/shipments";
 import { db } from "@/server/db";
 import { cancelShipmentAction, disputeClassificationAction } from "@/server/actions/customer";
-import { CREDIT_STATE, INCIDENT_STATUS, PARCEL_SIZE, SHIPMENT_CANCELLABLE_BY_CUSTOMER, SHIPMENT_FLOW, SHIPMENT_STATUS, carrierLabel, shipmentOptionLabel } from "@/lib/labels";
+import { CREDIT_STATE, INCIDENT_STATUS, PARCEL_SIZE, SHIPMENT_CANCELLABLE_BY_CUSTOMER, SHIPMENT_FLOW, SHIPMENT_KIND, SHIPMENT_STATUS, carrierLabel, shipmentOptionLabel } from "@/lib/labels";
 import { formatAddress, formatCredits, formatDateTime, formatMoney, fullName } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Expédition" };
@@ -37,10 +37,20 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
       <PageHeader
         back={{ href: "/client/expeditions", label: "Mes expéditions" }}
         eyebrow={s.reference}
-        title={`Expédition vers ${s.recipientName}`}
+        title={s.kind === "RETURN_TO_CUSTOMER" ? "Retour à votre domicile" : `Expédition vers ${s.recipientName}`}
         description={`Demandée le ${formatDateTime(s.createdAt)} · préparée par ${fullName(s.preparer.user)}`}
-        actions={<StatusFrom map={SHIPMENT_STATUS} value={s.status} />}
+        actions={
+          <>
+            {s.kind !== "SALE" && <StatusFrom map={SHIPMENT_KIND} value={s.kind} />}
+            <StatusFrom map={SHIPMENT_STATUS} value={s.status} />
+          </>
+        }
       />
+      {s.dueAt && ["REQUESTED", "AWAITING_CLASSIFICATION", "CLASSIFIED", "PREPARING", "READY", "LABEL_READY"].includes(s.status) && (
+        <p className="flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm">
+          <Timer className="size-4 text-brand" /> Expédition prévue avant le <span className="font-medium">{formatDateTime(s.dueAt)}</span>.
+        </p>
+      )}
       {s.status === "AWAITING_CREDITS" && (
         <div className="flex flex-col gap-3 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger sm:flex-row sm:items-center sm:justify-between">
           <p>Solde insuffisant : {formatCredits(s.creditCost)} requis. L&apos;expédition reprendra automatiquement après votre recharge.</p>

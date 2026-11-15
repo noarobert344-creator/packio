@@ -239,6 +239,13 @@ const platformSchema = z.object({
   supportEmail: emailField(),
   supportPhone: optionalText(40),
   supportHours: optionalText(120),
+  shippingSlaHours: intField("Délai d'expédition", { min: 1, max: 336 }),
+  storageIncludedDays: intField("Durée incluse", { min: 1, max: 365 }),
+  storageExtensionDays: intField("Durée d'une prolongation", { min: 1, max: 365 }),
+  storageExtensionCredits: intField("Coût d'une prolongation", { min: 0, max: 100 }),
+  storageSlotsPerCredit: intField("Places par crédit", { min: 1, max: 1000 }),
+  storageExtraSlotsDays: intField("Durée des places", { min: 1, max: 365 }),
+  storageReminderDaysBefore: intField("Rappel", { min: 0, max: 30 }),
 });
 
 export async function savePlatformSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -246,7 +253,17 @@ export async function savePlatformSettingsAction(_prev: ActionState, formData: F
     await updateSettings(actor, "assignment", { slaHours: data.slaHours });
     await updateSettings(actor, "messaging", { supervisionMinutes: data.supervisionMinutes });
     await updateSettings(actor, "support", { email: data.supportEmail, phone: data.supportPhone ?? "", hours: data.supportHours ?? "" });
+    await updateSettings(actor, "shipping", { slaHours: data.shippingSlaHours });
+    await updateSettings(actor, "storage", {
+      includedDays: data.storageIncludedDays,
+      extensionDays: data.storageExtensionDays,
+      extensionCredits: data.storageExtensionCredits,
+      slotsPerCredit: data.storageSlotsPerCredit,
+      extraSlotsDays: data.storageExtraSlotsDays,
+      reminderDaysBefore: data.storageReminderDaysBefore,
+    });
     revalidatePath("/admin/parametres");
+    revalidatePath("/", "layout");
     return { ok: true, message: "Paramètres de la plateforme enregistrés." };
   });
 }

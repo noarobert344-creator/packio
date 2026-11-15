@@ -47,6 +47,22 @@ export const SETTINGS_SCHEMAS = {
   messaging: z.object({
     supervisionMinutes: z.number().int().min(5).max(24 * 60),
   }),
+  storage: z.object({
+    /** Durée de stockage incluse pour chaque article (jours). */
+    includedDays: z.number().int().min(1).max(365),
+    /** Durée d'une prolongation (jours) et son coût en crédits, par article. */
+    extensionDays: z.number().int().min(1).max(365),
+    extensionCredits: z.number().int().min(0).max(100),
+    /** Places de stock supplémentaires obtenues pour 1 crédit, et leur durée (jours). */
+    slotsPerCredit: z.number().int().min(1).max(1000),
+    extraSlotsDays: z.number().int().min(1).max(365),
+    /** Rappel envoyé ce nombre de jours avant la fin de la durée payée. */
+    reminderDaysBefore: z.number().int().min(0).max(30),
+  }),
+  shipping: z.object({
+    /** Délai d'expédition promis à compter de la demande (heures). */
+    slaHours: z.number().int().min(1).max(24 * 14),
+  }),
 } as const;
 
 export type SettingKey = keyof typeof SETTINGS_SCHEMAS;
@@ -76,6 +92,8 @@ export const SETTINGS_DEFAULTS: Settings = {
     consumerMediator: "",
   },
   messaging: { supervisionMinutes: 60 },
+  storage: { includedDays: 14, extensionDays: 14, extensionCredits: 1, slotsPerCredit: 5, extraSlotsDays: 30, reminderDaysBefore: 2 },
+  shipping: { slaHours: 48 },
 };
 
 export async function getSetting<K extends SettingKey>(key: K, client: DbClient = db): Promise<Settings[K]> {

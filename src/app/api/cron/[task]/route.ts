@@ -4,6 +4,8 @@ import { db } from "@/server/db";
 import { runAssignmentSlaCheck } from "@/server/services/assignments";
 import { expireDueCredits } from "@/server/services/credits";
 import { runBillingSchedule } from "@/server/billing";
+import { runShipmentSlaCheck } from "@/server/services/shipments";
+import { runStorageBilling } from "@/server/services/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,11 +25,13 @@ export async function GET(request: Request, ctx: RouteContext<"/api/cron/[task]"
   const { task } = await ctx.params;
   switch (task) {
     case "attribution":
-      return Response.json(await runAssignmentSlaCheck());
+      // Délais : attribution sous 24 h, expédition sous 48 h.
+      return Response.json({ assignments: await runAssignmentSlaCheck(), shipments: await runShipmentSlaCheck() });
     case "credits": {
       // Expiration, puis crédits mensuels de la formule annuelle et changements d'offre programmés.
       const expired = await expireDueCredits();
-      return Response.json({ expired, billing: await runBillingSchedule() });
+      const billing = await runBillingSchedule();
+      return Response.json({ expired, billing, storage: await runStorageBilling() });
     }
     case "maintenance": {
       const now = new Date();

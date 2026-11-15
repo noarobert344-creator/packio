@@ -12,7 +12,15 @@ import { uploadToPackio } from "@/components/shared/file-uploader";
 import { PasswordField } from "@/components/auth/password-input";
 import { changePasswordAction, savePreferencesAction, updateProfileAction } from "@/server/actions/account";
 
-export function ProfileForm({ user, showCompany }: { user: { firstName: string; lastName: string; email: string; phone: string | null; companyName?: string | null; avatarFileId: string | null }; showCompany?: boolean }) {
+export function ProfileForm({
+  user,
+  showCompany,
+  avatarHint,
+}: {
+  user: { firstName: string; lastName: string; email: string; phone: string | null; companyName?: string | null; avatarFileId: string | null };
+  showCompany?: boolean;
+  avatarHint?: string;
+}) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   return (
@@ -47,8 +55,9 @@ export function ProfileForm({ user, showCompany }: { user: { firstName: string; 
           />
           <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm hover:bg-muted">
             {uploading ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
-            Changer la photo
+            {user.avatarFileId ? "Changer la photo" : "Ajouter une photo"}
           </span>
+          {avatarHint && <span className="mt-1.5 block max-w-xs text-xs text-muted-foreground">{avatarHint}</span>}
         </label>
       </div>
       <ActionForm action={updateProfileAction} className="grid gap-4 sm:grid-cols-2">

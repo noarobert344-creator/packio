@@ -6,11 +6,16 @@ import { cn } from "@/lib/utils";
 
 type SizeRule = { size: string; label: string; creditCost: number };
 
+/** Les textes des étapes reprennent le délai d'expédition paramétré. */
+function withShippingHours(text: string, hours: number) {
+  return text.replace("sous 48 h", `sous ${hours} h`);
+}
+
 const STEPS = [
   {
     icon: CreditCard,
     title: "Choisissez votre offre",
-    text: "Souscrivez un abonnement mensuel adapté à votre volume. Vos crédits de préparation sont disponibles dès le paiement, géré de façon sécurisée par Whop.",
+    text: "Souscrivez un abonnement mensuel, ou annuel à prix réduit, adapté à votre volume. Vos crédits de préparation sont disponibles dès le paiement, géré de façon sécurisée par Whop.",
   },
   {
     icon: UserRoundCheck,
@@ -20,21 +25,21 @@ const STEPS = [
   {
     icon: ShoppingBag,
     title: "Commandez vers son point de réception",
-    text: "Achetez sur Vinted, SHEIN, AliExpress, ZenMarket ou ailleurs, en livraison vers l'adresse ou le locker validé de votre préparateur, puis déclarez la commande.",
+    text: "Achetez sur Vinted, SHEIN, AliExpress, ZenMarket ou ailleurs, en livraison vers l'adresse ou le locker validé de votre préparateur, puis déclarez la commande. Article déjà vendu ? Passez-la en dropshipping.",
   },
   {
     icon: PackageCheck,
     title: "Réception, contrôle et mise en stock",
-    text: "Votre préparateur récupère le colis, vérifie le contenu, le photographie et le range. Chaque article apparaît dans votre stock avec sa référence et son emplacement.",
+    text: "Votre préparateur récupère le colis, vérifie le contenu, le photographie et le range. Chaque article apparaît dans votre stock avec ses photos, à télécharger pour vos annonces.",
   },
   {
     icon: Truck,
     title: "Demandez une expédition",
-    text: "Sélectionnez les articles et le destinataire. Le préparateur classe le colis, le prépare et le dépose chez le transporteur : les crédits sont débités au dépôt.",
+    text: "Sélectionnez les articles et le destinataire, ou votre propre adresse pour un retour. Le préparateur classe le colis, le prépare et le dépose chez le transporteur sous 48 h : les crédits sont débités au dépôt.",
   },
 ];
 
-function Panel({ step, sizeRules }: { step: number; sizeRules: SizeRule[] }) {
+function Panel({ step, sizeRules, shippingHours }: { step: number; sizeRules: SizeRule[]; shippingHours: number }) {
   switch (step) {
     case 0:
       return (
@@ -135,7 +140,7 @@ function Panel({ step, sizeRules }: { step: number; sizeRules: SizeRule[] }) {
             </span>
             <div>
               <p className="text-sm font-medium">Déposé au transporteur</p>
-              <p className="text-xs text-muted-foreground">Numéro de suivi transmis · crédits débités</p>
+              <p className="text-xs text-muted-foreground">Numéro de suivi transmis · crédits débités · sous {shippingHours} h</p>
             </div>
           </div>
         </div>
@@ -143,7 +148,7 @@ function Panel({ step, sizeRules }: { step: number; sizeRules: SizeRule[] }) {
   }
 }
 
-export function HowItWorks({ sizeRules }: { sizeRules: SizeRule[] }) {
+export function HowItWorks({ sizeRules, shippingHours = 48 }: { sizeRules: SizeRule[]; shippingHours?: number }) {
   const [active, setActive] = useState(0);
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[1fr_26rem] lg:gap-12">
@@ -176,7 +181,7 @@ export function HowItWorks({ sizeRules }: { sizeRules: SizeRule[] }) {
                 <span className="min-w-0 pt-0.5">
                   <span className="text-xs font-medium text-muted-foreground">Étape {i + 1}</span>
                   <span className="block font-semibold">{s.title}</span>
-                  <span className={cn("block text-sm leading-relaxed text-muted-foreground", !isActive && "line-clamp-1 lg:line-clamp-none")}>{s.text}</span>
+                  <span className={cn("block text-sm leading-relaxed text-muted-foreground", !isActive && "line-clamp-1 lg:line-clamp-none")}>{withShippingHours(s.text, shippingHours)}</span>
                 </span>
               </button>
             </li>
@@ -191,7 +196,7 @@ export function HowItWorks({ sizeRules }: { sizeRules: SizeRule[] }) {
           </span>
         </div>
         <div key={active} className="min-h-[15rem] animate-in fade-in slide-in-from-bottom-1 duration-300">
-          <Panel step={active} sizeRules={sizeRules} />
+          <Panel step={active} sizeRules={sizeRules} shippingHours={shippingHours} />
         </div>
         <p className="mt-4 text-center text-[0.7rem] text-muted-foreground">Illustration — données d&apos;exemple</p>
       </div>

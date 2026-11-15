@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Packio Connect</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>body { width: 320px; padding: 14px; }</style>
+  </head>
+  <body>
+    <div class="stack">
+      <div class="brand"><img src="icons/icon48.png" alt="" /><h1>Packio Connect</h1></div>
+      <div id="config-warning" class="card" hidden>
+        <p>L'extension n'est pas encore configurée.</p>
+        <p class="muted">Indiquez l'adresse de Packio et votre jeton personnel.</p>
+      </div>
+      <div class="card stack" id="platforms"></div>
+      <p class="muted" id="last-sync">Jamais synchronisé.</p>
+      <button id="sync">Synchroniser maintenant</button>
+      <div class="row">
+        <a class="button secondary" id="open-packio" href="#" target="_blank" rel="noopener">Ouvrir Packio</a>
+        <a class="button secondary" id="open-options" href="#">Options</a>
+      </div>
+    </div>
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

@@ -422,14 +422,21 @@ export async function captureCredits(
   return { amount: held.amount, alreadyCaptured: false };
 }
 
-/** Débit direct (opération manuelle ou remboursement). */
+/** Solde utilisable (mensuels + achetés, hors réservations), portefeuille verrouillé. */
+export async function availableCredits(tx: Tx, customerId: string): Promise<number> {
+  const walletId = await lockWallet(tx, customerId);
+  await sweepExpired(tx, walletId);
+  return (await usableLots(tx, walletId)).reduce((s, l) => s + l.remaining, 0);
+}
+
+/** Débit direct (opération manuelle, remboursement ou frais de stockage). */
 export async function debitCredits(
   tx: Tx,
   input: {
     customerId: string;
     amount: number;
     bucket?: CreditBucket;
-    type: Extract<CreditTransactionType, "ADMIN_DEBIT" | "REFUND_DEBIT">;
+    type: Extract<CreditTransactionType, "ADMIN_DEBIT" | "REFUND_DEBIT" | "STORAGE_FEE">;
     description: string;
     reason?: string | null;
     actorId?: string | null;

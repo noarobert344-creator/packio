@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, CalendarClock, CreditCard, ShieldCheck } from "lucide-react";
+import { ArrowRight, CalendarClock, ShieldCheck, Timer, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container } from "./section";
 import { ProductMock } from "./product-mock";
 
-export function Hero() {
+export function Hero({ shippingHours }: { shippingHours: number }) {
   return (
     <section className="relative overflow-hidden pt-16 pb-20 sm:pt-24 sm:pb-28">
       <div className="pointer-events-none absolute inset-0 -z-10 bg-grid mask-radial opacity-70" aria-hidden />
@@ -19,8 +19,8 @@ export function Hero() {
             Déléguez vos colis à un <span className="text-brand">préparateur attitré</span>.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-muted-foreground text-balance sm:text-lg">
-            Pour les vendeurs e-commerce, revendeurs Vinted et entrepreneurs : vos achats arrivent chez votre préparateur, qui les contrôle, les stocke et les expédie
-            à vos acheteurs. Vous suivez chaque colis depuis votre tableau de bord.
+            Pour les vendeurs e-commerce, revendeurs Vinted et entrepreneurs : vos achats arrivent chez votre préparateur, qui les contrôle, les photographie, les
+            stocke et les expédie à vos acheteurs sous {shippingHours} h. Dropshipping, retours et ventes Vinted : vous suivez tout depuis votre tableau de bord.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button asChild size="lg" className="h-11 w-full px-5 text-[0.95rem] sm:w-auto">
@@ -37,7 +37,10 @@ export function Hero() {
               <CalendarClock className="size-4 text-brand" /> Préparateur attribué sous 24 h
             </li>
             <li className="inline-flex items-center gap-1.5">
-              <CreditCard className="size-4 text-brand" /> Sans engagement
+              <Timer className="size-4 text-brand" /> Colis expédiés sous {shippingHours} h
+            </li>
+            <li className="inline-flex items-center gap-1.5">
+              <Zap className="size-4 text-brand" /> Dropshipping Vinted
             </li>
             <li className="inline-flex items-center gap-1.5">
               <ShieldCheck className="size-4 text-brand" /> Paiement sécurisé par Whop

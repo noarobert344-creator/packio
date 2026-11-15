@@ -1,9 +1,12 @@
 import Link from "next/link";
-import { CalendarClock, ChevronRight, KeyRound, MapPin, Package, Store, Truck, Ruler } from "lucide-react";
-import type { ParcelSize, ShipmentStatus, SupplierOrderStatus } from "@/generated/prisma/enums";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { CalendarClock, ChevronRight, KeyRound, MapPin, Package, Store, Timer, Truck, Ruler } from "lucide-react";
+import type { ParcelSize, ShipmentKind, ShipmentStatus, SupplierOrderStatus } from "@/generated/prisma/enums";
 import { StatusFrom } from "@/components/shared/status-badge";
 import { CopyButton } from "@/components/shared/copy-button";
-import { PARCEL_SIZE, SHIPMENT_STATUS, SUPPLIER_ORDER_STATUS, carrierLabel } from "@/lib/labels";
+import { PARCEL_SIZE, SHIPMENT_KIND, SHIPMENT_STATUS, SUPPLIER_ORDER_STATUS, carrierLabel } from "@/lib/labels";
+import { nowMs } from "@/server/lib/clock";
 import { formatDate, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -133,9 +136,15 @@ export type ShipmentCardData = {
   createdAt: Date;
   customer: CustomerRef;
   itemCount: number;
+  kind?: ShipmentKind;
+  dueAt?: Date | null;
 };
 
+const SLA_OPEN: ShipmentStatus[] = ["REQUESTED", "AWAITING_CLASSIFICATION", "CLASSIFIED", "PREPARING", "READY", "LABEL_READY"];
+
 export function ShipmentCard({ shipment }: { shipment: ShipmentCardData }) {
+  const due = shipment.dueAt && SLA_OPEN.includes(shipment.status) ? shipment.dueAt : null;
+  const late = due ? due.getTime() < nowMs() : false;
   return (
     <Link
       href={`/preparateur/expeditions/${shipment.id}`}
@@ -143,11 +152,14 @@ export function ShipmentCard({ shipment }: { shipment: ShipmentCardData }) {
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-mono text-xs text-muted-foreground">{shipment.reference}</span>
-        <StatusFrom map={SHIPMENT_STATUS} value={shipment.status} />
+        <span className="flex flex-wrap items-center gap-1.5">
+          {shipment.kind && shipment.kind !== "SALE" && <StatusFrom map={SHIPMENT_KIND} value={shipment.kind} />}
+          <StatusFrom map={SHIPMENT_STATUS} value={shipment.status} />
+        </span>
       </div>
       <div className="space-y-1.5">
         <p className="font-medium">
-          {shipment.recipientName} · {shipment.postalCode} {shipment.city}
+          {shipment.kind === "RETURN_TO_CUSTOMER" ? "Retour au client" : shipment.recipientName} · {shipment.postalCode} {shipment.city}
           {shipment.country !== "FR" && ` (${shipment.country})`}
         </p>
         <ClientCode customer={shipment.customer} />
@@ -167,7 +179,13 @@ export function ShipmentCard({ shipment }: { shipment: ShipmentCardData }) {
         )}
       </div>
       <div className="flex items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
-        <span>Demandée {formatRelative(shipment.createdAt)}</span>
+        {due ? (
+          <span className={late ? "flex items-center gap-1 font-medium text-danger" : "flex items-center gap-1"}>
+            <Timer className="size-3.5" /> {late ? "En retard" : `Avant le ${format(due, "d MMM HH'h'mm", { locale: fr })}`}
+          </span>
+        ) : (
+          <span>Demandée {formatRelative(shipment.createdAt)}</span>
+        )}
         <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
       </div>
     </Link>

@@ -7,7 +7,7 @@ Trois espaces, une seule application :
 | Espace | URL | Rôle |
 | --- | --- | --- |
 | Site public | `/` | Présentation, offres, FAQ, contact, pages légales |
-| Client | `/client` | Commandes fournisseurs, stock, expéditions, crédits, messagerie, facturation |
+| Client | `/client` | Commandes fournisseurs (stock ou dropshipping), stock et photos, expéditions et retours, ventes et comptes liés, crédits, messagerie, facturation |
 | Préparateur | `/preparateur` | Réceptions, stock, classification et expédition des colis, incidents |
 | Super administrateur | `/admin` | Clients, préparateurs, attributions, opérations, revenus, paramètres, audit |
 
@@ -126,7 +126,7 @@ tests/e2e/                 Parcours Playwright
 
 ### Modèle de données (extrait)
 
-`users`, `roles`, `sessions`, `customer_profiles`, `preparer_profiles`, `preparer_locations`, `preparer_assignments`, `preparer_absences`, `suppliers`, `plans`, `subscriptions`, `credit_packs`, `credit_wallets`, `credit_lots`, `credit_transactions`, `credit_reservations`, `supplier_orders`, `supplier_order_events`, `inbound_parcels`, `inventory_items`, `inventory_movements`, `inventory_counts`, `outbound_shipments`, `shipment_items`, `shipment_events`, `shipment_classifications`, `parcel_size_rules`, `conversations`, `conversation_participants`, `conversation_access_grants`, `messages`, `notifications`, `notification_preferences`, `email_logs`, `payments`, `invoices`, `webhook_events`, `incidents`, `incident_updates`, `files`, `audit_logs`, `app_settings`, `contact_requests`.
+`users`, `roles`, `sessions`, `customer_profiles`, `preparer_profiles`, `preparer_locations`, `preparer_assignments`, `preparer_absences`, `suppliers`, `plans`, `subscriptions`, `credit_packs`, `credit_wallets`, `credit_lots`, `credit_transactions`, `credit_reservations`, `supplier_orders`, `supplier_order_events`, `inbound_parcels`, `inventory_items`, `inventory_movements`, `inventory_counts`, `storage_purchases`, `outbound_shipments`, `shipment_items`, `shipment_events`, `shipment_classifications`, `parcel_size_rules`, `conversations`, `conversation_participants`, `conversation_access_grants`, `messages`, `notifications`, `notification_preferences`, `email_logs`, `payments`, `invoices`, `webhook_events`, `incidents`, `incident_updates`, `files`, `extension_tokens`, `marketplace_accounts`, `marketplace_listings`, `marketplace_sales`, `audit_logs`, `app_settings`, `contact_requests`.
 
 Contraintes notables (migration `integrity_constraints`) :
 
@@ -162,13 +162,13 @@ Seuls les lieux **validés par un administrateur** sont communiqués aux clients
 
 ### Offres (valeurs initiales modifiables dans `Admin → Abonnements`)
 
-| Offre | Mensuel | Annuel (2 mois offerts) | Crédits / mois | Stockage |
+| Offre | Mensuel | Annuel (1 mois offert) | Crédits / mois | Places de stockage |
 | --- | --- | --- | --- | --- |
-| Starter | 29,90 € / mois | 299 € / an (≈ 24,92 € / mois) | 20 | 50 articles |
-| Pro | 69,90 € / mois | 699 € / an (≈ 58,25 € / mois) | 55 | 200 articles |
-| Business | 129,90 € / mois | 1 299 € / an (≈ 108,25 € / mois) | 120 | 600 articles |
+| Starter | 39 € / mois | 429 € / an (≈ 35,75 € / mois) | 20 | 10 articles |
+| Pro | 79 € / mois | 869 € / an (≈ 72,42 € / mois) | 50 | 25 articles |
+| Business | 159 € / mois | 1 749 € / an (≈ 145,75 € / mois) | 90 | 60 articles |
 
-Les limites de stockage sont des valeurs par défaut à ajuster. La formule mensuelle se renouvelle tous les **30 jours**, la formule annuelle tous les **365 jours** (périodes de facturation Whop). Un prix annuel vide dans le back-office retire la formule annuelle de l'offre.
+Les places de stockage correspondent au nombre d'articles stockés **en même temps** (voir [Stockage](#stockage)). Ce sont des valeurs par défaut, modifiables par offre ; une valeur modifiée dans le back-office n'est jamais écrasée par une migration. La formule mensuelle se renouvelle tous les **30 jours**, la formule annuelle tous les **365 jours** (périodes de facturation Whop). Un prix annuel vide dans le back-office retire la formule annuelle de l'offre.
 
 **Formule annuelle** : payée en une fois, elle verse les crédits **chaque mois** (12 versements : le premier au paiement, les suivants le même jour des mois suivants) par la tâche planifiée `credits` (`/api/cron/credits`, toutes les heures), avec rattrapage si une exécution est manquée. Les règles d'expiration des crédits mensuels s'appliquent à chaque versement.
 
@@ -176,10 +176,10 @@ Les limites de stockage sont des valeurs par défaut à ajuster. La formule mens
 
 | Recharge | Prix | Prix par crédit |
 | --- | --- | --- |
-| 10 crédits | 19,90 € | 1,99 € |
-| 30 crédits | 54,90 € | 1,83 € |
-| 50 crédits | 84,90 € | 1,70 € |
-| 100 crédits | 159,90 € | 1,60 € |
+| 10 crédits | 24,90 € | 2,49 € |
+| 30 crédits | 69,90 € | 2,33 € |
+| 50 crédits | 109,90 € | 2,20 € |
+| 100 crédits | 199 € | 1,99 € |
 
 Seules ces quatre quantités sont acceptées (contrôle côté serveur). Les crédits achetés suivent leur propre politique d'expiration.
 
@@ -190,6 +190,45 @@ Seules ces quatre quantités sont acceptées (contrôle côté serveur). Les cr�
 | Offre moins chère, même formule | Programmé au **prochain renouvellement**. Le nouveau prix est transmis à Whop 2 jours avant l'échéance (tâche `credits`) ; avant cela, le client peut l'annuler. |
 | Offre plus chère, ou mensuel → annuel | **Immédiat** : nouveau paiement Whop. À l'activation, l'ancien abonnement n'est plus renouvelé (arrêt demandé à Whop, alerte administrateur en cas d'échec) ; ses crédits déjà versés restent utilisables et, pour un annuel, les mois restants continuent d'être versés. |
 | Annuel → mensuel | À l'**échéance annuelle** : le renouvellement annuel est désactivé, puis le client active la formule mensuelle en un clic (notification et e-mail). Annulable avant l'échéance. |
+
+### Stockage
+
+Règles paramétrables (réglage `storage`, valeurs par défaut dans `src/server/services/settings.ts`) :
+
+| Règle | Défaut |
+| --- | --- |
+| Durée incluse par article | 14 jours à compter de la mise en stock |
+| Prolongation | 1 crédit **par article** pour 14 jours de plus, prélevé automatiquement |
+| Rappel | 2 jours avant la fin de la durée payée |
+| Places supplémentaires | 1 crédit = 5 places pendant 30 jours, ajoutées par le client depuis `Mon stock` |
+
+- **Places** : articles en stock (disponibles ou réservés) + quantités des commandes en cours d'acheminement. Capacité = places de l'offre + places supplémentaires en cours de validité.
+- **À la commande** : si la commande dépasse la capacité, le formulaire affiche les crédits nécessaires (places manquantes ÷ 5, arrondi au supérieur) ; le client doit **cocher son accord**, les places sont alors achetées et débitées dans la même transaction. Sans accord ou sans solde suffisant, la commande est refusée.
+- **Durée** : la tâche `credits` envoie les rappels puis prélève les prolongations échues (idempotent par période, rattrapage si une exécution est manquée). Solde insuffisant → article **« en dépassement »** (client prévenu par e-mail, administrateurs alertés) ; la prolongation est prélevée dès que des crédits arrivent (recharge, renouvellement). Les articles réservés pour une expédition ne sont pas facturés.
+- Les articles en **dropshipping** n'occupent aucune place et ne sont pas soumis à la durée de stockage.
+- Les débits de stockage apparaissent dans l'historique des crédits (type « Stockage »).
+
+### Expéditions : délai de 48 h et retour à domicile
+
+- **Délai d'expédition** (réglage `shipping.slaHours`, 48 h par défaut) : chaque expédition reçoit une échéance à sa création. Le délai est suspendu pendant l'attente de crédits et repart à leur réservation. La tâche `attribution` (toutes les 15 min) alerte une fois le préparateur et les administrateurs pour chaque expédition non déposée à l'échéance.
+- **Retour à domicile** : le client demande l'envoi d'articles à sa propre adresse. L'expédition est de type « Retour au client » et suit le même circuit (classification, crédits, dépôt) ; le transport reste à la charge du client.
+
+### Dropshipping
+
+Pour un article déjà vendu (Vinted ou autre), le client déclare sa commande fournisseur en **dropshipping**, avec le bordereau de la vente ou, à défaut, l'adresse complète de l'acheteur. À la mise en stock par le préparateur, les articles sont marqués « dropshipping » et une expédition **express** (type « Dropshipping ») vers l'acheteur est créée automatiquement, avec le bordereau joint et l'échéance de 48 h. Aucune place n'est consommée.
+
+### Photos produit
+
+Le préparateur photographie les articles en stock depuis sa fiche article ; le client est notifié et télécharge les photos depuis `Mon stock → article`, pour ses propres annonces. Les fichiers restent privés (accès contrôlé côté serveur).
+
+### Packio Connect (extension navigateur)
+
+Extension Chrome (Manifest V3) fournie dans le dossier `extension/` — installation, configuration et limites dans [`extension/README.md`](extension/README.md). Elle relie les comptes **Vinted** et **Vestiaire Collective** du client à Packio : elle remonte ses annonces et ses ventes, puis le bordereau d'expédition de chaque vente.
+
+- Le client crée un **jeton** dans `Ventes et comptes liés` (affiché une seule fois, seul son hash est stocké, révocable) et le colle dans les options de l'extension.
+- API utilisées par l'extension (en-tête `Authorization: Bearer <jeton>`) : `GET /api/extension/status`, `POST /api/extension/sync` (annonces et ventes), `POST /api/extension/label` (bordereau d'une vente, PDF ou image).
+- Une annonce est rattachée à un article du stock automatiquement si elle contient sa référence (SKU), ou manuellement. Une vente d'une annonce rattachée crée l'expédition chez le préparateur ; le bordereau, dès qu'il est disponible, y est joint automatiquement. Les traitements sont idempotents (une vente rejouée ne crée rien de plus).
+- Les plateformes ne proposent pas d'API officielle : la lecture des données dépend de leur site et doit être **validée avec de vrais comptes** ; le client l'utilise sur ses propres comptes et reste responsable du respect de leurs conditions d'utilisation.
 
 ## Sécurité et RGPD
 
@@ -242,8 +281,8 @@ En production serverless, le disque n'est pas persistant : utilisez `STORAGE_DRI
 
 | Route | Fréquence | Rôle |
 | --- | --- | --- |
-| `/api/cron/attribution` | toutes les 15 min | Retards d'attribution, alertes, information client |
-| `/api/cron/credits` | toutes les heures | Expiration des lots de crédits échus |
+| `/api/cron/attribution` | toutes les 15 min | Retards d'attribution, alertes, information client ; expéditions non déposées dans le délai de 48 h |
+| `/api/cron/credits` | toutes les heures | Expiration des lots de crédits échus, crédits mensuels de la formule annuelle, changements d'offre programmés, rappels et prolongations de stockage |
 | `/api/cron/maintenance` | quotidien | Purge des sessions et jetons expirés |
 
 Définissez `CRON_SECRET` : Vercel l'envoie en `Authorization: Bearer`. (Le plan Hobby de Vercel limite les crons à une exécution quotidienne : utilisez le plan Pro ou un ordonnanceur externe.)
@@ -278,7 +317,7 @@ npm run admin:create -- --email vous@votre-domaine.fr --first Prénom --last Nom
 npm test
 ```
 
-63 tests d'intégration sur une base PostgreSQL réelle (`packio_test`, migrée automatiquement) :
+80 tests d'intégration sur une base PostgreSQL réelle (`packio_test`, migrée automatiquement), notamment :
 
 - **crédits** : réservation / débit / libération, invariants du registre, 8 réservations concurrentes sérialisées, idempotence, politiques d'expiration et de report, ajustements administrateur, registre en ajout seul ;
 - **attribution** : ouverture de la demande après paiement sans attribution automatique, alerte si aucun préparateur, capacité, points validés, attributions simultanées, réattribution avec transfert de stock et retrait d'accès, suivi du délai de 24 h ;
@@ -313,5 +352,6 @@ npm run test:e2e
 - **Commandes fournisseurs** saisies manuellement (V1). L'architecture permet d'ajouter des connecteurs API officiels lorsque les fournisseurs les proposent et les autorisent.
 - **Suivi transporteurs** : liens de suivi publics générés automatiquement ; les statuts « En transit / Livré » sont mis à jour par le préparateur. Un connecteur d'API officielle (ex. La Poste / Colissimo) peut être branché sur `src/lib/tracking.ts`.
 - **Temps réel** : SSE avec interrogation légère de la base (≈ 2,5 s) ; pour un très grand nombre d'utilisateurs simultanés, remplacer par un service pub/sub (Pusher, Ably, Redis).
-- **Étiquettes d'expédition** : fournies par le client ou téléversées par le préparateur ; la génération d'étiquettes via les API transporteurs est une évolution prévue.
+- **Étiquettes d'expédition** : fournies par le client (ou récupérées par Packio Connect) ou téléversées par le préparateur ; la génération d'étiquettes via les API transporteurs est une évolution prévue.
+- **Packio Connect** est en bêta : sans API officielle de Vinted et de Vestiaire Collective, la lecture des ventes et des bordereaux peut cesser de fonctionner si ces sites évoluent ; une publication sur le Chrome Web Store reste à faire.
 - Les compatibilités fournisseurs / réseaux et les textes légaux sont des **valeurs initiales à vérifier** par l'exploitant.

@@ -6,6 +6,7 @@ import { assertPreparer, can, type Actor } from "@/server/auth/actor";
 import { reference } from "@/server/lib/ids";
 import { audit } from "./audit";
 import { withEffects, type Effects } from "./notifications";
+import { initialStorageEnd } from "./storage";
 
 /**
  * STOCK
@@ -116,6 +117,8 @@ export async function createStockItem(
     storageLocation?: string | null;
     supplierOrderId?: string | null;
     photoIds?: string[];
+    /** Dropshipping : expédié dès réception, hors places et durée de stockage. */
+    dropship?: boolean;
   },
 ) {
   if (!Number.isInteger(input.quantity) || input.quantity <= 0) throw new DomainError("INVALID_QUANTITY", "Quantité invalide.");
@@ -131,6 +134,8 @@ export async function createStockItem(
       storageLocation: input.storageLocation?.trim() || null,
       quantityReceived: 0,
       quantityAvailable: 0,
+      dropship: !!input.dropship,
+      storagePaidUntil: input.dropship ? null : await initialStorageEnd(tx),
     },
   });
   const updated = await applyMovement(
@@ -142,7 +147,7 @@ export async function createStockItem(
   );
   if (input.photoIds?.length) await linkPhotos(tx, actor, input.photoIds, { inventoryItemId: item.id, customerId: input.customerId });
   const customer = await tx.customerProfile.findUniqueOrThrow({ where: { id: input.customerId }, select: { userId: true } });
-  fx.notify(customer.userId, {
+  if (!input.dropship) fx.notify(customer.userId, {
     type: "STOCK_UPDATED",
     title: "Nouvel article en stock",
     body: `${updated.name} (×${input.quantity}) a été ajouté à votre stock — SKU ${updated.sku}.`,
@@ -253,17 +258,29 @@ export async function markFound(actor: Actor, input: { itemId: string; quantity:
 }
 
 export async function updateItemDetails(actor: Actor, input: { itemId: string; name?: string; storageLocation?: string | null; notes?: string | null; photoIds?: string[] }) {
-  return withEffects(async (tx) => {
+  return withEffects(async (tx, fx) => {
     const item = await itemForPreparerWrite(tx, actor, input.itemId);
+    const photos = input.photoIds?.length ? [...new Set(input.photoIds)].length : 0;
     const updated = await tx.inventoryItem.update({
       where: { id: item.id },
       data: {
         ...(input.name !== undefined ? { name: input.name.trim() || item.name } : {}),
         ...(input.storageLocation !== undefined ? { storageLocation: input.storageLocation?.trim() || null } : {}),
         ...(input.notes !== undefined ? { notes: input.notes?.trim() || null } : {}),
+        ...(photos ? { photosUpdatedAt: new Date() } : {}),
       },
     });
-    if (input.photoIds?.length) await linkPhotos(tx, actor, input.photoIds, { inventoryItemId: item.id, customerId: item.customerId });
+    if (photos) {
+      await linkPhotos(tx, actor, input.photoIds!, { inventoryItemId: item.id, customerId: item.customerId });
+      // Photos destinées aux annonces du client : il est prévenu pour les télécharger.
+      const customer = await tx.customerProfile.findUniqueOrThrow({ where: { id: item.customerId }, select: { userId: true } });
+      fx.notify(customer.userId, {
+        type: "PRODUCT_PHOTOS",
+        title: "Photos disponibles",
+        body: `${photos} photo${photos > 1 ? "s" : ""} de « ${updated.name} » ${photos > 1 ? "sont prêtes" : "est prête"} : téléchargez-les pour créer votre annonce.`,
+        link: `/client/stock/${item.id}`,
+      });
+    }
     return updated;
   });
 }
@@ -312,10 +329,4 @@ export async function performInventoryCount(
   });
 }
 
-export async function getStorageUsage(customerId: string, client: Tx | typeof db = db) {
-  const agg = await client.inventoryItem.aggregate({
-    where: { customerId },
-    _sum: { quantityAvailable: true, quantityReserved: true },
-  });
-  return (agg._sum.quantityAvailable ?? 0) + (agg._sum.quantityReserved ?? 0);
-}
+export { getStorageUsage } from "./storage";

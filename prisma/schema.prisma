@@ -186,6 +186,14 @@ model CustomerProfile {
   currentPreparerId        String?
   /// Identifiant du client chez le prestataire de paiement (utilisateur Whop).
   billingCustomerId        String?         @unique
+  /// Adresse de retour à domicile (renvoi d'articles par le préparateur).
+  returnName               String?
+  returnPhone              String?
+  returnAddressLine1       String?
+  returnAddressLine2       String?
+  returnPostalCode         String?
+  returnCity               String?
+  returnCountry            String?         @default("FR")
   adminNotes               String?
   createdAt                DateTime        @default(now())
   updatedAt                DateTime        @updatedAt
@@ -205,6 +213,11 @@ model CustomerProfile {
   incidents          Incident[]
   files              File[]
   inventoryCounts    InventoryCount[]
+  storagePurchases   StoragePurchase[]
+  marketplaceAccounts MarketplaceAccount[]
+  marketplaceListings MarketplaceListing[]
+  marketplaceSales   MarketplaceSale[]
+  extensionTokens    ExtensionToken[]
 
   @@index([assignmentState, assignmentDueAt])
   @@index([status])
@@ -554,6 +567,7 @@ enum CreditTransactionType {
   ADMIN_CREDIT
   ADMIN_DEBIT
   REFUND_DEBIT
+  STORAGE_FEE
 }
 
 /// Registre transactionnel des crédits (ajout seul). La clé d'idempotence
@@ -618,6 +632,13 @@ model CreditReservation {
 // Commandes fournisseurs et colis entrants
 // -----------------------------------------------------------------------------
 
+enum OrderMode {
+  /// Mise en stock chez le préparateur.
+  STOCK
+  /// Dropshipping : article déjà vendu, expédié à l'acheteur dès réception.
+  DROPSHIP
+}
+
 enum SupplierOrderStatus {
   REGISTERED
   SUPPLIER_CONFIRMED
@@ -653,11 +674,27 @@ model SupplierOrder {
   status                 SupplierOrderStatus @default(REGISTERED)
   statusChangedAt        DateTime            @default(now())
   compatibilityConfirmed Boolean             @default(false)
+  mode                   OrderMode           @default(STOCK)
+  /// Dropshipping : plateforme et référence de la vente, destinataire final.
+  salePlatform           MarketplacePlatform?
+  saleReference          String?
+  buyerName              String?
+  buyerPhone             String?
+  buyerAddressLine1      String?
+  buyerAddressLine2      String?
+  buyerPostalCode        String?
+  buyerCity              String?
+  buyerCountry           String?
+  /// Places de stock supplémentaires achetées lors de la commande.
+  storageCreditsCharged  Int                 @default(0)
+  /// Expédition créée automatiquement à la réception (dropshipping).
+  dropshipShipmentId     String?             @unique
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
 
   customer       CustomerProfile      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   preparer       PreparerProfile      @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  dropshipShipment OutboundShipment?  @relation("DropshipOrder", fields: [dropshipShipmentId], references: [id], onDelete: SetNull)
   supplier       Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   location       PreparerLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
   parcels        InboundParcel[]
@@ -757,6 +794,16 @@ model InventoryItem {
   receivedAt        DateTime        @default(now())
   status            InventoryStatus @default(IN_STOCK)
   notes             String?
+  /// Article de dropshipping : en transit, hors places et hors frais de stockage.
+  dropship          Boolean         @default(false)
+  /// Fin de la durée de stockage incluse ou payée (2 semaines, prolongeables).
+  storagePaidUntil  DateTime?
+  /// Prolongation impayée faute de crédits.
+  storageOverdueSince DateTime?
+  /// Dernier rappel d'échéance envoyé (pour la période en cours).
+  storageReminderAt DateTime?
+  /// Dernier ajout de photos par le préparateur.
+  photosUpdatedAt   DateTime?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -767,9 +814,12 @@ model InventoryItem {
   shipmentItems ShipmentItem[]
   files         File[]
   incidents     Incident[]
+  listings      MarketplaceListing[]
+  sales         MarketplaceSale[]
 
   @@index([customerId, status])
   @@index([preparerId, status])
+  @@index([storagePaidUntil])
   @@map("inventory_items")
 }
 
@@ -829,6 +879,24 @@ model InventoryCount {
   @@map("inventory_counts")
 }
 
+/// Places de stock supplémentaires achetées avec des crédits (1 crédit = N places, durée limitée).
+model StoragePurchase {
+  id              String   @id @default(cuid())
+  customerId      String
+  slots           Int
+  credits         Int
+  startsAt        DateTime @default(now())
+  expiresAt       DateTime
+  createdById     String?
+  supplierOrderId String?
+  createdAt       DateTime @default(now())
+
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([customerId, expiresAt])
+  @@map("storage_purchases")
+}
+
 // -----------------------------------------------------------------------------
 // Expéditions
 // -----------------------------------------------------------------------------
@@ -862,6 +930,15 @@ enum ShipmentCreditState {
   RELEASED
 }
 
+enum ShipmentKind {
+  /// Envoi à un acheteur (vente).
+  SALE
+  /// Retour d'articles au domicile du client.
+  RETURN_TO_CUSTOMER
+  /// Dropshipping : article reçu et expédié directement à l'acheteur.
+  DROPSHIP
+}
+
 enum LabelMode {
   CUSTOMER_PROVIDED
   PREPARER_PROVIDED
@@ -873,6 +950,10 @@ model OutboundShipment {
   customerId        String
   preparerId        String
   status            ShipmentStatus      @default(REQUESTED)
+  kind              ShipmentKind        @default(SALE)
+  /// Échéance d'expédition (engagement « expédié sous 48 h »).
+  dueAt             DateTime?
+  lateAlertedAt     DateTime?
   recipientName     String
   recipientCompany  String?
   recipientPhone    String?
@@ -920,10 +1001,13 @@ model OutboundShipment {
   files           File[]
   messages        Message[]
   incidents       Incident[]
+  dropshipOrder   SupplierOrder?           @relation("DropshipOrder")
+  marketplaceSale MarketplaceSale?
 
   @@index([customerId, status])
   @@index([preparerId, status])
   @@index([createdAt])
+  @@index([dueAt])
   @@map("outbound_shipments")
 }
 
@@ -1367,6 +1451,7 @@ model File {
   inventoryItemId String?
   shipmentId      String?
   incidentId      String?
+  marketplaceSaleId String?
   deletedAt       DateTime?
   createdAt       DateTime    @default(now())
 
@@ -1381,13 +1466,127 @@ model File {
   inventoryItem InventoryItem?    @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
   shipment      OutboundShipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
   incident      Incident?         @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  marketplaceSale MarketplaceSale? @relation(fields: [marketplaceSaleId], references: [id], onDelete: SetNull)
 
   @@index([customerId])
+  @@index([marketplaceSaleId])
   @@index([messageId])
   @@index([inventoryItemId])
   @@index([shipmentId])
   @@index([supplierOrderId])
   @@map("files")
+}
+
+// -----------------------------------------------------------------------------
+// Comptes de vente liés (Vinted, Vestiaire Collective) via l'extension Packio
+// -----------------------------------------------------------------------------
+
+enum MarketplacePlatform {
+  VINTED
+  VESTIAIRE
+  OTHER
+}
+
+enum MarketplaceSaleStatus {
+  /// Vente détectée, article Packio non identifié.
+  NEW
+  /// Article identifié dans le stock, expédition à créer.
+  MATCHED
+  /// Expédition créée chez le préparateur.
+  SHIPMENT_CREATED
+  IGNORED
+  CANCELLED
+}
+
+/// Jeton de l'extension navigateur (seul le hash est stocké).
+model ExtensionToken {
+  id         String    @id @default(cuid())
+  customerId String
+  tokenHash  String    @unique
+  /// Début du jeton, affiché pour l'identifier.
+  prefix     String
+  label      String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([customerId])
+  @@map("extension_tokens")
+}
+
+model MarketplaceAccount {
+  id             String              @id @default(cuid())
+  customerId     String
+  platform       MarketplacePlatform
+  externalUserId String
+  username       String?
+  lastSyncAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@unique([customerId, platform, externalUserId])
+  @@map("marketplace_accounts")
+}
+
+/// Annonce en ligne, éventuellement rattachée à un article du stock.
+model MarketplaceListing {
+  id              String              @id @default(cuid())
+  customerId      String
+  platform        MarketplacePlatform
+  externalId      String
+  title           String
+  url             String?
+  priceCents      Int?
+  currency        String              @default("eur")
+  photoUrl        String?
+  /// active, sold, reserved, hidden… tel que remonté par l'extension.
+  status          String              @default("active")
+  inventoryItemId String?
+  lastSeenAt      DateTime            @default(now())
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  customer      CustomerProfile  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  inventoryItem InventoryItem?   @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  sales         MarketplaceSale[]
+
+  @@unique([customerId, platform, externalId])
+  @@index([inventoryItemId])
+  @@map("marketplace_listings")
+}
+
+/// Vente détectée sur un compte lié ; déclenche l'expédition avec le bordereau.
+model MarketplaceSale {
+  id              String                @id @default(cuid())
+  customerId      String
+  platform        MarketplacePlatform
+  externalOrderId String
+  listingId       String?
+  title           String
+  priceCents      Int?
+  currency        String                @default("eur")
+  buyerName       String?
+  soldAt          DateTime
+  status          MarketplaceSaleStatus @default(NEW)
+  inventoryItemId String?
+  shipmentId      String?               @unique
+  notes           String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  customer      CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  listing       MarketplaceListing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  inventoryItem InventoryItem?      @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  shipment      OutboundShipment?   @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  files         File[]
+
+  @@unique([customerId, platform, externalOrderId])
+  @@index([customerId, status])
+  @@map("marketplace_sales")
 }
 
 // -----------------------------------------------------------------------------

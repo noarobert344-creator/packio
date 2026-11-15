@@ -52,14 +52,14 @@ export function annualSavings(plan: PlanPrices): { savedCents: number; percent: 
   return { savedCents, percent: Math.round((savedCents / (plan.priceCents * MONTHS_PER_YEAR)) * 100), freeMonths };
 }
 
-/** Libellé court de l'avantage annuel : « 2 mois offerts » ou « −15 % ». */
+/** Libellé court de l'avantage annuel : « 1 mois offert » ou « −15 % ». */
 export function annualSavingsLabel(plan: PlanPrices): string | null {
   const s = annualSavings(plan);
   if (!s) return null;
   return s.freeMonths ? `${s.freeMonths} mois offert${s.freeMonths > 1 ? "s" : ""}` : `−${s.percent} %`;
 }
 
-/** Avantage commun à toutes les offres (« 2 mois offerts »), sinon le meilleur pourcentage. */
+/** Avantage commun à toutes les offres (« 1 mois offert »), sinon le meilleur pourcentage. */
 export function commonAnnualBadge(plans: PlanPrices[]): string | null {
   const labels = plans.map(annualSavingsLabel);
   const present = labels.filter((l): l is string => !!l);

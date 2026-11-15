@@ -15,6 +15,9 @@ import type {
   SubscriptionStatus,
   SupplierOrderStatus,
   CreditTransactionType,
+  MarketplacePlatform,
+  MarketplaceSaleStatus,
+  ShipmentKind,
 } from "@/generated/prisma/enums";
 
 export type Tone = "neutral" | "info" | "success" | "warning" | "danger" | "brand";
@@ -137,6 +140,27 @@ export const CREDIT_TX_TYPE: Record<CreditTransactionType, string> = {
   ADMIN_CREDIT: "Crédit manuel",
   ADMIN_DEBIT: "Débit manuel",
   REFUND_DEBIT: "Retrait suite à remboursement",
+  STORAGE_FEE: "Stockage",
+};
+
+export const SHIPMENT_KIND: Record<ShipmentKind, Labeled> = {
+  SALE: { label: "Vente", tone: "neutral" },
+  RETURN_TO_CUSTOMER: { label: "Retour au client", tone: "info" },
+  DROPSHIP: { label: "Dropshipping express", tone: "brand" },
+};
+
+export const MARKETPLACE_PLATFORM: Record<MarketplacePlatform, string> = {
+  VINTED: "Vinted",
+  VESTIAIRE: "Vestiaire Collective",
+  OTHER: "Autre plateforme",
+};
+
+export const MARKETPLACE_SALE_STATUS: Record<MarketplaceSaleStatus, Labeled> = {
+  NEW: { label: "Article à identifier", tone: "warning" },
+  MATCHED: { label: "Article identifié", tone: "info" },
+  SHIPMENT_CREATED: { label: "Expédition créée", tone: "success" },
+  IGNORED: { label: "Ignorée", tone: "neutral" },
+  CANCELLED: { label: "Annulée", tone: "neutral" },
 };
 
 export const ASSIGNMENT_STATE: Record<AssignmentState, Labeled> = {

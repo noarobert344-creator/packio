@@ -9,6 +9,9 @@ import { ReceptionCard } from "@/components/client/reception-card";
 import { NewOrderForm } from "@/components/client/new-order-form";
 import { requireSubscribedCustomer } from "@/server/customer-page";
 import { getReceptionInfo } from "@/server/services/orders";
+import { getStorageOverview } from "@/server/services/storage";
+import { getWalletOverview } from "@/server/services/credits";
+import { getSetting } from "@/server/services/settings";
 import { LOCATION_TYPE } from "@/lib/labels";
 import { one, type SearchParams } from "@/lib/params";
 
@@ -29,7 +32,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
       </div>
     );
   }
-  const info = await getReceptionInfo(customer.id);
+  const [info, storage, wallet, shipping] = await Promise.all([getReceptionInfo(customer.id), getStorageOverview(customer.id), getWalletOverview(customer.id), getSetting("shipping")]);
   return (
     <div className="space-y-8">
       <PageHeader
@@ -113,6 +116,17 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
               compatibility: s.compatibility,
             }))}
             locations={info.locations.map((l) => ({ id: l.id, label: l.label, detail: l.relayName ? `${l.relayName}, ${l.city}` : `${l.addressLine1}, ${l.city}` }))}
+            defaultMode={one(sp.mode) === "dropshipping" ? "DROPSHIP" : "STOCK"}
+            storage={{
+              capacity: storage.capacity,
+              used: storage.used,
+              incoming: storage.incoming,
+              slotsPerCredit: storage.rules.slotsPerCredit,
+              extraSlotsDays: storage.rules.extraSlotsDays,
+              includedDays: storage.rules.includedDays,
+              availableCredits: wallet.available,
+              shippingHours: shipping.slaHours,
+            }}
           />
         </Section>
       </div>

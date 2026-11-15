@@ -8,7 +8,7 @@ import { db } from "@/server/db";
 import { getActiveSubscription } from "@/server/services/customers";
 import { changePlanAction, startSubscriptionAction } from "@/server/actions/customer";
 import { billingMode } from "@/server/billing";
-import { intervalFromParam } from "@/lib/billing-intervals";
+import { commonAnnualBadge, intervalFromParam } from "@/lib/billing-intervals";
 import { formatDate } from "@/lib/format";
 import { one, type SearchParams } from "@/lib/params";
 
@@ -29,6 +29,7 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
   // Fin d'une formule annuelle avec passage au mensuel demandé : offre pré-sélectionnée.
   const awaitingMonthly = !sub && lastEnded?.pendingBillingInterval === "MONTHLY" && lastEnded.pendingPlan?.isActive ? lastEnded.pendingPlan : null;
   const preselect = awaitingMonthly?.code ?? one(sp.offre)?.toUpperCase();
+  const annualBadge = commonAnnualBadge(plans);
   const initialInterval = awaitingMonthly ? "MONTHLY" : one(sp.periodicite) ? intervalFromParam(one(sp.periodicite)) : undefined;
 
   return (
@@ -38,7 +39,7 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
         description={
           sub
             ? "Une offre supérieure ou le passage à l'annuel s'appliquent tout de suite, avec un nouveau paiement. Une offre inférieure prend effet à votre prochain renouvellement. Besoin de crédits ponctuellement ? Achetez 10, 30, 50 ou 100 crédits supplémentaires."
-            : "Chaque abonnement inclut un préparateur attitré, le tableau de bord, le suivi du stock et la messagerie. En mensuel, sans engagement ; en annuel, deux mois offerts et vos crédits versés chaque mois."
+            : `Chaque abonnement inclut un préparateur attitré, le tableau de bord, le suivi du stock et la messagerie. En mensuel, sans engagement${annualBadge ? ` ; en annuel, ${annualBadge} et vos crédits versés chaque mois` : ""}.`
         }
         back={sub ? { href: "/client/facturation", label: "Facturation" } : undefined}
       />

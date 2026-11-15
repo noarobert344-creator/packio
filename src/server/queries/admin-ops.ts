@@ -151,9 +151,13 @@ export const SHIPMENT_GROUPS: Record<string, { label: string; statuses: Shipment
   annulees: { label: "Annulées", statuses: ["CANCELLED"] },
 };
 
-export async function listShipments(f: { q?: string; group?: string; preparerId?: string; page: number; take?: number }) {
+const SLA_OPEN_STATUSES: ShipmentStatus[] = ["REQUESTED", "AWAITING_CLASSIFICATION", "CLASSIFIED", "PREPARING", "READY", "LABEL_READY"];
+
+export async function listShipments(f: { q?: string; group?: string; preparerId?: string; late?: boolean; page: number; take?: number }) {
+  const lateWhere: Prisma.OutboundShipmentWhereInput = { status: { in: SLA_OPEN_STATUSES }, dueAt: { lt: new Date() } };
   const where: Prisma.OutboundShipmentWhereInput = {
-    ...(f.group && SHIPMENT_GROUPS[f.group] ? { status: { in: SHIPMENT_GROUPS[f.group].statuses } } : {}),
+    ...(f.late ? lateWhere : {}),
+    ...(f.group && SHIPMENT_GROUPS[f.group] && !f.late ? { status: { in: SHIPMENT_GROUPS[f.group].statuses } } : {}),
     ...(f.preparerId ? { preparerId: f.preparerId } : {}),
     ...(f.q ? { OR: [{ reference: ci(f.q) }, { trackingNumber: ci(f.q) }, { recipientName: ci(f.q) }, { city: ci(f.q) }, { customer: customerSearch(f.q) }] } : {}),
   };
@@ -173,11 +177,12 @@ export async function listShipments(f: { q?: string; group?: string; preparerId?
     db.outboundShipment.count({ where }),
     db.outboundShipment.groupBy({ by: ["status"], _count: true }),
   ]);
+  const lateCount = await db.outboundShipment.count({ where: lateWhere });
   const byStatus = Object.fromEntries(counts.map((c) => [c.status, c._count])) as Record<string, number>;
   const groupCounts = Object.fromEntries(
     Object.entries(SHIPMENT_GROUPS).map(([k, g]) => [k, g.statuses.reduce((s, st) => s + (byStatus[st] ?? 0), 0)]),
   ) as Record<string, number>;
-  return { items, total, groupCounts, all: counts.reduce((s, c) => s + c._count, 0) };
+  return { items, total, groupCounts, lateCount, all: counts.reduce((s, c) => s + c._count, 0) };
 }
 
 // ----------------------------------------------------------------------------- Abonnements

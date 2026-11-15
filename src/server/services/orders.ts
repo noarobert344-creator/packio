@@ -1,5 +1,5 @@
 import type { SupplierOrder } from "@/generated/prisma/client";
-import type { IncidentType, SupplierOrderStatus } from "@/generated/prisma/enums";
+import type { IncidentType, MarketplacePlatform, OrderMode, SupplierOrderStatus } from "@/generated/prisma/enums";
 import { db, type Tx } from "@/server/db";
 import { DomainError, ForbiddenError, NotFoundError } from "@/server/errors";
 import { assertCustomer, assertPreparer, can, type Actor } from "@/server/auth/actor";
@@ -8,8 +8,10 @@ import { checkCompatibility } from "@/lib/compatibility";
 import { SUPPLIER_ORDER_STATUS } from "@/lib/labels";
 import { withEffects, type Effects } from "./notifications";
 import { assertCustomerOperational, getActiveSubscription } from "./customers";
-import { createStockItem, getStorageUsage, linkPhotos } from "./inventory";
+import { createStockItem, linkPhotos } from "./inventory";
 import { createIncidentTx } from "./incidents";
+import { ensureCapacityForOrder } from "./storage";
+import { createShipmentTx } from "./shipments";
 
 /**
  * COMMANDES FOURNISSEURS (saisie manuelle — V1)
@@ -113,10 +115,37 @@ export type CreateOrderInput = {
   instructions?: string | null;
   compatibilityConfirmed?: boolean;
   photoIds?: string[];
+  /** Accepte le débit de crédits pour des places de stock supplémentaires. */
+  acceptStorageCharge?: boolean;
+  /** Dropshipping : article déjà vendu, expédié à l'acheteur dès réception. */
+  mode?: OrderMode;
+  salePlatform?: MarketplacePlatform | null;
+  saleReference?: string | null;
+  buyerName?: string | null;
+  buyerPhone?: string | null;
+  buyerAddressLine1?: string | null;
+  buyerAddressLine2?: string | null;
+  buyerPostalCode?: string | null;
+  buyerCity?: string | null;
+  buyerCountry?: string | null;
+  /** Bordereau d'expédition de la vente (ex. bordereau Vinted). */
+  labelFileId?: string | null;
 };
+
+function validateDropship(input: CreateOrderInput) {
+  if (input.mode !== "DROPSHIP") return;
+  const hasAddress = !!(input.buyerName?.trim() && input.buyerAddressLine1?.trim() && input.buyerPostalCode?.trim() && input.buyerCity?.trim());
+  if (!input.labelFileId && !hasAddress) {
+    throw new DomainError("DROPSHIP_RECIPIENT", "Ajoutez le bordereau de la vente, ou l'adresse complète de l'acheteur.", {
+      fieldErrors: { labelFileId: "Bordereau ou adresse de l'acheteur requis", buyerAddressLine1: "Adresse requise sans bordereau" },
+    });
+  }
+}
 
 export async function createSupplierOrder(actor: Actor, input: CreateOrderInput) {
   const customerId = assertCustomer(actor);
+  validateDropship(input);
+  const dropship = input.mode === "DROPSHIP";
   return withEffects(async (tx, fx) => {
     const customer = await assertCustomerOperational(tx, customerId);
     const preparerId = customer.currentPreparerId!;
@@ -137,25 +166,36 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
       throw new DomainError("QUANTITY", "Quantité invalide.", { fieldErrors: { quantity: "Entre 1 et 999" } });
     }
 
-    const subscription = await getActiveSubscription(customerId, tx);
-    const limit = subscription?.plan.storageLimit ?? null;
-    if (limit !== null) {
-      const used = await getStorageUsage(customerId, tx);
-      const pending = await tx.supplierOrder.aggregate({
-        where: { customerId, status: { in: ORDER_OPEN_STATUSES } },
-        _sum: { quantity: true },
-      });
-      if (used + (pending._sum.quantity ?? 0) + input.quantity > limit) {
-        throw new DomainError(
-          "STORAGE_LIMIT",
-          `Limite de stockage de votre offre atteinte (${limit} articles). Expédiez des articles ou passez à l'offre supérieure.`,
-        );
-      }
+    if (input.labelFileId) {
+      const file = await tx.file.findUnique({ where: { id: input.labelFileId } });
+      if (!file || file.uploadedById !== actor.userId || file.shipmentId || file.supplierOrderId || file.deletedAt) throw new DomainError("LABEL", "Bordereau invalide.");
     }
+
+    // Places de stock : au-delà de la capacité, des places sont achetées avec
+    // des crédits (accord explicite du client). Le dropshipping n'en occupe pas.
+    const ref = reference("CMD", 7);
+    const storage = dropship
+      ? { credits: 0, slots: 0 }
+      : await ensureCapacityForOrder(tx, { customerId, quantity: input.quantity, acceptCharge: !!input.acceptStorageCharge, actorId: actor.userId, orderReference: ref });
 
     const order = await tx.supplierOrder.create({
       data: {
-        reference: reference("CMD", 7),
+        reference: ref,
+        mode: dropship ? "DROPSHIP" : "STOCK",
+        storageCreditsCharged: storage.credits,
+        ...(dropship
+          ? {
+              salePlatform: input.salePlatform ?? null,
+              saleReference: input.saleReference?.trim() || null,
+              buyerName: input.buyerName?.trim() || null,
+              buyerPhone: input.buyerPhone?.trim() || null,
+              buyerAddressLine1: input.buyerAddressLine1?.trim() || null,
+              buyerAddressLine2: input.buyerAddressLine2?.trim() || null,
+              buyerPostalCode: input.buyerPostalCode?.trim() || null,
+              buyerCity: input.buyerCity?.trim() || null,
+              buyerCountry: input.buyerCountry?.trim().toUpperCase() || "FR",
+            }
+          : {}),
         customerId,
         preparerId,
         supplierId: supplier.id,
@@ -190,12 +230,25 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
       },
     });
     if (input.photoIds?.length) await linkPhotos(tx, actor, input.photoIds, { supplierOrderId: order.id, customerId });
+    if (input.labelFileId) {
+      await tx.file.update({ where: { id: input.labelFileId }, data: { supplierOrderId: order.id, customerId, purpose: "SHIPPING_LABEL" } });
+    }
     fx.notify(await preparerUserId(tx, preparerId), {
       type: "ORDER_CREATED",
-      title: "Nouvelle commande enregistrée",
-      body: `${actor.firstName} ${actor.lastName} attend « ${order.description} » (${supplier.code === "OTHER" ? order.supplierLabel : supplier.name}) à ${location.label}.`,
+      title: dropship ? "Commande en dropshipping (expédition express)" : "Nouvelle commande enregistrée",
+      body: dropship
+        ? `${actor.firstName} ${actor.lastName} a vendu « ${order.description} » : à réceptionner à ${location.label}, puis à expédier à l'acheteur sous 48 h.`
+        : `${actor.firstName} ${actor.lastName} attend « ${order.description} » (${supplier.code === "OTHER" ? order.supplierLabel : supplier.name}) à ${location.label}.`,
       link: `/preparateur/receptions/${order.id}`,
     });
+    if (storage.credits > 0) {
+      fx.notify(actor.userId, {
+        type: "STORAGE_CHARGED",
+        title: "Places de stock ajoutées",
+        body: `Votre commande ${order.reference} dépassait vos places de stock : ${storage.slots} places ajoutées pour ${storage.credits} crédit${storage.credits > 1 ? "s" : ""}.`,
+        link: "/client/stock",
+      });
+    }
     return order;
   });
 }
@@ -349,6 +402,7 @@ export async function stockOrder(
     let order = await preparerOrder(tx, actor, input.orderId);
     assertTransition(PREPARER_TRANSITIONS, order.status, "IN_STOCK");
     const supplier = await tx.supplier.findUniqueOrThrow({ where: { id: order.supplierId } });
+    const dropship = order.mode === "DROPSHIP";
     const created = [];
     for (const item of input.items) {
       created.push(
@@ -362,12 +416,39 @@ export async function stockOrder(
           supplierName: supplier.code === "OTHER" ? order.supplierLabel : supplier.name,
           supplierOrderId: order.id,
           photoIds: item.photoIds,
+          dropship,
         }),
       );
     }
-    order = await setStatus(tx, order, "IN_STOCK", actor.userId, `${created.reduce((s, i) => s + i.quantityAvailable, 0)} article(s) mis en stock`);
+    const total = created.reduce((s, i) => s + i.quantityAvailable, 0);
+    order = await setStatus(tx, order, "IN_STOCK", actor.userId, dropship ? `${total} article(s) reçu(s) : expédition express créée` : `${total} article(s) mis en stock`);
     await tx.preparerProfile.update({ where: { id: order.preparerId }, data: { parcelsProcessed: { increment: 1 } } });
-    return { order, items: created };
+
+    let shipment = null;
+    if (dropship) {
+      // Dropshipping : expédition à l'acheteur créée immédiatement (délai 48 h).
+      const label = await tx.file.findFirst({ where: { supplierOrderId: order.id, purpose: "SHIPPING_LABEL", shipmentId: null, deletedAt: null }, orderBy: { createdAt: "desc" } });
+      const platform = order.salePlatform === "VINTED" ? "Vinted" : order.salePlatform === "VESTIAIRE" ? "Vestiaire Collective" : null;
+      shipment = await createShipmentTx(tx, fx, {
+        customerId: order.customerId,
+        actorUserId: actor.userId,
+        system: true,
+        kind: "DROPSHIP",
+        items: created.map((i) => ({ itemId: i.id, quantity: i.quantityAvailable })),
+        recipientName: order.buyerName ?? (platform ? `Acheteur ${platform}` : "Acheteur"),
+        recipientPhone: order.buyerPhone,
+        addressLine1: order.buyerAddressLine1 ?? "Adresse indiquée sur le bordereau",
+        addressLine2: order.buyerAddressLine2,
+        postalCode: order.buyerPostalCode ?? "",
+        city: order.buyerCity ?? "Voir bordereau",
+        country: order.buyerCountry ?? "FR",
+        labelMode: label ? "CUSTOMER_PROVIDED" : "PREPARER_PROVIDED",
+        labelFileId: label?.id ?? null,
+        instructions: [order.saleReference ? `Vente ${platform ?? ""} ${order.saleReference}`.replace("  ", " ") : null, order.instructions].filter(Boolean).join(" — ") || null,
+      });
+      order = await tx.supplierOrder.update({ where: { id: order.id }, data: { dropshipShipmentId: shipment.id } });
+    }
+    return { order, items: created, shipment };
   });
 }
 

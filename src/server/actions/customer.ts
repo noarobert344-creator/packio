@@ -24,6 +24,9 @@ import {
 import { createSupplierOrder, customerUpdateOrder, reportOrderProblem } from "@/server/services/orders";
 import { cancelShipment, disputeClassification, requestShipment } from "@/server/services/shipments";
 import { createSupportConversation } from "@/server/services/messaging";
+import { purchaseStorageSlots } from "@/server/services/storage";
+import { updateReturnAddress } from "@/server/services/customers";
+import { assertCustomer } from "@/server/auth/actor";
 
 const SUPPLIER_STATUS_BY_CUSTOMER = ["SUPPLIER_CONFIRMED", "IN_TRANSIT", "AT_LOCKER", "CANCELLED"] as const;
 
@@ -118,13 +121,37 @@ const orderSchema = z.object({
   instructions: optionalText(1000),
   compatibilityConfirmed: checkbox(),
   photoIds: stringArray(),
+  acceptStorageCharge: checkbox(),
+  mode: z.enum(["STOCK", "DROPSHIP"]).catch("STOCK"),
+  salePlatform: z.enum(["VINTED", "VESTIAIRE", "OTHER"]).optional().catch(undefined),
+  saleReference: optionalText(120),
+  buyerName: optionalText(120),
+  buyerPhone: optionalText(40),
+  buyerAddressLine1: optionalText(200),
+  buyerAddressLine2: optionalText(200),
+  buyerPostalCode: optionalText(20),
+  buyerCity: optionalText(100),
+  buyerCountry: optionalText(2),
+  labelFileIds: stringArray(),
 });
 
 export async function createOrderAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   return runAction(orderSchema, formToObject(formData), async (actor, data) => {
-    const order = await createSupplierOrder(actor, data);
+    const dropship = data.mode === "DROPSHIP";
+    const order = await createSupplierOrder(actor, {
+      ...data,
+      mode: data.mode,
+      salePlatform: dropship ? (data.salePlatform ?? null) : null,
+      labelFileId: dropship ? (data.labelFileIds[0] ?? null) : null,
+    });
     revalidatePath("/client", "layout");
-    return { ok: true, message: `Commande ${order.reference} enregistrée. Votre préparateur est prévenu.`, redirectTo: `/client/commandes/${order.id}` };
+    return {
+      ok: true,
+      message: dropship
+        ? `Commande ${order.reference} enregistrée : votre préparateur l'expédiera à l'acheteur dès réception.`
+        : `Commande ${order.reference} enregistrée. Votre préparateur est prévenu.`,
+      redirectTo: `/client/commandes/${order.id}`,
+    };
   });
 }
 
@@ -185,6 +212,7 @@ const shipmentSchema = z.object({
   labelFileIds: stringArray(),
   instructions: optionalText(1000),
   options: stringArray(),
+  kind: z.enum(["SALE", "RETURN_TO_CUSTOMER"]).catch("SALE"),
 });
 
 export async function requestShipmentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -200,7 +228,11 @@ export async function requestShipmentAction(_prev: ActionState, formData: FormDa
       labelFileId: data.labelMode === "CUSTOMER_PROVIDED" ? (data.labelFileIds[0] ?? null) : null,
     });
     revalidatePath("/client", "layout");
-    return { ok: true, message: `Expédition ${shipment.reference} demandée.`, redirectTo: `/client/expeditions/${shipment.id}` };
+    return {
+      ok: true,
+      message: data.kind === "RETURN_TO_CUSTOMER" ? `Retour ${shipment.reference} demandé.` : `Expédition ${shipment.reference} demandée.`,
+      redirectTo: `/client/expeditions/${shipment.id}`,
+    };
   });
 }
 
@@ -216,6 +248,34 @@ export async function disputeClassificationAction(_prev: ActionState, formData: 
   return runAction(z.object({ shipmentId: z.string().min(1), reason: requiredText("Motif", 10, 2000) }), formToObject(formData), async (actor, data) => {
     const incident = await disputeClassification(actor, data);
     return { ok: true, message: `Contestation enregistrée (${incident.reference}).`, redirectTo: `/client/incidents/${incident.id}` };
+  });
+}
+
+// ----------------------------------------------------------------------------- Stockage
+
+export async function buyStorageSlotsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(z.object({ credits: intField("Crédits", { min: 1, max: 50 }), requestId: requiredText("Requête", 6, 64) }), formToObject(formData), async (actor, data) => {
+    const purchase = await purchaseStorageSlots(actor, data);
+    revalidatePath("/client", "layout");
+    return { ok: true, message: purchase ? `${purchase.slots} places ajoutées à votre stock.` : "Places déjà ajoutées." };
+  });
+}
+
+const returnAddressSchema = z.object({
+  returnName: requiredText("Nom", 2, 120),
+  returnPhone: optionalText(40),
+  returnAddressLine1: requiredText("Adresse", 3, 200),
+  returnAddressLine2: optionalText(200),
+  returnPostalCode: requiredText("Code postal", 2, 20),
+  returnCity: requiredText("Ville", 1, 100),
+  returnCountry: requiredText("Pays", 2, 2),
+});
+
+export async function updateReturnAddressAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(returnAddressSchema, formToObject(formData), async (actor, data) => {
+    await updateReturnAddress(assertCustomer(actor), data);
+    revalidatePath("/client", "layout");
+    return { ok: true, message: "Adresse de retour enregistrée." };
   });
 }
 

@@ -1,5 +1,7 @@
 import type { OutboundShipment } from "@/generated/prisma/client";
-import type { IncidentType, LabelMode, ParcelSize, ShipmentStatus } from "@/generated/prisma/enums";
+import { addHours, format } from "date-fns";
+import { fr } from "date-fns/locale";
+import type { IncidentType, LabelMode, ParcelSize, ShipmentKind, ShipmentStatus } from "@/generated/prisma/enums";
 import { db, type Tx } from "@/server/db";
 import { DomainError, ForbiddenError, NotFoundError } from "@/server/errors";
 import { assertAdmin, assertCustomer, assertPreparer, can, type Actor } from "@/server/auth/actor";
@@ -12,6 +14,8 @@ import { assertCustomerOperational } from "./customers";
 import { applyMovement, linkPhotos, lockItems } from "./inventory";
 import { captureCredits, grantCredits, releaseCredits, reserveCredits, purchasedCreditsExpiry } from "./credits";
 import { createIncidentTx } from "./incidents";
+import { getSetting } from "./settings";
+import { retryOverdueStorage } from "./storage";
 
 /**
  * EXPÉDITIONS
@@ -72,11 +76,16 @@ export type ShipmentRequestInput = {
   labelFileId?: string | null;
   instructions?: string | null;
   options?: string[];
+  /** Vente (par défaut) ou retour des articles au domicile du client. */
+  kind?: Extract<ShipmentKind, "SALE" | "RETURN_TO_CUSTOMER">;
 };
 
-/** Demande d'expédition par le client. */
-export async function requestShipment(actor: Actor, input: ShipmentRequestInput) {
-  const customerId = assertCustomer(actor);
+/** Échéance d'expédition (« expédié sous 48 h »). */
+export async function shipmentDueAt(client: Tx | typeof db, from = new Date()) {
+  return addHours(from, (await getSetting("shipping", client)).slaHours);
+}
+
+function validateLines(input: Pick<ShipmentRequestInput, "items" | "labelMode" | "labelFileId">) {
   const lines = input.items.filter((l) => l.quantity > 0);
   if (!lines.length) throw new DomainError("NO_ITEMS", "Sélectionnez au moins un article.", { fieldErrors: { items: "Sélection requise" } });
   if (lines.some((l) => !Number.isInteger(l.quantity))) throw new DomainError("QUANTITY", "Quantités invalides.");
@@ -86,78 +95,111 @@ export async function requestShipment(actor: Actor, input: ShipmentRequestInput)
       fieldErrors: { labelFileId: "Bordereau requis" },
     });
   }
+  return lines;
+}
 
-  return withEffects(async (tx, fx) => {
-    const customer = await assertCustomerOperational(tx, customerId);
-    const items = await lockItems(tx, lines.map((l) => l.itemId));
-    if (items.length !== lines.length) throw new NotFoundError("Article introuvable.");
-    const preparerIds = new Set(items.map((i) => i.preparerId));
-    for (const item of items) {
-      if (item.customerId !== customerId) throw new ForbiddenError();
-    }
-    if (preparerIds.size > 1) throw new DomainError("MULTI_PREPARER", "Les articles d'une même expédition doivent être stockés chez le même préparateur.");
-    const preparerId = items[0].preparerId;
-    for (const line of lines) {
-      const item = items.find((i) => i.id === line.itemId)!;
-      if (item.quantityAvailable < line.quantity) {
-        throw new DomainError("STOCK", `Stock insuffisant pour « ${item.name} » (${item.quantityAvailable} disponible(s)).`);
-      }
-    }
-    if (input.labelFileId) {
-      const file = await tx.file.findUnique({ where: { id: input.labelFileId } });
-      if (!file || file.uploadedById !== actor.userId || file.shipmentId || file.deletedAt) throw new DomainError("LABEL", "Bordereau invalide.");
-    }
+/** Demande d'expédition par le client (vente ou retour à domicile). */
+export async function requestShipment(actor: Actor, input: ShipmentRequestInput) {
+  const customerId = assertCustomer(actor);
+  validateLines(input);
+  return withEffects((tx, fx) => createShipmentTx(tx, fx, { ...input, kind: input.kind ?? "SALE", customerId, actorUserId: actor.userId }));
+}
 
-    const shipment = await tx.outboundShipment.create({
-      data: {
-        reference: reference("EXP", 7),
-        customerId,
-        preparerId,
-        status: "REQUESTED",
-        recipientName: input.recipientName.trim(),
-        recipientCompany: input.recipientCompany?.trim() || null,
-        recipientPhone: input.recipientPhone?.trim() || null,
-        recipientEmail: input.recipientEmail?.trim() || null,
-        addressLine1: input.addressLine1.trim(),
-        addressLine2: input.addressLine2?.trim() || null,
-        postalCode: input.postalCode.trim(),
-        city: input.city.trim(),
-        country: input.country.trim().toUpperCase() || "FR",
-        requestedCarrier: input.requestedCarrier || null,
-        labelMode: input.labelMode,
-        instructions: input.instructions?.trim() || null,
-        options: input.options ?? [],
-        items: { create: lines.map((l) => ({ inventoryItemId: l.itemId, quantity: l.quantity })) },
-        events: { create: { status: "REQUESTED", actorId: actor.userId } },
-      },
-    });
-    for (const line of lines) {
-      const item = items.find((i) => i.id === line.itemId)!;
-      await applyMovement(tx, item, "RESERVATION", { quantityAvailable: -line.quantity, quantityReserved: line.quantity }, {
-        actorId: actor.userId,
-        shipmentId: shipment.id,
-        reason: `Réservé pour ${shipment.reference}`,
-      });
+/**
+ * Création d'une expédition et réservation des quantités en stock. Utilisée
+ * par la demande du client, le dropshipping (à la réception) et les ventes
+ * détectées sur les comptes liés.
+ */
+export async function createShipmentTx(
+  tx: Tx,
+  fx: Effects,
+  input: Omit<ShipmentRequestInput, "kind"> & { kind: ShipmentKind; customerId: string; actorUserId: string | null; system?: boolean },
+) {
+  const lines = validateLines(input);
+  const customerId = input.customerId;
+  const customer = input.system
+    ? await tx.customerProfile.findUniqueOrThrow({ where: { id: customerId }, include: { user: true } })
+    : await assertCustomerOperational(tx, customerId);
+  const items = await lockItems(tx, lines.map((l) => l.itemId));
+  if (items.length !== lines.length) throw new NotFoundError("Article introuvable.");
+  const preparerIds = new Set(items.map((i) => i.preparerId));
+  for (const item of items) {
+    if (item.customerId !== customerId) throw new ForbiddenError();
+  }
+  if (preparerIds.size > 1) throw new DomainError("MULTI_PREPARER", "Les articles d'une même expédition doivent être stockés chez le même préparateur.");
+  const preparerId = items[0].preparerId;
+  for (const line of lines) {
+    const item = items.find((i) => i.id === line.itemId)!;
+    if (item.quantityAvailable < line.quantity) {
+      throw new DomainError("STOCK", `Stock insuffisant pour « ${item.name} » (${item.quantityAvailable} disponible(s)).`);
     }
-    if (input.labelFileId) {
-      await tx.file.update({ where: { id: input.labelFileId }, data: { shipmentId: shipment.id, customerId, purpose: "SHIPPING_LABEL" } });
-    }
-    const updated = await setStatus(tx, shipment, "AWAITING_CLASSIFICATION", null, "Transmise au préparateur");
-    const preparer = await tx.preparerProfile.findUniqueOrThrow({ where: { id: preparerId }, select: { userId: true } });
-    fx.notify(preparer.userId, {
-      type: "SHIPMENT_REQUESTED",
-      title: "Nouvelle demande d'expédition",
-      body: `${updated.reference} : ${lines.reduce((s, l) => s + l.quantity, 0)} article(s) pour ${updated.recipientName} (${updated.city}). Classification requise.`,
-      link: `/preparateur/expeditions/${updated.id}`,
-    });
-    fx.notify(customer.userId, {
-      type: "SHIPMENT_REQUESTED",
-      title: "Demande d'expédition envoyée",
-      body: `${updated.reference} a été transmise à votre préparateur, qui va déterminer la taille du colis.`,
-      link: `/client/expeditions/${updated.id}`,
-    });
-    return updated;
+  }
+  if (input.labelFileId) {
+    const file = await tx.file.findUnique({ where: { id: input.labelFileId } });
+    const owned = file && (file.customerId ? file.customerId === customerId : file.uploadedById === input.actorUserId);
+    if (!file || !owned || file.shipmentId || file.deletedAt) throw new DomainError("LABEL", "Bordereau invalide.");
+  }
+
+  const now = new Date();
+  const shipment = await tx.outboundShipment.create({
+    data: {
+      reference: reference("EXP", 7),
+      customerId,
+      preparerId,
+      status: "REQUESTED",
+      kind: input.kind,
+      dueAt: await shipmentDueAt(tx, now),
+      recipientName: input.recipientName.trim(),
+      recipientCompany: input.recipientCompany?.trim() || null,
+      recipientPhone: input.recipientPhone?.trim() || null,
+      recipientEmail: input.recipientEmail?.trim() || null,
+      addressLine1: input.addressLine1.trim(),
+      addressLine2: input.addressLine2?.trim() || null,
+      postalCode: input.postalCode.trim(),
+      city: input.city.trim(),
+      country: input.country.trim().toUpperCase() || "FR",
+      requestedCarrier: input.requestedCarrier || null,
+      labelMode: input.labelMode,
+      instructions: input.instructions?.trim() || null,
+      options: input.options ?? [],
+      items: { create: lines.map((l) => ({ inventoryItemId: l.itemId, quantity: l.quantity })) },
+      events: { create: { status: "REQUESTED", actorId: input.actorUserId } },
+    },
   });
+  for (const line of lines) {
+    const item = items.find((i) => i.id === line.itemId)!;
+    await applyMovement(tx, item, "RESERVATION", { quantityAvailable: -line.quantity, quantityReserved: line.quantity }, {
+      actorId: input.actorUserId,
+      shipmentId: shipment.id,
+      reason: `Réservé pour ${shipment.reference}`,
+    });
+  }
+  if (input.labelFileId) {
+    await tx.file.update({ where: { id: input.labelFileId }, data: { shipmentId: shipment.id, customerId, purpose: "SHIPPING_LABEL" } });
+  }
+  const updated = await setStatus(tx, shipment, "AWAITING_CLASSIFICATION", null, "Transmise au préparateur");
+  const preparer = await tx.preparerProfile.findUniqueOrThrow({ where: { id: preparerId }, select: { userId: true } });
+  const count = lines.reduce((s, l) => s + l.quantity, 0);
+  const due = format(updated.dueAt!, "EEEE d MMMM 'à' HH'h'mm", { locale: fr });
+  const what =
+    input.kind === "RETURN_TO_CUSTOMER"
+      ? `retour de ${count} article(s) au domicile du client`
+      : input.kind === "DROPSHIP"
+        ? `dropshipping express : ${count} article(s) pour ${updated.recipientName}`
+        : `${count} article(s) pour ${updated.recipientName} (${updated.city})`;
+  fx.notify(preparer.userId, {
+    type: "SHIPMENT_REQUESTED",
+    title: input.kind === "DROPSHIP" ? "Expédition express à préparer" : input.kind === "RETURN_TO_CUSTOMER" ? "Retour d'articles au client" : "Nouvelle demande d'expédition",
+    body: `${updated.reference} : ${what}. Classification requise, à expédier avant ${due}.`,
+    link: `/preparateur/expeditions/${updated.id}`,
+  });
+  fx.notify(customer.userId, {
+    type: "SHIPMENT_REQUESTED",
+    title: input.kind === "RETURN_TO_CUSTOMER" ? "Demande de retour envoyée" : "Demande d'expédition envoyée",
+    body: `${updated.reference} a été transmise à votre préparateur, qui va déterminer la taille du colis. Expédition prévue avant ${due}.`,
+    link: `/client/expeditions/${updated.id}`,
+  });
+  return updated;
 }
 
 export async function getSizeRules(client: Tx | typeof db = db) {
@@ -289,7 +331,8 @@ export async function retryAwaitingCredits(customerId: string) {
         throw err;
       });
       if (!res.ok) return false;
-      const updated = await tx.outboundShipment.update({ where: { id: shipment.id }, data: { creditState: "RESERVED" } });
+      // Le délai d'expédition repart à la réservation des crédits.
+      const updated = await tx.outboundShipment.update({ where: { id: shipment.id }, data: { creditState: "RESERVED", dueAt: await shipmentDueAt(tx), lateAlertedAt: null } });
       await setStatus(tx, updated, "CLASSIFIED", null, `${shipment.creditCost} crédit(s) réservé(s) après recharge`);
       const prep = await tx.preparerProfile.findUniqueOrThrow({ where: { id: shipment.preparerId }, select: { userId: true } });
       fx.notify(prep.userId, {
@@ -309,7 +352,47 @@ export async function retryAwaitingCredits(customerId: string) {
     });
     if (!ok) break;
   }
-  return { resumed };
+  // Prolongations de stockage en attente de crédits.
+  const storage = await retryOverdueStorage(customerId);
+  return { resumed, storageCharged: storage.charged };
+}
+
+/** Statuts pendant lesquels l'expédition est entre les mains du préparateur. */
+const SLA_STATUSES: ShipmentStatus[] = ["REQUESTED", "AWAITING_CLASSIFICATION", "CLASSIFIED", "PREPARING", "READY", "LABEL_READY"];
+
+/**
+ * Engagement « expédié sous 48 h » : alerte le préparateur et l'administration
+ * pour chaque expédition non déposée à l'échéance (une seule fois).
+ * L'attente de crédits suspend le délai (il repart à la réservation).
+ */
+export async function runShipmentSlaCheck(now = new Date()) {
+  const late = await db.outboundShipment.findMany({
+    where: { dueAt: { lt: now }, lateAlertedAt: null, status: { in: SLA_STATUSES } },
+    include: { preparer: { select: { userId: true, user: { select: { firstName: true, lastName: true } } } }, customer: { select: { referenceCode: true } } },
+    take: 200,
+  });
+  for (const s of late) {
+    await withEffects(async (tx, fx) => {
+      const res = await tx.outboundShipment.updateMany({ where: { id: s.id, lateAlertedAt: null }, data: { lateAlertedAt: now } });
+      if (!res.count) return;
+      fx.notify(s.preparer.userId, {
+        type: "SHIPMENT_LATE",
+        title: "Expédition en retard",
+        body: `${s.reference} devait être expédiée avant ${format(s.dueAt!, "d MMMM 'à' HH'h'mm", { locale: fr })}. Déposez-la au plus vite ou signalez un incident.`,
+        link: `/preparateur/expeditions/${s.id}`,
+      });
+      fx.notifyAdmins(
+        {
+          type: "SHIPMENT_LATE",
+          title: "Expédition hors délai (48 h)",
+          body: `${s.reference} (${s.customer.referenceCode}) chez ${s.preparer.user.firstName} ${s.preparer.user.lastName} : échéance dépassée, statut « ${SHIPMENT_STATUS[s.status].label} ».`,
+          link: `/admin/expeditions?retard=1`,
+        },
+        "operations.read",
+      );
+    });
+  }
+  return { late: late.length };
 }
 
 export async function startPreparation(actor: Actor, input: { shipmentId: string }) {

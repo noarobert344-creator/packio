@@ -1,0 +1,278 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ExternalLink, KeyRound, Link2, PlugZap, Puzzle, ShoppingBag, Store } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { PageHeader, Section } from "@/components/shared/page-header";
+import { StatusBadge, StatusFrom } from "@/components/shared/status-badge";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ActionButton, ActionDialog } from "@/components/shared/action-dialog";
+import { SelectField } from "@/components/shared/form-field";
+import { ExtensionTokenForm } from "@/components/client/extension-token-form";
+import { requireSubscribedCustomer } from "@/server/customer-page";
+import { listMarketplaceOverview } from "@/server/services/marketplace";
+import { createExtensionTokenAction, ignoreSaleAction, linkListingAction, matchSaleAction, revokeExtensionTokenAction } from "@/server/actions/marketplace";
+import { MARKETPLACE_PLATFORM, MARKETPLACE_SALE_STATUS, SHIPMENT_STATUS } from "@/lib/labels";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
+
+export const metadata: Metadata = { title: "Ventes et comptes liés" };
+
+const STEPS = [
+  { icon: Puzzle, title: "Installez Packio Connect", text: "L'extension pour Chrome lit vos ventes Vinted et Vestiaire Collective, depuis votre navigateur, avec vos propres sessions." },
+  { icon: Link2, title: "Indiquez le SKU dans vos annonces", text: "Ajoutez la référence SKU de l'article (visible dans Mon stock) à la description de l'annonce : elle est rattachée automatiquement. Sinon, associez-la ici." },
+  { icon: ShoppingBag, title: "Vendez, Packio expédie", text: "Dès qu'une vente est détectée, l'expédition est créée chez votre préparateur. Le bordereau généré sur la plateforme lui est transmis automatiquement." },
+];
+
+export default async function SalesPage() {
+  const { customer } = await requireSubscribedCustomer();
+  const { accounts, tokens, sales, listings, stockItems } = await listMarketplaceOverview(customer.id);
+  const itemOptions = stockItems.map((i) => ({ value: i.id, label: `${i.name} · ${i.sku} (${i.quantityAvailable} dispo.)` }));
+  const activeTokens = tokens.filter((t) => !t.revokedAt);
+  const toIdentify = sales.filter((s) => s.status === "NEW").length;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Ventes et comptes liés"
+        description="Reliez vos comptes Vinted et Vestiaire Collective : chaque vente d'un article stocké chez votre préparateur déclenche son expédition, avec le bordereau de la plateforme."
+      />
+
+      <div className="grid gap-3 md:grid-cols-3">
+        {STEPS.map((s, i) => (
+          <div key={s.title} className="rounded-2xl border bg-card p-5 shadow-soft">
+            <div className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">{i + 1}</span>
+              <s.icon className="size-4 text-brand" />
+            </div>
+            <p className="mt-3 font-medium">{s.title}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{s.text}</p>
+          </div>
+        ))}
+      </div>
+
+      <Section
+        title="Ventes détectées"
+        description={toIdentify ? `${toIdentify} vente(s) à associer à un article de votre stock.` : "Les ventes remontées par l'extension apparaissent ici."}
+        contentClassName="p-0"
+      >
+        {sales.length ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-5">Vente</TableHead>
+                  <TableHead>Plateforme</TableHead>
+                  <TableHead>Article Packio</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="pr-5 text-right">Expédition</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sales.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="max-w-xs pl-5">
+                      <span className="block truncate font-medium">{s.title}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {formatDateTime(s.soldAt)}
+                        {s.priceCents !== null ? ` · ${formatMoney(s.priceCents, s.currency)}` : ""}
+                        {s.buyerName ? ` · ${s.buyerName}` : ""} · n° {s.externalOrderId}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {MARKETPLACE_PLATFORM[s.platform]}
+                      {s.listing?.url && (
+                        <a href={s.listing.url} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex text-muted-foreground hover:text-foreground" aria-label="Voir l'annonce">
+                          <ExternalLink className="size-3.5" />
+                        </a>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {s.inventoryItem ? (
+                        <Link href={`/client/stock/${s.inventoryItem.id}`} className="hover:underline">
+                          {s.inventoryItem.name} <span className="font-mono text-xs text-muted-foreground">{s.inventoryItem.sku}</span>
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">Non identifié</span>
+                      )}
+                      {s.notes && <span className="block text-xs text-warning">{s.notes}</span>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col items-start gap-1">
+                        <StatusFrom map={MARKETPLACE_SALE_STATUS} value={s.status} />
+                        {s._count.files > 0 && <span className="text-xs text-muted-foreground">Bordereau reçu</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="pr-5 text-right">
+                      {s.shipment ? (
+                        <Link href={`/client/expeditions/${s.shipment.id}`} className="inline-flex flex-col items-end text-sm hover:underline">
+                          <span className="font-mono text-xs">{s.shipment.reference}</span>
+                          <span className="text-xs text-muted-foreground">{SHIPMENT_STATUS[s.shipment.status].label}</span>
+                        </Link>
+                      ) : s.status === "NEW" || s.status === "MATCHED" ? (
+                        <div className="flex justify-end gap-1">
+                          <ActionDialog
+                            trigger={<Button size="sm">Associer</Button>}
+                            title="Associer la vente à un article"
+                            description={`« ${s.title} » sera expédié par votre préparateur ; le bordereau ${MARKETPLACE_PLATFORM[s.platform]} lui sera transmis dès qu'il sera généré.`}
+                            action={matchSaleAction}
+                            submitLabel="Associer et expédier"
+                          >
+                            <input type="hidden" name="saleId" value={s.id} />
+                            {itemOptions.length ? (
+                              <SelectField name="itemId" label="Article de votre stock" required options={itemOptions} placeholder="Choisir un article" defaultValue={s.inventoryItem?.id ?? ""} />
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Aucun article disponible dans votre stock.</p>
+                            )}
+                          </ActionDialog>
+                          <ActionButton action={ignoreSaleAction} fields={{ saleId: s.id }} variant="ghost" size="sm">
+                            Ignorer
+                          </ActionButton>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="p-5">
+            <EmptyState icon={Store} title="Aucune vente détectée" description="Installez l'extension et synchronisez vos comptes : vos ventes apparaîtront ici." />
+          </div>
+        )}
+      </Section>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Section title="Extension Packio Connect" description="Elle relie votre navigateur à votre compte Packio grâce à un jeton personnel.">
+          <ol className="mb-5 list-decimal space-y-1.5 pl-5 text-sm text-muted-foreground">
+            <li>
+              Récupérez le dossier <code className="rounded bg-muted px-1 py-0.5 text-xs">extension</code> de Packio Connect auprès du support (une publication sur le Chrome Web Store est prévue).
+            </li>
+            <li>
+              Dans Chrome, ouvrez <code className="rounded bg-muted px-1 py-0.5 text-xs">chrome://extensions</code>, activez le mode développeur puis « Charger l&apos;extension non empaquetée ».
+            </li>
+            <li>Créez un jeton ci-dessous et collez-le dans les options de l&apos;extension, avec l&apos;adresse de Packio.</li>
+            <li>Restez connecté à Vinted ou Vestiaire Collective dans ce navigateur : la synchronisation a lieu toutes les 15 minutes.</li>
+          </ol>
+          <ExtensionTokenForm action={createExtensionTokenAction} />
+          {tokens.length > 0 && (
+            <ul className="mt-5 divide-y rounded-xl border">
+              {tokens.map((t) => (
+                <li key={t.id} className="flex flex-col gap-2 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-2 font-medium">
+                      <KeyRound className="size-3.5 text-muted-foreground" /> {t.label}
+                      <span className="font-mono text-xs text-muted-foreground">{t.prefix}…</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Créé le {formatDate(t.createdAt)} · {t.lastUsedAt ? `utilisé le ${formatDateTime(t.lastUsedAt)}` : "jamais utilisé"}
+                    </p>
+                  </div>
+                  {t.revokedAt ? (
+                    <StatusBadge tone="neutral" label={`Révoqué le ${formatDate(t.revokedAt)}`} />
+                  ) : (
+                    <ActionButton action={revokeExtensionTokenAction} fields={{ tokenId: t.id }} variant="outline" size="sm">
+                      Révoquer
+                    </ActionButton>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {!activeTokens.length && tokens.length > 0 && <p className="mt-3 text-xs text-muted-foreground">Aucun jeton actif : l&apos;extension est déconnectée.</p>}
+        </Section>
+
+        <Section title="Comptes liés" description="Comptes détectés par l'extension lors de la dernière synchronisation.">
+          {accounts.length ? (
+            <ul className="divide-y rounded-xl border">
+              {accounts.map((a) => (
+                <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <div>
+                    <p className="font-medium">{MARKETPLACE_PLATFORM[a.platform]}</p>
+                    <p className="text-xs text-muted-foreground">{a.username ?? `Compte n° ${a.externalUserId}`}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{a.lastSyncAt ? `Synchronisé le ${formatDateTime(a.lastSyncAt)}` : "Jamais synchronisé"}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState icon={PlugZap} title="Aucun compte lié" description="Après l'installation de l'extension, vos comptes apparaissent ici dès la première synchronisation." />
+          )}
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+            L&apos;extension lit uniquement vos propres annonces, ventes et bordereaux, avec la session ouverte dans votre navigateur. Packio ne connaît jamais vos
+            identifiants. Ces plateformes n&apos;autorisant pas toujours les outils automatisés, vous l&apos;utilisez sur vos comptes sous votre responsabilité.
+          </p>
+        </Section>
+      </div>
+
+      <Section title="Annonces" description="Rattachez une annonce à un article du stock : ses ventes seront expédiées automatiquement." contentClassName="p-0">
+        {listings.length ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-5">Annonce</TableHead>
+                  <TableHead>Prix</TableHead>
+                  <TableHead>Article Packio</TableHead>
+                  <TableHead className="pr-5 text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {listings.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell className="max-w-xs pl-5">
+                      <span className="block truncate font-medium">
+                        {l.url ? (
+                          <a href={l.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                            {l.title}
+                          </a>
+                        ) : (
+                          l.title
+                        )}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {MARKETPLACE_PLATFORM[l.platform]} · {l.status === "sold" ? "vendue" : l.status} · vue le {formatDate(l.lastSeenAt)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm tabular">{l.priceCents !== null ? formatMoney(l.priceCents, l.currency) : "—"}</TableCell>
+                    <TableCell className="text-sm">
+                      {l.inventoryItem ? (
+                        <Link href={`/client/stock/${l.inventoryItem.id}`} className="hover:underline">
+                          {l.inventoryItem.name} <span className="font-mono text-xs text-muted-foreground">{l.inventoryItem.sku}</span>
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">Non rattachée</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="pr-5 text-right">
+                      {l.inventoryItem ? (
+                        <ActionButton action={linkListingAction} fields={{ listingId: l.id, itemId: "" }} variant="ghost" size="sm">
+                          Détacher
+                        </ActionButton>
+                      ) : (
+                        <ActionDialog trigger={<Button size="sm" variant="outline">Rattacher</Button>} title="Rattacher l'annonce" description={l.title} action={linkListingAction} submitLabel="Rattacher">
+                          <input type="hidden" name="listingId" value={l.id} />
+                          {itemOptions.length ? (
+                            <SelectField name="itemId" label="Article de votre stock" required options={itemOptions} placeholder="Choisir un article" />
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Aucun article disponible dans votre stock.</p>
+                          )}
+                        </ActionDialog>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="p-5">
+            <EmptyState icon={ShoppingBag} title="Aucune annonce synchronisée" />
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}

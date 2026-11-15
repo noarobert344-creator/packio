@@ -77,6 +77,19 @@ async function PlatformTab() {
       <Section title="Supervision des conversations" description="Accès encadré d'un administrateur à une conversation client / préparateur, sur motif et journalisé.">
         <TextField name="supervisionMinutes" label="Durée d'un accès de supervision (minutes)" type="number" min={5} max={1440} defaultValue={s.messaging.supervisionMinutes} required />
       </Section>
+      <Section title="Expédition" description="Engagement affiché aux clients ; au-delà, le préparateur et l'administration sont alertés. Le délai est suspendu pendant l'attente de crédits.">
+        <TextField name="shippingSlaHours" label="Délai d'expédition garanti (heures)" type="number" min={1} max={336} defaultValue={s.shipping.slaHours} required hint="48 h par défaut, à compter de la demande d'expédition." />
+      </Section>
+      <Section title="Stockage" description="Durée de stockage par article, prolongations prélevées en crédits et places supplémentaires. Affiché sur le site, dans les CGV et dans l'espace client.">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField name="storageIncludedDays" label="Durée incluse par article (jours)" type="number" min={1} max={365} defaultValue={s.storage.includedDays} required />
+          <TextField name="storageExtensionDays" label="Durée d'une prolongation (jours)" type="number" min={1} max={365} defaultValue={s.storage.extensionDays} required />
+          <TextField name="storageExtensionCredits" label="Coût d'une prolongation (crédits / article)" type="number" min={0} max={100} defaultValue={s.storage.extensionCredits} required />
+          <TextField name="storageReminderDaysBefore" label="Rappel avant échéance (jours)" type="number" min={0} max={30} defaultValue={s.storage.reminderDaysBefore} required />
+          <TextField name="storageSlotsPerCredit" label="Places supplémentaires pour 1 crédit" type="number" min={1} max={1000} defaultValue={s.storage.slotsPerCredit} required />
+          <TextField name="storageExtraSlotsDays" label="Durée des places achetées (jours)" type="number" min={1} max={365} defaultValue={s.storage.extraSlotsDays} required />
+        </div>
+      </Section>
       <Section title="Contact du support" description="Affiché sur le site public, dans les e-mails et les pages légales." className="lg:col-span-2">
         <div className="grid gap-4 sm:grid-cols-3">
           <TextField name="supportEmail" label="E-mail du support" type="email" defaultValue={s.support.email} required />

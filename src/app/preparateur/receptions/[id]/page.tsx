@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink, Info, MapPin, MessagesSquare } from "lucide-react";
+import { ExternalLink, Info, MapPin, MessagesSquare, Zap } from "lucide-react";
 import { requirePreparer } from "@/server/auth/current";
 import { getOrderForActor } from "@/server/services/orders";
 import { getShipmentConversationId } from "@/server/queries/preparer";
@@ -52,6 +52,23 @@ export default async function ReceptionPage({ params }: { params: Promise<{ id: 
           </>
         }
       />
+      {order.mode === "DROPSHIP" && (
+        <div className="flex flex-col gap-2 rounded-2xl border border-brand/30 bg-brand-soft p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-start gap-2">
+            <Zap className="mt-0.5 size-4 shrink-0 text-brand" />
+            <span>
+              <span className="font-semibold">Dropshipping : article déjà vendu.</span> À la mise en stock, une expédition express est créée automatiquement
+              {order.buyerName ? ` pour ${order.buyerName}` : ""}
+              {order.saleReference ? ` (vente ${order.saleReference})` : ""}, à déposer sous 48 h avec le bordereau fourni par le client.
+            </span>
+          </p>
+          {order.dropshipShipmentId && (
+            <Button asChild size="sm">
+              <Link href={`/preparateur/expeditions/${order.dropshipShipmentId}`}>Ouvrir l&apos;expédition</Link>
+            </Button>
+          )}
+        </div>
+      )}
       <div className="rounded-2xl border bg-card p-4 shadow-soft">
         <StepProgress steps={SUPPLIER_ORDER_FLOW.map((s) => ({ key: s, label: SUPPLIER_ORDER_STATUS[s].label }))} current={flowStatus} failed={order.status === "INCIDENT" || order.status === "RETURNED_TO_SUPPLIER" || order.status === "CANCELLED"} />
       </div>

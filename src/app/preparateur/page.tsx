@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Boxes, CalendarOff, CheckCircle2, Headset, MapPin, PackageCheck, PackageOpen, Ruler, Siren, Truck, Users, Warehouse, Hourglass } from "lucide-react";
+import { ArrowRight, Boxes, CalendarOff, Camera, CheckCircle2, Headset, MapPin, PackageCheck, PackageOpen, Ruler, Siren, Timer, Truck, Users, Warehouse, Hourglass } from "lucide-react";
+import { db } from "@/server/db";
 import { requirePreparer } from "@/server/auth/current";
 import { getPreparerDashboard } from "@/server/services/stats";
 import { getTodayLists } from "@/server/queries/preparer";
@@ -16,8 +17,15 @@ export const metadata: Metadata = { title: "Tableau de bord préparateur" };
 
 export default async function PreparerDashboardPage() {
   const actor = await requirePreparer();
-  const [stats, today] = await Promise.all([getPreparerDashboard(actor.preparerId), getTodayLists(actor.preparerId)]);
   const now = new Date();
+  const [stats, today, me, late] = await Promise.all([
+    getPreparerDashboard(actor.preparerId),
+    getTodayLists(actor.preparerId),
+    db.user.findUniqueOrThrow({ where: { id: actor.userId }, select: { avatarFileId: true } }),
+    db.outboundShipment.count({
+      where: { preparerId: actor.preparerId, dueAt: { lt: now }, status: { in: ["REQUESTED", "AWAITING_CLASSIFICATION", "CLASSIFIED", "PREPARING", "READY", "LABEL_READY"] } },
+    }),
+  ]);
   const currentAbsence = today.absences.find((a) => a.startsAt <= now && a.endsAt >= now);
   const upcoming = today.absences.filter((a) => a.startsAt > now);
 
@@ -42,6 +50,29 @@ export default async function PreparerDashboardPage() {
         }
       />
 
+      {!me.avatarFileId && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-brand/30 bg-brand-soft p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-start gap-2 text-sm">
+            <Camera className="mt-0.5 size-4 shrink-0 text-brand" />
+            <span>
+              <span className="font-semibold">Ajoutez votre photo de profil.</span> Vos clients la voient dans leur espace, sur la page « Mon préparateur » et dans la messagerie.
+            </span>
+          </p>
+          <Button asChild size="sm">
+            <Link href="/preparateur/parametres">Ajouter ma photo</Link>
+          </Button>
+        </div>
+      )}
+
+      {late > 0 && (
+        <Link
+          href="/preparateur/expeditions"
+          className="flex items-center gap-2 rounded-2xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm font-medium text-danger"
+        >
+          <Timer className="size-4 shrink-0" /> {late} expédition{late > 1 ? "s" : ""} hors du délai de 48 h : à déposer en priorité.
+        </Link>
+      )}
+
       {(currentAbsence || upcoming.length > 0) && (
         <div className="flex flex-col gap-1 rounded-2xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-center gap-2 font-medium">
@@ -62,7 +93,7 @@ export default async function PreparerDashboardPage() {
         <StatCard label="Colis à réceptionner" value={stats.toReceive} icon={PackageCheck} tone={stats.toReceive ? "brand" : "default"} href="/preparateur/receptions?groupe=receptionner" />
         <StatCard label="Articles stockés" value={stats.storedUnits} icon={Warehouse} href="/preparateur/stock" />
         <StatCard label="Expéditions en attente" value={stats.awaiting} icon={Hourglass} tone={stats.awaiting ? "warning" : "default"} hint="Classification ou crédits" href="/preparateur/expeditions" />
-        <StatCard label="Colis à préparer" value={stats.toPrepare} icon={PackageOpen} tone={stats.toPrepare ? "brand" : "default"} href="/preparateur/expeditions?groupe=preparer" />
+        <StatCard label="Colis à préparer" value={stats.toPrepare} icon={PackageOpen} tone={stats.toPrepare ? "brand" : "default"} href="/preparateur/expeditions" />
         <StatCard label="Expéditions terminées" value={stats.done} icon={CheckCircle2} tone="success" hint="30 derniers jours" href="/preparateur/expeditions?groupe=expediees" />
         <StatCard label="Incidents ouverts" value={stats.incidents} icon={Siren} tone={stats.incidents ? "danger" : "default"} href="/preparateur/incidents" />
       </div>
@@ -149,7 +180,7 @@ export default async function PreparerDashboardPage() {
           description="Crédits réservés, prêtes à partir."
           actions={
             <Button asChild variant="ghost" size="sm">
-              <Link href="/preparateur/expeditions?groupe=preparer">
+              <Link href="/preparateur/expeditions">
                 Tout voir <ArrowRight />
               </Link>
             </Button>

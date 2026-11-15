@@ -22,12 +22,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function LegalPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   if (!isSlug(slug)) notFound();
-  const [legal, support, credits, assignment, messaging, sizeRules] = await Promise.all([
+  const [legal, support, credits, assignment, messaging, storage, shipping, sizeRules] = await Promise.all([
     getSetting("legal"),
     getSetting("support"),
     getSetting("credits"),
     getSetting("assignment"),
     getSetting("messaging"),
+    getSetting("storage"),
+    getSetting("shipping"),
     db.parcelSizeRule.findMany({ orderBy: { sortOrder: "asc" }, select: { label: true, creditCost: true } }),
   ]);
   const doc = LEGAL_DOCS[slug];
@@ -75,6 +77,8 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
                 credits,
                 slaHours: assignment.slaHours,
                 supervisionMinutes: messaging.supervisionMinutes,
+                storage,
+                shippingHours: shipping.slaHours,
                 appUrl: env.appUrl,
                 sizes: sizeRules,
               }}

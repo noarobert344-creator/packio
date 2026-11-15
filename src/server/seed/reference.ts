@@ -7,63 +7,32 @@ import { SYSTEM_ROLES } from "@/server/auth/permissions";
  * Ce module est idempotent : il ne remplace jamais une valeur déjà éditée.
  */
 
-/** Formule annuelle : 10 mois facturés, 2 mois offerts. */
+/** Formule annuelle : 11 mois facturés, 1 mois offert. */
+const plan = (code: string, name: string, tagline: string, priceCents: number, monthlyCredits: number, storageLimit: number, highlighted: boolean, sortOrder: number) => ({
+  code,
+  name,
+  tagline,
+  priceCents,
+  annualPriceCents: priceCents * 11,
+  monthlyCredits,
+  storageLimit,
+  highlighted,
+  sortOrder,
+  features: [
+    `${monthlyCredits} crédits de préparation par mois`,
+    "Préparateur de commandes attitré",
+    `${storageLimit} articles en stock en même temps`,
+    "Colis expédiés sous 48 h",
+    "Suivi des commandes, du stock et des expéditions",
+    "Messagerie directe avec votre préparateur",
+  ],
+});
+
 export const DEFAULT_PLANS = [
-  {
-    code: "STARTER",
-    name: "Starter",
-    tagline: "Pour lancer votre activité sans gérer un seul colis.",
-    priceCents: 2990,
-    annualPriceCents: 29900,
-    monthlyCredits: 20,
-    storageLimit: 50,
-    highlighted: false,
-    sortOrder: 1,
-    features: [
-      "20 crédits de préparation par mois",
-      "Préparateur de commandes attitré",
-      "Stockage jusqu'à 50 articles",
-      "Suivi des commandes, du stock et des expéditions",
-      "Messagerie directe avec votre préparateur",
-    ],
-  },
-  {
-    code: "PRO",
-    name: "Pro",
-    tagline: "Pour les vendeurs réguliers qui expédient chaque semaine.",
-    priceCents: 6990,
-    annualPriceCents: 69900,
-    monthlyCredits: 55,
-    storageLimit: 200,
-    highlighted: true,
-    sortOrder: 2,
-    features: [
-      "55 crédits de préparation par mois",
-      "Préparateur de commandes attitré",
-      "Stockage jusqu'à 200 articles",
-      "Suivi des commandes, du stock et des expéditions",
-      "Messagerie directe avec votre préparateur",
-    ],
-  },
-  {
-    code: "BUSINESS",
-    name: "Business",
-    tagline: "Pour les boutiques à fort volume.",
-    priceCents: 12990,
-    annualPriceCents: 129900,
-    monthlyCredits: 120,
-    storageLimit: 600,
-    highlighted: false,
-    sortOrder: 3,
-    features: [
-      "120 crédits de préparation par mois",
-      "Préparateur de commandes attitré",
-      "Stockage jusqu'à 600 articles",
-      "Suivi des commandes, du stock et des expéditions",
-      "Messagerie directe avec votre préparateur",
-    ],
-  },
-] as const;
+  plan("STARTER", "Starter", "Pour lancer votre activité sans gérer un seul colis.", 3900, 20, 10, false, 1),
+  plan("PRO", "Pro", "Pour les vendeurs réguliers qui expédient chaque semaine.", 7900, 50, 25, true, 2),
+  plan("BUSINESS", "Business", "Pour les boutiques à fort volume.", 15900, 90, 60, false, 3),
+];
 
 export const DEFAULT_SIZE_RULES = [
   { size: "SMALL" as const, label: "Petit colis", description: "Vêtement plié, accessoire, petit objet.", creditCost: 1, maxLengthCm: 35, maxWidthCm: 25, maxHeightCm: 10, maxWeightGrams: 1000, sortOrder: 0 },
@@ -73,10 +42,10 @@ export const DEFAULT_SIZE_RULES = [
 
 /** Recharges de crédits supplémentaires : 10, 30, 50 ou 100 (prix modifiables par l'admin). */
 export const DEFAULT_CREDIT_PACKS = [
-  { name: "10 crédits", credits: 10, priceCents: 1990, sortOrder: 1 },
-  { name: "30 crédits", credits: 30, priceCents: 5490, sortOrder: 2 },
-  { name: "50 crédits", credits: 50, priceCents: 8490, sortOrder: 3 },
-  { name: "100 crédits", credits: 100, priceCents: 15990, sortOrder: 4 },
+  { name: "10 crédits", credits: 10, priceCents: 2490, sortOrder: 1 },
+  { name: "30 crédits", credits: 30, priceCents: 6990, sortOrder: 2 },
+  { name: "50 crédits", credits: 50, priceCents: 10990, sortOrder: 3 },
+  { name: "100 crédits", credits: 100, priceCents: 19900, sortOrder: 4 },
 ];
 
 const ALL: LocationType[] = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT"];
@@ -149,7 +118,7 @@ export async function seedReferenceData(db: PrismaClient) {
     });
   }
   for (const plan of DEFAULT_PLANS) {
-    await db.plan.upsert({ where: { code: plan.code }, create: { ...plan, features: [...plan.features] }, update: {} });
+    await db.plan.upsert({ where: { code: plan.code }, create: plan, update: {} });
   }
   for (const rule of DEFAULT_SIZE_RULES) {
     await db.parcelSizeRule.upsert({ where: { size: rule.size }, create: rule, update: {} });

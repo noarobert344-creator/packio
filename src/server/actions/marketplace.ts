@@ -1,0 +1,55 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import type { ActionState } from "@/lib/action-types";
+import { formToObject, runAction } from "@/server/action";
+import { createExtensionToken, ignoreSale, linkListingToItem, matchSaleToItem, revokeExtensionToken } from "@/server/services/marketplace";
+
+const id = z.string().min(1).max(40);
+
+/** Crée un jeton de l'extension : sa valeur n'est affichée qu'une fois. */
+export async function createExtensionTokenAction(_prev: ActionState<{ token: string }>, formData: FormData): Promise<ActionState<{ token: string }>> {
+  return runAction(z.object({ label: z.string().max(60).optional() }), formToObject(formData), async (actor, data) => {
+    const { token } = await createExtensionToken(actor, data.label ?? "");
+    revalidatePath("/client/ventes");
+    return { ok: true, message: "Jeton créé : copiez-le maintenant, il ne sera plus affiché.", data: { token } };
+  });
+}
+
+export async function revokeExtensionTokenAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(z.object({ tokenId: id }), formToObject(formData), async (actor, data) => {
+    await revokeExtensionToken(actor, data.tokenId);
+    revalidatePath("/client/ventes");
+    return { ok: true, message: "Jeton révoqué : l'extension qui l'utilisait est déconnectée." };
+  });
+}
+
+export async function linkListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(z.object({ listingId: id, itemId: z.string().max(40).optional() }), formToObject(formData), async (actor, data) => {
+    const { shipments } = await linkListingToItem(actor, { listingId: data.listingId, itemId: data.itemId || null });
+    revalidatePath("/client/ventes");
+    revalidatePath("/client/stock", "layout");
+    return {
+      ok: true,
+      message: !data.itemId ? "Annonce détachée de l'article." : shipments ? `Annonce rattachée : ${shipments} expédition(s) créée(s) pour les ventes en attente.` : "Annonce rattachée à l'article.",
+    };
+  });
+}
+
+export async function matchSaleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(z.object({ saleId: id, itemId: id }), formToObject(formData), async (actor, data) => {
+    await matchSaleToItem(actor, data);
+    revalidatePath("/client/ventes");
+    revalidatePath("/client/expeditions");
+    return { ok: true, message: "Vente associée : l'expédition a été transmise à votre préparateur." };
+  });
+}
+
+export async function ignoreSaleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(z.object({ saleId: id }), formToObject(formData), async (actor, data) => {
+    await ignoreSale(actor, data.saleId);
+    revalidatePath("/client/ventes");
+    return { ok: true, message: "Vente ignorée." };
+  });
+}

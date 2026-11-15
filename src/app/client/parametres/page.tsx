@@ -3,11 +3,12 @@ import { Download, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { ActionDialog } from "@/components/shared/action-dialog";
-import { TextAreaField } from "@/components/shared/form-field";
+import { SelectField, TextAreaField, TextField } from "@/components/shared/form-field";
+import { ActionForm, SubmitButton } from "@/components/shared/action-form";
 import { NotificationPreferencesForm, PasswordForm, ProfileForm, SettingsNav } from "@/components/settings/account-forms";
 import { requireCustomer } from "@/server/auth/current";
 import { loadNotificationPreferenceRows, loadProfile } from "@/server/settings-page";
-import { requestAccountDeletionAction } from "@/server/actions/customer";
+import { requestAccountDeletionAction, updateReturnAddressAction } from "@/server/actions/customer";
 import { db } from "@/server/db";
 import { oneOf, type SearchParams } from "@/lib/params";
 
@@ -23,15 +24,49 @@ const TABS = [
 export default async function ClientSettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const actor = await requireCustomer();
   const tab = oneOf((await searchParams).onglet, TABS.map((t) => t.key)) ?? "profil";
-  const customer = await db.customerProfile.findUniqueOrThrow({ where: { id: actor.customerId }, select: { referenceCode: true } });
+  const customer = await db.customerProfile.findUniqueOrThrow({ where: { id: actor.customerId } });
   return (
     <div>
       <PageHeader title="Paramètres" description={`Compte client ${customer.referenceCode}`} />
       <SettingsNav tabs={[...TABS]} current={tab} basePath="/client/parametres" />
       {tab === "profil" && (
-        <Section title="Profil">
-          <ProfileForm user={await loadProfile(actor)} showCompany />
-        </Section>
+        <div className="space-y-6">
+          <Section title="Profil">
+            <ProfileForm user={await loadProfile(actor)} showCompany />
+          </Section>
+          <div id="retour" className="scroll-mt-24">
+            <Section title="Adresse de retour" description="Adresse à laquelle votre préparateur vous renvoie vos articles quand vous demandez un retour à domicile.">
+              <ActionForm action={updateReturnAddressAction} className="grid max-w-2xl gap-4 sm:grid-cols-2">
+                <TextField name="returnName" label="Nom" required autoComplete="name" defaultValue={customer.returnName ?? `${actor.firstName} ${actor.lastName}`} />
+                <TextField name="returnPhone" label="Téléphone" type="tel" autoComplete="tel" defaultValue={customer.returnPhone ?? ""} />
+                <TextField name="returnAddressLine1" label="Adresse" required autoComplete="address-line1" className="sm:col-span-2" defaultValue={customer.returnAddressLine1 ?? ""} />
+                <TextField name="returnAddressLine2" label="Complément d'adresse" autoComplete="address-line2" className="sm:col-span-2" defaultValue={customer.returnAddressLine2 ?? ""} />
+                <TextField name="returnPostalCode" label="Code postal" required autoComplete="postal-code" defaultValue={customer.returnPostalCode ?? ""} />
+                <TextField name="returnCity" label="Ville" required autoComplete="address-level2" defaultValue={customer.returnCity ?? ""} />
+                <SelectField
+                  name="returnCountry"
+                  label="Pays"
+                  required
+                  defaultValue={customer.returnCountry ?? "FR"}
+                  options={[
+                    { value: "FR", label: "France" },
+                    { value: "BE", label: "Belgique" },
+                    { value: "LU", label: "Luxembourg" },
+                    { value: "CH", label: "Suisse" },
+                    { value: "DE", label: "Allemagne" },
+                    { value: "ES", label: "Espagne" },
+                    { value: "IT", label: "Italie" },
+                    { value: "NL", label: "Pays-Bas" },
+                    { value: "PT", label: "Portugal" },
+                  ]}
+                />
+                <div className="flex items-end">
+                  <SubmitButton pendingLabel="Enregistrement…">Enregistrer l&apos;adresse</SubmitButton>
+                </div>
+              </ActionForm>
+            </Section>
+          </div>
+        </div>
       )}
       {tab === "securite" && (
         <Section title="Mot de passe" description="Le changement de mot de passe déconnecte vos autres sessions.">

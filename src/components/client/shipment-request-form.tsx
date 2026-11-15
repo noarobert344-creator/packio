@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ImageOff, Info } from "lucide-react";
+import Link from "next/link";
+import { Home, ImageOff, Info, ShoppingBag, Timer } from "lucide-react";
 import { ActionForm, SubmitButton, useFieldError } from "@/components/shared/action-form";
 import { SelectField, TextAreaField, TextField } from "@/components/shared/form-field";
 import { FileUploader } from "@/components/shared/file-uploader";
@@ -11,14 +12,45 @@ import { requestShipmentAction } from "@/server/actions/customer";
 
 type Item = { id: string; name: string; sku: string; available: number; photoId: string | null; storageLocation: string | null };
 
+export type ReturnAddress = {
+  name: string;
+  phone: string | null;
+  addressLine1: string;
+  addressLine2: string | null;
+  postalCode: string;
+  city: string;
+  country: string;
+} | null;
+
 function ItemsError() {
   const err = useFieldError("items");
   return err ? <p className="text-xs text-destructive">{err}</p> : null;
 }
 
-export function ShipmentRequestForm({ items, preselect, sizes, available }: { items: Item[]; preselect?: string; sizes: { label: string; creditCost: number; dims: string }[]; available: number }) {
-  const [selected, setSelected] = useState<Record<string, number>>(() => (preselect && items.some((i) => i.id === preselect) ? { [preselect]: 1 } : {}));
-  const [labelMode, setLabelMode] = useState<"CUSTOMER_PROVIDED" | "PREPARER_PROVIDED">("CUSTOMER_PROVIDED");
+export function ShipmentRequestForm({
+  items,
+  preselect,
+  sizes,
+  available,
+  returnAddress,
+  defaultKind = "SALE",
+  shippingHours,
+}: {
+  items: Item[];
+  preselect?: string;
+  sizes: { label: string; creditCost: number; dims: string }[];
+  available: number;
+  returnAddress: ReturnAddress;
+  defaultKind?: "SALE" | "RETURN_TO_CUSTOMER";
+  shippingHours: number;
+}) {
+  const [selected, setSelected] = useState<Record<string, number>>(() =>
+    preselect && items.some((i) => i.id === preselect) ? { [preselect]: defaultKind === "RETURN_TO_CUSTOMER" ? items.find((i) => i.id === preselect)!.available : 1 } : {},
+  );
+  const [kind, setKind] = useState<"SALE" | "RETURN_TO_CUSTOMER">(defaultKind);
+  const [labelMode, setLabelMode] = useState<"CUSTOMER_PROVIDED" | "PREPARER_PROVIDED">(defaultKind === "RETURN_TO_CUSTOMER" ? "PREPARER_PROVIDED" : "CUSTOMER_PROVIDED");
+  const isReturn = kind === "RETURN_TO_CUSTOMER";
+  const prefill = isReturn ? returnAddress : null;
   const count = Object.values(selected).reduce((s, n) => s + n, 0);
 
   return (
@@ -83,18 +115,54 @@ export function ShipmentRequestForm({ items, preselect, sizes, available }: { it
 
         <fieldset className="space-y-4">
           <legend className="mb-2 text-base font-semibold">2. Destinataire</legend>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TextField name="recipientName" label="Nom du destinataire" required autoComplete="name" />
+          <input type="hidden" name="kind" value={kind} />
+          <div role="radiogroup" aria-label="Type d'envoi" className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                ["SALE", ShoppingBag, "Envoyer à un acheteur", "Vente sur Vinted, Vestiaire Collective ou ailleurs."],
+                ["RETURN_TO_CUSTOMER", Home, "Me renvoyer les articles", "Retour à votre domicile par votre préparateur."],
+              ] as const
+            ).map(([value, Icon, title, text]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={kind === value}
+                onClick={() => {
+                  setKind(value);
+                  if (value === "RETURN_TO_CUSTOMER") setLabelMode("PREPARER_PROVIDED");
+                }}
+                className={cn("flex gap-3 rounded-xl border p-3.5 text-left", kind === value ? "border-brand bg-brand-soft/40" : "hover:bg-muted/40")}
+              >
+                <Icon className={cn("mt-0.5 size-4 shrink-0", kind === value ? "text-brand" : "text-muted-foreground")} />
+                <span>
+                  <span className="block text-sm font-medium">{title}</span>
+                  <span className="text-xs text-muted-foreground">{text}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+          {isReturn && !returnAddress && (
+            <p className="rounded-xl bg-info-soft p-3 text-xs text-info">
+              Astuce : enregistrez votre adresse de retour dans{" "}
+              <Link href="/client/parametres#retour" className="font-medium underline underline-offset-2">
+                Paramètres
+              </Link>{" "}
+              pour qu&apos;elle soit pré-remplie.
+            </p>
+          )}
+          <div key={kind} className="grid gap-4 sm:grid-cols-2">
+            <TextField name="recipientName" label={isReturn ? "Votre nom" : "Nom du destinataire"} required autoComplete="name" defaultValue={prefill?.name} />
             <TextField name="recipientCompany" label="Société" placeholder="Facultatif" />
-            <TextField name="addressLine1" label="Adresse" required autoComplete="address-line1" className="sm:col-span-2" />
-            <TextField name="addressLine2" label="Complément d'adresse" autoComplete="address-line2" className="sm:col-span-2" />
-            <TextField name="postalCode" label="Code postal" required autoComplete="postal-code" />
-            <TextField name="city" label="Ville" required autoComplete="address-level2" />
+            <TextField name="addressLine1" label="Adresse" required autoComplete="address-line1" className="sm:col-span-2" defaultValue={prefill?.addressLine1} />
+            <TextField name="addressLine2" label="Complément d'adresse" autoComplete="address-line2" className="sm:col-span-2" defaultValue={prefill?.addressLine2 ?? undefined} />
+            <TextField name="postalCode" label="Code postal" required autoComplete="postal-code" defaultValue={prefill?.postalCode} />
+            <TextField name="city" label="Ville" required autoComplete="address-level2" defaultValue={prefill?.city} />
             <SelectField
               name="country"
               label="Pays"
               required
-              defaultValue="FR"
+              defaultValue={prefill?.country ?? "FR"}
               options={[
                 { value: "FR", label: "France" },
                 { value: "BE", label: "Belgique" },
@@ -107,7 +175,7 @@ export function ShipmentRequestForm({ items, preselect, sizes, available }: { it
                 { value: "PT", label: "Portugal" },
               ]}
             />
-            <TextField name="recipientPhone" label="Téléphone" type="tel" placeholder="Recommandé pour les points relais" />
+            <TextField name="recipientPhone" label="Téléphone" type="tel" placeholder="Recommandé pour les points relais" defaultValue={prefill?.phone ?? undefined} />
             <TextField name="recipientEmail" label="E-mail" type="email" placeholder="Facultatif" className="sm:col-span-2" />
           </div>
         </fieldset>
@@ -178,6 +246,9 @@ export function ShipmentRequestForm({ items, preselect, sizes, available }: { it
           <p className="text-muted-foreground">
             Solde disponible : <span className="font-medium text-foreground">{available} crédit(s)</span>. Les crédits sont réservés à la classification et débités au dépôt chez le transporteur.
           </p>
+          <p className="flex items-center gap-1.5 font-medium">
+            <Timer className="size-3.5 text-brand" /> Expédition sous {shippingHours} h après votre demande
+          </p>
           {available < 3 && (
             <a href="/client/credits#recharger" className="inline-flex font-medium text-brand underline-offset-2 hover:underline">
               Acheter des crédits supplémentaires
@@ -185,7 +256,7 @@ export function ShipmentRequestForm({ items, preselect, sizes, available }: { it
           )}
         </div>
         <SubmitButton className="h-10 w-full" disabled={count === 0} pendingLabel="Envoi de la demande…">
-          Demander l&apos;expédition
+          {isReturn ? "Demander le retour" : "Demander l'expédition"}
         </SubmitButton>
       </aside>
     </ActionForm>

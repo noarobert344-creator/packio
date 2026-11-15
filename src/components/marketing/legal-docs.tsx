@@ -15,7 +15,20 @@ export type LegalContext = {
   supervisionMinutes: number;
   appUrl: string;
   sizes: { label: string; creditCost: number }[];
+  storage: Settings["storage"];
+  /** Délai d'expédition promis (heures). */
+  shippingHours: number;
 };
+
+/** Durée lisible : 14 → « 2 semaines », 30 → « 30 jours ». */
+function days(n: number) {
+  if (n % 7 === 0) return `${n / 7} semaine${n / 7 > 1 ? "s" : ""}`;
+  return `${n} jour${n > 1 ? "s" : ""}`;
+}
+
+function creditsLabel(n: number) {
+  return `${n} crédit${n > 1 ? "s" : ""}`;
+}
 
 export function Fill({ value, label }: { value?: string | null; label?: string }) {
   if (value && value.trim()) return <>{value}</>;
@@ -122,39 +135,51 @@ export function Cgu({ ctx }: { ctx: LegalContext }) {
       <p>
         Le Client déclare ses achats dans son espace et les fait livrer exclusivement aux points de réception validés de son préparateur, en reprenant le nom de
         destinataire et le code client indiqués. Packio vérifie la compatibilité déclarée entre fournisseur et type de point de réception, mais les options de
-        livraison proposées restent sous la responsabilité de chaque fournisseur. Pour les lockers, le Client transmet le code de retrait reçu.
+        livraison proposées restent sous la responsabilité de chaque fournisseur. Pour les lockers, le Client transmet le code de retrait reçu. Une commande peut
+        être déclarée en dropshipping lorsque l&apos;article est déjà vendu : il est alors expédié à l&apos;acheteur dès sa réception, sans entrer dans le stock.
       </p>
       <h2>5. Stock</h2>
       <p>
-        Les articles réceptionnés sont contrôlés, photographiés si possible et enregistrés dans le stock du Client avec une référence interne et un emplacement. Tout
-        mouvement (réception, réservation, expédition, perte, casse, inventaire) est historisé et ne peut être effacé. Les limites de stockage dépendent de
-        l&apos;offre souscrite. Sont interdits : produits illicites, dangereux, contrefaits, périssables, animaux, armes, substances réglementées, et tout article
-        dont le transport est restreint.
+        Les articles réceptionnés sont contrôlés, photographiés si possible et enregistrés dans le stock du Client avec une référence interne et un emplacement. Les
+        photos réalisées par le Préparateur sont mises à la disposition du Client, qui peut les télécharger pour ses propres annonces. Tout mouvement (réception,
+        réservation, expédition, perte, casse, inventaire) est historisé et ne peut être effacé. Le nombre de places et la durée de stockage dépendent de
+        l&apos;offre souscrite et des conditions générales de vente. Sont interdits : produits illicites, dangereux, contrefaits, périssables, animaux, armes,
+        substances réglementées, et tout article dont le transport est restreint.
       </p>
       <h2>6. Expéditions, classification et crédits</h2>
       <p>
-        Le Client demande l&apos;expédition d&apos;articles en stock. Seul le Préparateur détermine la catégorie réelle du colis ({ctx.sizes.map((s) => s.label.toLowerCase()).join(", ")}),
-        selon les règles fixées par Packio. Le coût en crédits correspondant est réservé à la classification puis définitivement débité au dépôt du colis chez le
-        transporteur. Toute classification peut être contestée depuis la fiche de l&apos;expédition. Les frais de transport sont distincts des crédits de préparation.
+        Le Client demande l&apos;expédition d&apos;articles en stock, à un acheteur ou à sa propre adresse (retour à domicile). Seul le Préparateur détermine la catégorie
+        réelle du colis ({ctx.sizes.map((s) => s.label.toLowerCase()).join(", ")}), selon les règles fixées par Packio. Le coût en crédits correspondant est réservé
+        à la classification puis définitivement débité au dépôt du colis chez le transporteur. Toute classification peut être contestée depuis la fiche de
+        l&apos;expédition. Le Préparateur s&apos;engage à déposer le colis dans les {ctx.shippingHours} heures suivant la demande, dans les conditions prévues par les
+        conditions générales de vente. Les frais de transport sont distincts des crédits de préparation.
       </p>
-      <h2>7. Messagerie</h2>
+      <h2>7. Comptes de vente liés (Packio Connect)</h2>
+      <p>
+        Le Client peut installer l&apos;extension de navigateur Packio Connect et la relier à son espace au moyen d&apos;un jeton personnel, révocable à tout moment.
+        L&apos;extension utilise les sessions déjà ouvertes par le Client sur ses propres comptes Vinted et Vestiaire Collective pour transmettre à Packio ses
+        annonces, ses ventes et les bordereaux d&apos;expédition correspondants. Elle ne transmet ni identifiant ni mot de passe. Ces plateformes ne proposent pas
+        d&apos;accès officiel : le service est fourni en version bêta, sans garantie de continuité, et le Client reste seul responsable du respect des conditions
+        d&apos;utilisation des plateformes sur lesquelles il vend. Il ne doit relier que des comptes dont il est titulaire.
+      </p>
+      <h2>8. Messagerie</h2>
       <p>
         Une conversation privée est ouverte entre le Client et son Préparateur. L&apos;équipe Packio n&apos;y accède que pour un besoin de support, avec un motif
         obligatoire, pour une durée limitée ({ctx.supervisionMinutes} minutes par accès) ; chaque accès est journalisé et signalé aux participants par un message
         visible dans la conversation. Les échanges doivent rester courtois et liés au service ; tout contenu illicite ou abusif peut entraîner la suspension du compte.
       </p>
-      <h2>8. Incidents</h2>
+      <h2>9. Incidents</h2>
       <p>
         Colis abîmé, manquant, non conforme ou problème de transport : l&apos;incident est déclaré depuis la plateforme, avec photos si possible, et suivi jusqu&apos;à
         sa résolution par l&apos;équipe Packio.
       </p>
-      <h2>9. Suspension et clôture</h2>
+      <h2>10. Suspension et clôture</h2>
       <p>
         Packio peut suspendre un compte en cas de manquement grave aux présentes CGU, d&apos;impayé ou de risque pour la sécurité, après information de
         l&apos;utilisateur sauf urgence. L&apos;utilisateur peut demander la clôture de son compte au support ; ses données sont alors anonymisées dans les conditions
         prévues par la politique de confidentialité, après restitution du stock éventuel.
       </p>
-      <h2>10. Évolution et droit applicable</h2>
+      <h2>11. Évolution et droit applicable</h2>
       <p>
         Les CGU peuvent évoluer ; la version en vigueur est celle publiée sur le site. Elles sont soumises au droit français. Contact : <ContactEmail ctx={ctx} />.
       </p>
@@ -199,7 +224,10 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
       </p>
       <h2>5. Crédits</h2>
       <ul>
-        <li>Un crédit rémunère la réception, le stockage et la préparation des colis ; il n&apos;a pas de valeur monétaire et n&apos;est ni cessible ni remboursable.</li>
+        <li>
+          Un crédit rémunère la réception, le stockage et la préparation des colis, ainsi que les prolongations de stockage et les places supplémentaires (article 6) ;
+          il n&apos;a pas de valeur monétaire et n&apos;est ni cessible ni remboursable.
+        </li>
         <li>
           Coût par colis selon la catégorie déterminée par le préparateur : {ctx.sizes.map((s) => `${s.label.toLowerCase()} ${s.creditCost} crédit${s.creditCost > 1 ? "s" : ""}`).join(", ")}.
         </li>
@@ -213,12 +241,74 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
         </li>
         <li>Si le solde est insuffisant, l&apos;expédition reste en attente et reprend automatiquement après recharge.</li>
       </ul>
-      <h2>6. Frais de transport</h2>
+      <h2>6. Stockage</h2>
+      <ul>
+        <li>
+          Chaque offre inclut un nombre de places, c&apos;est-à-dire d&apos;articles stockés en même temps chez le Préparateur, indiqué sur la page Tarifs. Sont pris en
+          compte les articles en stock et ceux des commandes en cours d&apos;acheminement vers le Préparateur.
+        </li>
+        <li>
+          Des places supplémentaires peuvent être ajoutées avec des crédits : 1 crédit donne droit à {ctx.storage.slotsPerCredit} places pendant{" "}
+          {days(ctx.storage.extraSlotsDays)} à compter de leur ajout.
+        </li>
+        <li>
+          Lorsqu&apos;une commande déclarée dépasse les places disponibles, le nombre de crédits nécessaires pour les places manquantes est indiqué au Client avant
+          l&apos;enregistrement ; ils ne sont débités qu&apos;avec son accord exprès. À défaut d&apos;accord ou de solde suffisant, la commande n&apos;est pas enregistrée.
+        </li>
+        <li>
+          Chaque article bénéficie de {days(ctx.storage.includedDays)} de stockage incluses à compter de sa mise en stock.
+          {ctx.storage.extensionCredits > 0 ? (
+            <>
+              {" "}
+              Au-delà, la durée est prolongée par périodes de {days(ctx.storage.extensionDays)}, au prix de {creditsLabel(ctx.storage.extensionCredits)} par article
+              et par période, prélevé automatiquement à l&apos;échéance.
+              {ctx.storage.reminderDaysBefore > 0 ? ` Le Client en est informé ${days(ctx.storage.reminderDaysBefore)} avant.` : ""}
+            </>
+          ) : (
+            <> Au-delà, la durée est prolongée par périodes de {days(ctx.storage.extensionDays)}, sans frais.</>
+          )}
+        </li>
+        <li>
+          Si le solde de crédits est insuffisant à l&apos;échéance, l&apos;article est signalé « en dépassement » et la prolongation est prélevée dès que des crédits
+          sont disponibles. Le Client peut à tout moment faire expédier l&apos;article ou demander son retour à domicile. Un dépassement prolongé et non régularisé
+          peut conduire Packio à organiser la restitution de l&apos;article aux frais du Client, après relance restée sans effet.
+        </li>
+        <li>Les articles commandés en dropshipping (article 8) n&apos;occupent aucune place et ne sont pas soumis à la durée de stockage.</li>
+      </ul>
+      <h2>7. Expéditions, délai et retours</h2>
+      <p>
+        Le Préparateur s&apos;engage à déposer chaque colis chez le transporteur dans les {ctx.shippingHours} heures suivant la demande d&apos;expédition. Ce délai est
+        suspendu tant que l&apos;expédition est en attente de crédits (il repart à la réservation des crédits), ainsi qu&apos;en cas d&apos;incident sur le colis, de
+        demande d&apos;information au Client, de fermeture du transporteur ou de force majeure. Il s&apos;agit d&apos;un engagement de moyens : son dépassement est signalé
+        au Préparateur et à Packio, qui interviennent, mais n&apos;ouvre pas droit à indemnisation automatique. Les délais d&apos;acheminement du transporteur
+        s&apos;ajoutent à ce délai.
+      </p>
+      <p>
+        Le Client peut demander le retour d&apos;articles à sa propre adresse. Le retour est préparé comme une expédition : il consomme les mêmes crédits de
+        préparation, selon la catégorie du colis, et les frais de transport restent à la charge du Client.
+      </p>
+      <h2>8. Dropshipping</h2>
+      <p>
+        Lorsqu&apos;un article est déjà vendu, le Client peut le commander auprès de son fournisseur en livraison vers le Préparateur et déclarer la commande en
+        dropshipping, avec le bordereau d&apos;expédition de la vente ou l&apos;adresse de l&apos;acheteur. À la réception, le Préparateur contrôle l&apos;article et
+        l&apos;expédie à l&apos;acheteur dans le délai prévu à l&apos;article 7 ; les crédits de préparation s&apos;appliquent selon la catégorie du colis. Le Client reste
+        le vendeur : il est seul responsable de la relation avec son acheteur (description, délais annoncés, retours, litiges), de l&apos;exactitude du bordereau
+        et des informations transmises, ainsi que du respect des règles de la plateforme de vente.
+      </p>
+      <h2>9. Packio Connect</h2>
+      <p>
+        L&apos;extension Packio Connect, proposée en version bêta et sans supplément, transmet à Packio, à la demande du Client et avec son consentement, les annonces,
+        ventes et bordereaux issus de ses propres comptes Vinted et Vestiaire Collective, afin de créer automatiquement les expéditions correspondantes. Elle ne
+        transmet aucun identifiant ni mot de passe et peut être déconnectée à tout moment depuis l&apos;espace client. Son fonctionnement dépend de services tiers
+        susceptibles d&apos;évoluer sans préavis : Packio ne garantit pas sa disponibilité continue. Le Client vérifie les expéditions créées et reste responsable du
+        respect des conditions d&apos;utilisation des plateformes concernées.
+      </p>
+      <h2>10. Frais de transport</h2>
       <p>
         Les frais d&apos;affranchissement ne sont pas inclus dans les crédits. Le Client fournit son étiquette d&apos;expédition, ou les frais de transport lui sont indiqués et
         facturés séparément.
       </p>
-      <h2>7. Changement d&apos;offre et résiliation</h2>
+      <h2>11. Changement d&apos;offre et résiliation</h2>
       <p>
         Aucun changement n&apos;est facturé au prorata. Le passage à une offre moins chère, dans la même formule, prend effet au renouvellement suivant, avec le
         nouveau prix et les crédits de la nouvelle offre. Le passage à une offre plus chère, ou de la formule mensuelle à la formule annuelle, est immédiat : la
@@ -229,22 +319,23 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
       </p>
       <p>
         La formule mensuelle est sans engagement. La formule annuelle engage le Client pour la période de 12 mois payée. Dans les deux cas, la résiliation (arrêt du
-        renouvellement automatique) prend effet à la fin de la période payée, sans remboursement de la période en cours ni des crédits consommés. Le stock est alors
-        restitué au Client selon des modalités convenues avec le support (frais de transport à sa charge).
+        renouvellement automatique) prend effet à la fin de la période payée, sans remboursement de la période en cours ni des crédits consommés, ni des
+        prolongations de stockage et places supplémentaires déjà utilisées. Le stock est alors restitué au Client selon des modalités convenues avec le support
+        (frais de transport à sa charge).
       </p>
-      <h2>8. Droit de rétractation</h2>
+      <h2>12. Droit de rétractation</h2>
       <p>
         Pour les Clients consommateurs, le droit de rétractation de 14 jours s&apos;applique ; en demandant l&apos;exécution du service avant la fin de ce délai, le Client
         reconnaît que les prestations déjà exécutées (crédits consommés) restent dues. Les Clients professionnels ne bénéficient pas de ce droit.
       </p>
-      <h2>9. Responsabilité</h2>
+      <h2>13. Responsabilité</h2>
       <p>
         Packio s&apos;engage à mettre en œuvre les moyens nécessaires à la bonne exécution du service. Sa responsabilité ne saurait être engagée pour les retards,
         pertes ou avaries imputables aux fournisseurs ou aux transporteurs, ni pour le contenu des articles achetés par le Client. Les incidents survenus pendant la garde
         du préparateur sont traités au cas par cas, sur la base des photos et de l&apos;historique des mouvements. La responsabilité de Packio est limitée au montant
         payé par le Client au cours des trois derniers mois, sauf faute lourde ou dolosive.
       </p>
-      <h2>10. Réclamations et médiation</h2>
+      <h2>14. Réclamations et médiation</h2>
       <p>
         Toute réclamation peut être adressée à <ContactEmail ctx={ctx} />. Le Client consommateur peut recourir gratuitement au médiateur de la consommation :{" "}
         {ctx.legal.consumerMediator ? ctx.legal.consumerMediator : <Fill label="nom et coordonnées du médiateur" />}.
@@ -266,7 +357,15 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
       <ul>
         <li>Identité et contact : nom, prénom, adresse e-mail, téléphone, société.</li>
         <li>Compte : identifiants (mot de passe chiffré par hachage), journaux de connexion, préférences de notification.</li>
-        <li>Logistique : commandes déclarées, numéros de suivi, codes de retrait, articles en stock, photos, adresses des destinataires des expéditions.</li>
+        <li>
+          Logistique : commandes déclarées (y compris en dropshipping, avec l&apos;adresse de l&apos;acheteur lorsqu&apos;elle est fournie), numéros de suivi, codes de
+          retrait, articles en stock, photos, adresses des destinataires des expéditions et adresse de retour du Client.
+        </li>
+        <li>
+          Comptes de vente liés (extension Packio Connect, si vous l&apos;installez) : identifiant et pseudonyme de vos comptes Vinted et Vestiaire Collective,
+          annonces (titre, prix, lien, photo principale), ventes (date, article, prix, nom ou pseudonyme de l&apos;acheteur) et bordereaux d&apos;expédition. Aucun
+          mot de passe ni identifiant de connexion n&apos;est collecté.
+        </li>
         <li>Facturation : abonnement, paiements, factures (les données de carte sont traitées exclusivement par Whop et ses prestataires de paiement).</li>
         <li>Communications : messages échangés, pièces jointes, demandes de support et de contact, incidents.</li>
         <li>Préparateurs : informations professionnelles, adresses de réception, disponibilités, capacité.</li>
@@ -274,6 +373,10 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
       <h2>3. Finalités et bases légales</h2>
       <ul>
         <li>Fourniture du service (compte, attribution, commandes, stock, expéditions, messagerie) — exécution du contrat.</li>
+        <li>
+          Détection de vos ventes et préparation automatique des expéditions avec leur bordereau (Packio Connect) — exécution du contrat, à votre demande ;
+          vous pouvez déconnecter l&apos;extension et révoquer son jeton à tout moment.
+        </li>
         <li>Facturation, comptabilité, prévention de la fraude — obligation légale et intérêt légitime.</li>
         <li>Sécurité (journal d&apos;audit, limitation des tentatives de connexion) — intérêt légitime.</li>
         <li>Notifications de service par e-mail et dans l&apos;application — exécution du contrat (préférences modifiables).</li>
@@ -281,7 +384,10 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
       </ul>
       <h2>4. Destinataires et sous-traitants</h2>
       <ul>
-        <li>Votre préparateur attitré, uniquement pour les données nécessaires à l&apos;exécution du service.</li>
+        <li>
+          Votre préparateur attitré, uniquement pour les données nécessaires à l&apos;exécution du service (dont les bordereaux et adresses des expéditions qui lui
+          sont confiées).
+        </li>
         <li>L&apos;équipe Packio habilitée, selon des permissions par rôle.</li>
         <li>Whop — traitement des paiements, des abonnements et des reçus.</li>
         <li>
@@ -302,6 +408,10 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
       <h2>6. Durées de conservation</h2>
       <ul>
         <li>Données de compte et logistiques : durée de la relation contractuelle, puis 3 ans à des fins de preuve, sauf obligation légale contraire.</li>
+        <li>
+          Données des comptes de vente liés : tant que l&apos;extension est reliée et au plus pendant la relation contractuelle ; les ventes ayant donné lieu à une
+          expédition sont conservées comme les données logistiques.
+        </li>
         <li>Factures et pièces comptables : 10 ans.</li>
         <li>Journal d&apos;audit et registres de crédits et de stock : durée nécessaire à la preuve des opérations, au plus 5 ans après la clôture du compte.</li>
         <li>Demandes de contact sans suite : 3 ans.</li>
@@ -376,7 +486,7 @@ export function Cookies({ ctx }: { ctx: LegalContext }) {
 export const LEGAL_DOCS = {
   "mentions-legales": { title: "Mentions légales", description: "Informations sur l'éditeur et l'hébergeur de Packio.", Component: MentionsLegales },
   cgu: { title: "Conditions générales d'utilisation", description: "Règles d'utilisation de la plateforme Packio.", Component: Cgu },
-  cgv: { title: "Conditions générales de vente", description: "Abonnements, crédits, paiement et résiliation.", Component: Cgv },
+  cgv: { title: "Conditions générales de vente", description: "Abonnements, crédits, stockage, expéditions, paiement et résiliation.", Component: Cgv },
   confidentialite: { title: "Politique de confidentialité", description: "Comment Packio traite et protège vos données personnelles.", Component: Confidentialite },
   cookies: { title: "Politique relative aux cookies", description: "Les traceurs utilisés par Packio.", Component: Cookies },
 } as const;

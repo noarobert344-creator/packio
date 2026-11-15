@@ -15,12 +15,12 @@ describe("Formule annuelle", () => {
     await createAdmin();
   });
 
-  it("prix annuels par défaut : 10 mois facturés, 2 mois offerts", async () => {
+  it("prix annuels par défaut : 11 mois facturés, 1 mois offert", async () => {
     const plans = await db.plan.findMany({ orderBy: { sortOrder: "asc" } });
     expect(plans.map((p) => [p.code, p.annualPriceCents])).toEqual([
-      ["STARTER", 29900],
-      ["PRO", 69900],
-      ["BUSINESS", 129900],
+      ["STARTER", 42900],
+      ["PRO", 86900],
+      ["BUSINESS", 174900],
     ]);
   });
 
@@ -32,7 +32,7 @@ describe("Formule annuelle", () => {
     expect(sub.nextCreditGrantAt?.getTime()).toBe(addMonths(sub.creditAnchorAt!, 1).getTime());
     expect(sub.currentPeriodEnd!.getTime() - sub.currentPeriodStart!.getTime()).toBeGreaterThan(360 * 86_400_000);
     const payment = await db.payment.findFirstOrThrow({ where: { customerId, kind: "SUBSCRIPTION" } });
-    expect(payment.amountCents).toBe(29900);
+    expect(payment.amountCents).toBe(42900);
     expect((await wallet(customerId)).monthlyBalance).toBe(20);
   });
 
@@ -72,7 +72,7 @@ describe("Formule annuelle", () => {
     expect(after.creditAnchorAt?.getTime()).toBe(before.currentPeriodEnd?.getTime());
     expect(after.creditMonthsGranted).toBe(1);
     const last = await db.payment.findFirstOrThrow({ where: { customerId, kind: "SUBSCRIPTION" }, orderBy: { createdAt: "desc" } });
-    expect(last.amountCents).toBe(69900);
+    expect(last.amountCents).toBe(86900);
   });
 
   it("refuse la formule annuelle quand elle n'est pas proposée pour l'offre", async () => {
@@ -96,8 +96,8 @@ describe("Formule annuelle", () => {
       ["PRO", false, false],
     ]);
     expect((await getActiveSubscription(customerId))?.plan.code).toBe("PRO");
-    expect((await wallet(customerId)).monthlyBalance).toBe(75); // 20 Starter conservés + 55 Pro
-    expect((await listSubscriptions({ page: 1 })).kpis.mrrCents).toBe(6990);
+    expect((await wallet(customerId)).monthlyBalance).toBe(70); // 20 Starter conservés + 50 Pro
+    expect((await listSubscriptions({ page: 1 })).kpis.mrrCents).toBe(7900);
 
     // Fin de période de l'ancienne offre : pas d'avis de résiliation, le client reste actif.
     await devSimulateRenewal(customerId);
@@ -115,8 +115,8 @@ describe("Formule annuelle", () => {
     const primary = await getActiveSubscription(customerId);
     expect(primary?.billingInterval).toBe("YEARLY");
     const last = await db.payment.findFirstOrThrow({ where: { customerId, kind: "SUBSCRIPTION" }, orderBy: { createdAt: "desc" } });
-    expect(last.amountCents).toBe(69900);
-    expect((await listSubscriptions({ page: 1 })).kpis).toMatchObject({ mrrCents: 5825, yearly: 1 });
+    expect(last.amountCents).toBe(86900);
+    expect((await listSubscriptions({ page: 1 })).kpis).toMatchObject({ mrrCents: 7242, yearly: 1 });
 
     // Démonstration : la fin de l'année clôt aussi l'ancienne offre mensuelle, puis le client choisit le mensuel.
     const starter = await plan("STARTER");
@@ -132,11 +132,11 @@ describe("Formule annuelle", () => {
     await devCompleteSubscription(actor, business.id, "YEARLY", { change: true });
     const old = await db.subscription.findFirstOrThrow({ where: { customerId, supersededAt: { not: null } } });
     expect(old.nextCreditGrantAt).not.toBeNull();
-    expect((await wallet(customerId)).monthlyBalance).toBe(140); // 20 + 120
+    expect((await wallet(customerId)).monthlyBalance).toBe(110); // 20 + 90
 
     // Mois suivant : chaque formule verse ses crédits, sans faire expirer ceux de l'autre.
     expect((await grantDueAnnualCredits(addDays(new Date(), 32))).annualGrants).toBe(2);
-    expect((await wallet(customerId)).monthlyBalance).toBe(140);
+    expect((await wallet(customerId)).monthlyBalance).toBe(110);
   });
 
   it("baisse d'offre programmée au renouvellement, annulable avant l'échéance", async () => {
@@ -154,7 +154,7 @@ describe("Formule annuelle", () => {
     expect(sub.plan.code).toBe("STARTER");
     expect((await wallet(customerId)).monthlyBalance).toBe(20);
     const last = await db.payment.findFirstOrThrow({ where: { customerId, kind: "SUBSCRIPTION" }, orderBy: { createdAt: "desc" } });
-    expect(last.amountCents).toBe(2990);
+    expect(last.amountCents).toBe(3900);
   });
 
   it("passage de l'annuel au mensuel : à l'échéance, puis activation du mensuel en un clic", async () => {

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Boxes, ImageOff, Truck } from "lucide-react";
+import { Boxes, Hourglass, ImageOff, Truck } from "lucide-react";
 import type { Prisma } from "@/generated/prisma/client";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
@@ -10,7 +10,8 @@ import { FilterTabs, Pagination, SearchInput } from "@/components/shared/list-co
 import { requireSubscribedCustomer } from "@/server/customer-page";
 import { db } from "@/server/db";
 import { getActiveSubscription } from "@/server/services/customers";
-import { getStorageUsage } from "@/server/services/inventory";
+import { getStorageOverview } from "@/server/services/storage";
+import { StoragePanel } from "@/components/client/storage-panel";
 import { INVENTORY_STATUS } from "@/lib/labels";
 import { formatDate, fullName } from "@/lib/format";
 import { oneOf, one, parsePage, type SearchParams } from "@/lib/params";
@@ -28,7 +29,7 @@ export default async function StockPage({ searchParams }: { searchParams: Search
     status: status ?? { not: "ARCHIVED" },
     ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { sku: { contains: q, mode: "insensitive" } }, { supplierName: { contains: q, mode: "insensitive" } }] } : {}),
   };
-  const [items, total, usage, sub] = await Promise.all([
+  const [items, total, overview, sub] = await Promise.all([
     db.inventoryItem.findMany({
       where,
       orderBy: { receivedAt: "desc" },
@@ -37,10 +38,10 @@ export default async function StockPage({ searchParams }: { searchParams: Search
       include: { files: { where: { purpose: "PRODUCT_PHOTO", deletedAt: null }, take: 1, select: { id: true } }, preparer: { include: { user: { select: { firstName: true, lastName: true } } } } },
     }),
     db.inventoryItem.count({ where }),
-    getStorageUsage(customer.id),
+    getStorageOverview(customer.id),
     getActiveSubscription(customer.id),
   ]);
-  const limit = sub?.plan.storageLimit ?? null;
+  const now = new Date();
 
   return (
     <div className="space-y-6">
@@ -55,19 +56,7 @@ export default async function StockPage({ searchParams }: { searchParams: Search
           </Button>
         }
       />
-      {limit !== null && (
-        <div className="rounded-2xl border bg-card p-4 shadow-soft">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Espace utilisé ({sub?.plan.name})</span>
-            <span className="font-medium tabular">
-              {usage} / {limit} articles
-            </span>
-          </div>
-          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-            <div className={usage / limit > 0.9 ? "h-full bg-warning" : "h-full bg-brand"} style={{ width: `${Math.min(100, (usage / limit) * 100)}%` }} />
-          </div>
-        </div>
-      )}
+      <StoragePanel overview={overview} planName={sub?.plan.name ?? null} />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <FilterTabs
           param="statut"
@@ -121,6 +110,12 @@ export default async function StockPage({ searchParams }: { searchParams: Search
                   Reçu le {formatDate(i.receivedAt)}
                   {i.storageLocation ? ` · Empl. ${i.storageLocation}` : ""} · {fullName(i.preparer.user)}
                 </p>
+                {i.quantityAvailable > 0 && !i.dropship && i.storagePaidUntil && (
+                  <p className={i.storageOverdueSince ? "flex items-center gap-1 text-[0.7rem] font-medium text-danger" : i.storagePaidUntil.getTime() - now.getTime() < 3 * 86_400_000 ? "flex items-center gap-1 text-[0.7rem] text-warning" : "flex items-center gap-1 text-[0.7rem] text-muted-foreground"}>
+                    <Hourglass className="size-3" />
+                    {i.storageOverdueSince ? "Stockage en dépassement : crédits requis" : `Stocké jusqu'au ${formatDate(i.storagePaidUntil, "d MMM")}`}
+                  </p>
+                )}
               </div>
             </Link>
           ))}
