@@ -162,7 +162,7 @@ export default async function AdminCustomerPage({ params, searchParams }: { para
                     {formatDate(subscription.currentPeriodStart)} → {formatDate(subscription.currentPeriodEnd)}
                   </KeyValue>
                   <KeyValue label="Renouvellement">{subscription.cancelAtPeriodEnd ? <span className="text-warning">Résiliation programmée</span> : "Automatique"}</KeyValue>
-                  <KeyValue label="Prestataire">{subscription.provider === "dev" ? "Paiement simulé (démo)" : "Stripe"}</KeyValue>
+                  <KeyValue label="Prestataire">{subscription.provider === "dev" ? "Paiement simulé (démo)" : "Whop"}</KeyValue>
                   <KeyValue label="Crédits mensuels">{formatCredits(subscription.plan.monthlyCredits)}</KeyValue>
                 </dl>
               ) : (
@@ -316,7 +316,7 @@ export default async function AdminCustomerPage({ params, searchParams }: { para
               </KeyValue>
               <KeyValue label="Inscrit le">{formatDateTime(customer.user.createdAt)}</KeyValue>
               <KeyValue label="Dernière connexion">{formatDateTime(customer.user.lastLoginAt)}</KeyValue>
-              <KeyValue label="Client Stripe">{customer.stripeCustomerId ?? "—"}</KeyValue>
+              <KeyValue label="Utilisateur Whop">{customer.billingCustomerId ?? "—"}</KeyValue>
               <KeyValue label="Compte">{customer.user.status === "ACTIVE" ? "Actif" : customer.user.status === "SUSPENDED" ? "Suspendu" : "Désactivé"}</KeyValue>
             </dl>
           </Section>

@@ -6,6 +6,7 @@ import { ALL_PERMISSIONS } from "@/server/auth/permissions";
 import { audit } from "./audit";
 import { normalizeEmail, sendInvitation, anonymizeUser } from "./auth";
 import { saveSetting, type SettingKey, type Settings } from "./settings";
+import { isCreditPackSize } from "@/lib/credit-packs";
 
 // ----------------------------------------------------------------------------- Offres
 
@@ -20,7 +21,17 @@ export type PlanInput = {
   highlighted: boolean;
   isActive: boolean;
   sortOrder: number;
+  whopPlanId?: string | null;
 };
+
+function cleanWhopPlanId(v: string | null | undefined) {
+  const id = v?.trim() || null;
+  if (id && !/^plan_[A-Za-z0-9]+$/.test(id)) {
+    throw new DomainError("WHOP_PLAN", "Identifiant de plan Whop invalide (format attendu : plan_…).", { fieldErrors: { whopPlanId: "Format : plan_…" } });
+  }
+  return id;
+}
+
 
 export async function savePlan(actor: Actor, input: PlanInput & { id?: string }) {
   assertAdmin(actor, "billing.manage");
@@ -35,6 +46,7 @@ export async function savePlan(actor: Actor, input: PlanInput & { id?: string })
     highlighted: input.highlighted,
     isActive: input.isActive,
     sortOrder: input.sortOrder,
+    whopPlanId: cleanWhopPlanId(input.whopPlanId),
   };
   const before = input.id ? await db.plan.findUnique({ where: { id: input.id } }) : null;
   const plan = input.id ? await db.plan.update({ where: { id: input.id }, data }) : await db.plan.create({ data });
@@ -77,9 +89,22 @@ export async function saveSizeRules(
 
 // ----------------------------------------------------------------------------- Recharges
 
-export async function saveCreditPack(actor: Actor, input: { id?: string; name: string; credits: number; priceCents: number; isActive: boolean; sortOrder: number }) {
+export async function saveCreditPack(actor: Actor, input: { id?: string; name: string; credits: number; priceCents: number; isActive: boolean; sortOrder: number; whopPlanId?: string | null }) {
   assertAdmin(actor, "billing.manage");
-  const data = { name: input.name.trim(), credits: input.credits, priceCents: input.priceCents, isActive: input.isActive, sortOrder: input.sortOrder };
+  if (!isCreditPackSize(input.credits)) {
+    throw new DomainError("PACK_SIZE", "Les recharges proposées sont de 10, 30, 50 ou 100 crédits.", { fieldErrors: { credits: "10, 30, 50 ou 100" } });
+  }
+  const duplicate = await db.creditPack.findFirst({ where: { credits: input.credits, ...(input.id ? { NOT: { id: input.id } } : {}) } });
+  if (duplicate) throw new DomainError("PACK_EXISTS", `Une recharge de ${input.credits} crédits existe déjà : modifiez-la.`);
+  if (input.priceCents < 1) throw new DomainError("PRICE", "Prix invalide.", { fieldErrors: { price: "Prix invalide" } });
+  const data = {
+    name: input.name.trim(),
+    credits: input.credits,
+    priceCents: input.priceCents,
+    isActive: input.isActive,
+    sortOrder: input.sortOrder,
+    whopPlanId: cleanWhopPlanId(input.whopPlanId),
+  };
   const pack = input.id ? await db.creditPack.update({ where: { id: input.id }, data }) : await db.creditPack.create({ data });
   await audit({ actor, action: "credit_pack.saved", entityType: "credit_pack", entityId: pack.id, summary: `${pack.name}: ${pack.credits} crédits / ${(pack.priceCents / 100).toFixed(2)} €` });
   return pack;
@@ -124,7 +149,7 @@ export async function saveSupplier(
 // ----------------------------------------------------------------------------- Paramètres
 
 export async function updateSettings<K extends SettingKey>(actor: Actor, key: K, value: Settings[K]) {
-  const permission = key === "notifications" ? "notifications.manage" : key === "creditPurchase" ? "billing.manage" : key === "credits" ? "credits.manage" : "settings.manage";
+  const permission = key === "notifications" ? "notifications.manage" : key === "credits" ? "credits.manage" : "settings.manage";
   assertAdmin(actor, permission);
   const saved = await saveSetting(key, value, actor.userId);
   await audit({ actor, action: "settings.updated", entityType: "setting", entityId: key, metadata: saved as object });

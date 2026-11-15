@@ -1,27 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BadgeEuro, CalendarX2, CircleAlert, CreditCard, RefreshCw } from "lucide-react";
+import { BadgeEuro, CalendarX2, CircleAlert, CreditCard, ExternalLink } from "lucide-react";
 import type { SubscriptionStatus } from "@/generated/prisma/enums";
 import { requireAdmin } from "@/server/auth/current";
 import { can } from "@/server/auth/actor";
 import { db } from "@/server/db";
 import { env } from "@/server/env";
-import { isStripeConfigured } from "@/server/billing/stripe";
-import { listPromotionCodes } from "@/server/billing";
+import { isWhopConfigured } from "@/server/billing";
 import { PAGE_SIZE, listSubscriptions } from "@/server/queries/admin-ops";
-import { saveCreditPackAction, savePlanAction, saveSizeRulesAction, syncPlanStripeAction, togglePromoCodeAction } from "@/server/actions/admin/ops";
+import { saveCreditPackAction, savePlanAction, saveSizeRulesAction } from "@/server/actions/admin/ops";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge, StatusFrom } from "@/components/shared/status-badge";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
-import { ActionButton, ActionDialog } from "@/components/shared/action-dialog";
+import { ActionDialog } from "@/components/shared/action-dialog";
 import { CheckboxField, TextAreaField, TextField } from "@/components/shared/form-field";
 import { FilterSelect, Pagination } from "@/components/shared/list-controls";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CustomerLink, Notice } from "@/components/admin/ops/ui";
-import { PromoCodeForm } from "@/components/admin/ops/client";
 import { SUBSCRIPTION_STATUS } from "@/lib/labels";
+import { CREDIT_PACK_SIZES } from "@/lib/credit-packs";
 import { formatDate, formatMoney } from "@/lib/format";
 import { oneOf, parsePage, type SearchParams } from "@/lib/params";
 
@@ -36,18 +35,17 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
   const sp = await searchParams;
   const page = parsePage(sp.page);
   const status = oneOf(sp.statut, SUB_STATUSES);
-  const stripe = isStripeConfigured();
-  const [plans, rules, packs, subs, promos] = await Promise.all([
+  const whop = isWhopConfigured();
+  const [plans, rules, packs, subs] = await Promise.all([
     db.plan.findMany({ orderBy: { sortOrder: "asc" }, include: { _count: { select: { subscriptions: { where: { status: { in: ["ACTIVE", "TRIALING", "PAST_DUE"] } } } } } } }),
     db.parcelSizeRule.findMany({ orderBy: { sortOrder: "asc" } }),
-    db.creditPack.findMany({ orderBy: { sortOrder: "asc" } }),
+    db.creditPack.findMany({ where: { credits: { in: [...CREDIT_PACK_SIZES] } }, orderBy: { credits: "asc" } }),
     listSubscriptions({ status, page }),
-    stripe ? listPromotionCodes(actor).catch(() => "error" as const) : Promise.resolve(null),
   ]);
 
   return (
     <>
-      <PageHeader title="Abonnements et offres" description="Offres commerciales, coût des catégories de colis, recharges, codes promotionnels et abonnements en cours." />
+      <PageHeader title="Abonnements et offres" description="Offres commerciales, coût des catégories de colis, crédits supplémentaires, codes promotionnels et abonnements en cours. Paiements gérés par Whop." />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Revenu mensuel récurrent" value={formatMoney(subs.kpis.mrrCents)} icon={BadgeEuro} tone="brand" hint="Abonnements actifs à jour" />
         <StatCard label="Abonnements actifs" value={subs.kpis.active} icon={CreditCard} tone="success" />
@@ -55,16 +53,16 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
         <StatCard label="Résiliations programmées" value={subs.kpis.cancelScheduled} icon={CalendarX2} tone={subs.kpis.cancelScheduled ? "warning" : "default"} />
       </div>
 
-      {!stripe && (
+      {!whop && (
         <Notice className="mb-6">
-          Stripe n&apos;est pas configuré{env.billingMode === "dev" ? " — mode de paiement de démonstration actif (aucun encaissement)" : ""}. Les offres restent modifiables ; la synchronisation des prix et les codes promotionnels nécessitent <code>STRIPE_SECRET_KEY</code>.
+          Whop n&apos;est pas configuré{env.billingMode === "dev" ? " — mode de paiement de démonstration actif (aucun encaissement)" : ""}. Renseignez <code>WHOP_API_KEY</code>, <code>WHOP_ACCOUNT_ID</code> et <code>WHOP_WEBHOOK_SECRET</code> pour encaisser les paiements.
         </Notice>
       )}
 
       <div className="space-y-6">
         <Section
           title="Offres"
-          description="Paramètres modifiables : prix, crédits mensuels, limite de stockage et contenu affiché sur le site. Une modification de prix crée un nouveau prix Stripe ; les abonnés existants conservent leur tarif jusqu'à migration."
+          description="Paramètres modifiables : prix, crédits mensuels, limite de stockage et contenu affiché sur le site. Sans plan Whop renseigné, un plan masqué au prix indiqué est créé automatiquement au paiement ; les abonnés existants conservent leur tarif."
         >
           <div className="grid gap-4 xl:grid-cols-3">
             {plans.map((p) => (
@@ -100,6 +98,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
                       </div>
                       <TextField name="sortOrder" label="Ordre" type="number" min={0} defaultValue={p.sortOrder} className="w-20" />
                     </div>
+                    <TextField name="whopPlanId" label="Plan Whop (facultatif)" defaultValue={p.whopPlanId ?? ""} placeholder="plan_…" hint="Plan récurrent mensuel créé dans Whop, au même prix." />
                     <SubmitButton pendingLabel="Enregistrement…">Enregistrer l&apos;offre</SubmitButton>
                   </ActionForm>
                 ) : (
@@ -107,13 +106,8 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
                     {formatMoney(p.priceCents)} / mois · {p.monthlyCredits} crédits · stockage {p.storageLimit ?? "illimité"}
                   </p>
                 )}
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
-                  <span className="min-w-0 truncate font-mono">{p.stripePriceId ?? "Aucun prix Stripe"}</span>
-                  {canEdit && stripe && (
-                    <ActionButton action={syncPlanStripeAction} fields={{ planId: p.id }} variant="outline" size="xs">
-                      <RefreshCw /> Synchroniser avec Stripe
-                    </ActionButton>
-                  )}
+                <div className="mt-4 border-t pt-3 text-xs text-muted-foreground">
+                  <span className="font-mono">{p.whopPlanId ?? "Plan Whop créé au paiement (prix ci-dessus)"}</span>
                 </div>
               </div>
             ))}
@@ -152,15 +146,8 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
         </Section>
 
         <Section
-          title="Recharges de crédits"
-          description="Packs achetables ponctuellement par les clients abonnés. Leur politique d'expiration se règle dans Crédits."
-          actions={
-            canEdit && (
-              <ActionDialog trigger={<Button size="sm">Nouvelle recharge</Button>} title="Nouvelle recharge" action={saveCreditPackAction} submitLabel="Créer">
-                <PackFields />
-              </ActionDialog>
-            )
-          }
+          title="Crédits supplémentaires"
+          description="Les clients abonnés peuvent acheter 10, 30, 50 ou 100 crédits. Seuls le prix, l'affichage et le plan Whop sont modifiables. La politique d'expiration se règle dans Crédits."
           contentClassName="p-0"
         >
           <Table>
@@ -197,7 +184,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
               {packs.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                    Aucune recharge configurée.
+                    Aucune recharge : lancez « npm run db:bootstrap » pour créer les recharges 10, 30, 50 et 100.
                   </TableCell>
                 </TableRow>
               )}
@@ -205,60 +192,15 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
           </Table>
         </Section>
 
-        <Section title="Codes promotionnels" description="Créés dans Stripe et utilisables lors du paiement (abonnement et recharges).">
-          {!stripe ? (
-            <p className="text-sm text-muted-foreground">Disponible lorsque Stripe est configuré.</p>
-          ) : promos === "error" ? (
-            <p className="text-sm text-danger">Impossible de joindre Stripe pour lister les codes. Réessayez plus tard.</p>
-          ) : (
-            <div className="grid gap-6">
-              {canEdit && <PromoCodeForm />}
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Remise</TableHead>
-                    <TableHead>Durée</TableHead>
-                    <TableHead className="text-right">Utilisations</TableHead>
-                    <TableHead>Expire</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(promos ?? []).map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-mono font-medium">{c.code}</TableCell>
-                      <TableCell>{c.percentOff ? `${c.percentOff} %` : c.amountOff ? formatMoney(c.amountOff) : "—"}</TableCell>
-                      <TableCell>{c.duration === "once" ? "1er paiement" : c.duration === "forever" ? "Permanente" : "Plusieurs mois"}</TableCell>
-                      <TableCell className="text-right tabular">
-                        {c.timesRedeemed}
-                        {c.maxRedemptions ? ` / ${c.maxRedemptions}` : ""}
-                      </TableCell>
-                      <TableCell>{c.expiresAt ? formatDate(c.expiresAt) : "—"}</TableCell>
-                      <TableCell>
-                        <StatusBadge tone={c.active ? "success" : "neutral"} label={c.active ? "Actif" : "Inactif"} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {canEdit && (
-                          <ActionButton action={togglePromoCodeAction} fields={{ id: c.id, active: String(!c.active) }} variant="ghost" size="sm">
-                            {c.active ? "Désactiver" : "Réactiver"}
-                          </ActionButton>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {promos && promos.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                        Aucun code promotionnel.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+        <Section title="Codes promotionnels" description="Les codes promo sont créés et suivis dans Whop ; vos clients les saisissent sur la page de paiement Whop (abonnement et crédits).">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">Créez un code (pourcentage ou montant, durée, nombre d&apos;utilisations, date d&apos;expiration) depuis votre tableau de bord Whop.</p>
+            <Button asChild variant="outline" size="sm">
+              <a href="https://whop.com/dashboard" target="_blank" rel="noopener noreferrer">
+                Ouvrir le tableau de bord Whop <ExternalLink />
+              </a>
+            </Button>
+          </div>
         </Section>
 
         <Section
@@ -293,7 +235,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
                   </TableCell>
                   <TableCell>{formatDate(s.currentPeriodEnd)}</TableCell>
                   <TableCell>{s.status === "CANCELED" ? "—" : s.cancelAtPeriodEnd ? <StatusBadge tone="warning" label="Résiliation programmée" /> : "Automatique"}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{s.provider === "dev" ? "Démonstration" : "Stripe"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{s.provider === "dev" ? "Démonstration" : s.provider === "whop" ? "Whop" : s.provider}</TableCell>
                   <TableCell className="pr-5 text-muted-foreground">{formatDate(s.createdAt)}</TableCell>
                 </TableRow>
               ))}
@@ -311,23 +253,25 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
           </div>
         </Section>
         <p className="text-xs text-muted-foreground">
-          Les clients gèrent leur moyen de paiement et téléchargent leurs factures depuis leur espace. Voir aussi <Link href="/admin/paiements" className="underline">Paiements</Link>.
+          Les clients gèrent leur moyen de paiement et leurs reçus depuis leur espace (lien vers Whop). Voir aussi <Link href="/admin/paiements" className="underline">Paiements</Link>.
         </p>
       </div>
     </>
   );
 }
 
-function PackFields({ pack }: { pack?: { name: string; credits: number; priceCents: number; isActive: boolean; sortOrder: number } }) {
+function PackFields({ pack }: { pack: { name: string; credits: number; priceCents: number; isActive: boolean; sortOrder: number; whopPlanId: string | null } }) {
   return (
     <>
-      <TextField name="name" label="Nom" required defaultValue={pack?.name} placeholder="Recharge 10" />
-      <div className="grid grid-cols-3 gap-3">
-        <TextField name="credits" label="Crédits" type="number" min={1} required defaultValue={pack?.credits} />
-        <TextField name="price" label="Prix (€ TTC)" required inputMode="decimal" defaultValue={pack ? euros(pack.priceCents) : ""} />
-        <TextField name="sortOrder" label="Ordre" type="number" min={0} defaultValue={pack?.sortOrder ?? 0} required />
+      <input type="hidden" name="credits" value={pack.credits} />
+      <input type="hidden" name="sortOrder" value={pack.sortOrder} />
+      <TextField name="name" label="Nom affiché" required defaultValue={pack.name} />
+      <div className="grid grid-cols-2 gap-3">
+        <TextField name="creditsDisplay" label="Crédits" defaultValue={String(pack.credits)} disabled hint="10, 30, 50 ou 100" />
+        <TextField name="price" label="Prix (€ TTC)" required inputMode="decimal" defaultValue={euros(pack.priceCents)} />
       </div>
-      <CheckboxField name="isActive" label="Proposée aux clients" defaultChecked={pack?.isActive ?? true} />
+      <TextField name="whopPlanId" label="Plan Whop (facultatif)" defaultValue={pack.whopPlanId ?? ""} placeholder="plan_…" hint="Plan à paiement unique au même prix ; sinon créé au paiement." />
+      <CheckboxField name="isActive" label="Proposée aux clients" defaultChecked={pack.isActive} />
     </>
   );
 }

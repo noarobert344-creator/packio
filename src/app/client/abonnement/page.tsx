@@ -23,7 +23,7 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
         title={sub ? "Changer d'offre" : "Choisissez votre abonnement"}
         description={
           sub
-            ? "Une offre supérieure s'applique immédiatement (prorata facturé, crédits supplémentaires ajoutés). Une offre inférieure s'applique au prochain renouvellement."
+            ? "Le changement d'offre prend effet à votre prochain renouvellement : vous payez alors le nouveau tarif et recevez ses crédits mensuels. Besoin de crédits dès maintenant ? Achetez 10, 30, 50 ou 100 crédits supplémentaires."
             : "Chaque abonnement inclut un préparateur attitré, le tableau de bord, le suivi du stock et la messagerie. Sans engagement, résiliable à tout moment."
         }
         back={sub ? { href: "/client/facturation", label: "Facturation" } : undefined}
@@ -37,6 +37,7 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
         plans={plans}
         action={sub ? changePlanAction : startSubscriptionAction}
         currentPlanId={sub?.planId}
+        pendingPlanId={sub?.pendingPlanId}
         preselect={preselect}
         ctaLabel={(p) => (sub ? `Passer à ${p.name}` : `Souscrire ${p.name}`)}
       />
@@ -44,7 +45,7 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
         <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand" />
         {billingMode() === "dev"
           ? "Mode démonstration : le paiement est simulé, aucun montant n'est encaissé."
-          : "Paiement sécurisé par Stripe. Vos données bancaires ne transitent jamais par les serveurs de Packio."}{" "}
+          : "Paiement sécurisé par Whop. Vos données bancaires ne transitent jamais par les serveurs de Packio."}{" "}
         Les frais de transport éventuels sont distincts des crédits de préparation.{" "}
         <Link href="/legal/cgv" className="underline underline-offset-2">
           Conditions de vente

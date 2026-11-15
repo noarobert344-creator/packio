@@ -184,7 +184,8 @@ model CustomerProfile {
   assignmentAdminAlertedAt DateTime?
   assignmentDelayNotifiedAt DateTime?
   currentPreparerId        String?
-  stripeCustomerId         String?         @unique
+  /// Identifiant du client chez le prestataire de paiement (utilisateur Whop).
+  billingCustomerId        String?         @unique
   adminNotes               String?
   createdAt                DateTime        @default(now())
   updatedAt                DateTime        @updatedAt
@@ -400,11 +401,12 @@ model Plan {
   highlighted     Boolean        @default(false)
   isActive        Boolean        @default(true)
   sortOrder       Int            @default(0)
-  stripeProductId String?
-  stripePriceId   String?        @unique
+  /// Plan Whop (plan_…) facultatif ; sinon le plan est créé à la volée au checkout.
+  whopPlanId      String?        @unique
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
-  subscriptions   Subscription[]
+  subscriptions   Subscription[] @relation("SubscriptionPlan")
+  pendingSubscriptions Subscription[] @relation("SubscriptionPendingPlan")
 
   @@map("plans")
 }
@@ -425,20 +427,23 @@ model Subscription {
   customerId         String
   planId             String
   status             SubscriptionStatus
-  /// "stripe" en production, "dev" pour le mode de paiement de démonstration.
-  provider           String             @default("stripe")
+  /// "whop" en production, "dev" pour le mode de paiement de démonstration.
+  provider           String             @default("whop")
   externalId         String             @unique
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
   cancelAtPeriodEnd  Boolean            @default(false)
+  /// Offre qui s'appliquera au prochain renouvellement (changement d'offre programmé).
+  pendingPlanId      String?
   canceledAt         DateTime?
   endedAt            DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
   customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  plan     Plan            @relation(fields: [planId], references: [id], onDelete: Restrict)
-  invoices Invoice[]
+  plan        Plan            @relation("SubscriptionPlan", fields: [planId], references: [id], onDelete: Restrict)
+  pendingPlan Plan?           @relation("SubscriptionPendingPlan", fields: [pendingPlanId], references: [id], onDelete: SetNull)
+  invoices    Invoice[]
 
   @@index([customerId, status])
   @@map("subscriptions")
@@ -450,6 +455,8 @@ model CreditPack {
   credits       Int
   priceCents    Int
   currency      String    @default("eur")
+  /// Plan Whop « paiement unique » facultatif ; sinon créé à la volée au checkout.
+  whopPlanId    String?   @unique
   isActive      Boolean   @default(true)
   sortOrder     Int       @default(0)
   createdAt     DateTime  @default(now())
@@ -1146,10 +1153,11 @@ model Payment {
   refundedCents  Int           @default(0)
   currency       String        @default("eur")
   description    String
-  provider       String        @default("stripe")
-  /// Identifiant externe (PaymentIntent, session Checkout, facture...).
+  provider       String        @default("whop")
+  /// Identifiant du paiement chez le prestataire (pay_… pour Whop).
   externalId     String        @unique
-  paymentIntentId String?      @unique
+  /// Abonnement Whop (mem_…) auquel le paiement est rattaché.
+  membershipId   String?
   invoiceId      String?
   creditPackId   String?
   creditsGranted Int?
@@ -1163,6 +1171,7 @@ model Payment {
 
   @@index([customerId, createdAt])
   @@index([status])
+  @@index([membershipId])
   @@map("payments")
 }
 
@@ -1200,9 +1209,10 @@ enum WebhookEventStatus {
   IGNORED
 }
 
-/// Journal des webhooks Stripe reçus (idempotence du traitement).
-model StripeEvent {
+/// Journal des webhooks reçus du prestataire de paiement (idempotence du traitement).
+model WebhookEvent {
   id          String             @id
+  provider    String             @default("whop")
   type        String
   status      WebhookEventStatus
   error       String?
@@ -1211,7 +1221,7 @@ model StripeEvent {
   processedAt DateTime?
 
   @@index([type, receivedAt])
-  @@map("stripe_events")
+  @@map("webhook_events")
 }
 
 // -----------------------------------------------------------------------------

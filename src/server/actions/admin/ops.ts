@@ -6,9 +6,8 @@ import type { ActionState } from "@/lib/action-types";
 import { checkbox, emailField, euroToCents, intField, optionalInt, optionalText, requiredText, stringArray } from "@/lib/forms";
 import { formToObject, runAction } from "@/server/action";
 import { assertAdmin } from "@/server/auth/actor";
-import { DomainError } from "@/server/errors";
 import { ALL_PERMISSIONS } from "@/server/auth/permissions";
-import { createPromotionCode, refundPayment, setPromotionCodeActive, syncPlanWithStripe } from "@/server/billing";
+import { refundPayment } from "@/server/billing";
 import { inviteAdmin, saveCreditPack, savePlan, saveRole, saveSizeRules, saveSupplier, setStaffRole, updateSettings } from "@/server/services/catalog";
 import { adminAdjustCredits } from "@/server/services/credits";
 import { markNotificationsRead } from "@/server/services/notifications";
@@ -67,6 +66,7 @@ const planSchema = z.object({
   highlighted: checkbox(),
   isActive: checkbox(),
   sortOrder: intField("Ordre", { min: 0, max: 999 }),
+  whopPlanId: optionalText(80),
 });
 
 export async function savePlanAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -83,23 +83,16 @@ export async function savePlanAction(_prev: ActionState, formData: FormData): Pr
       highlighted: data.highlighted,
       isActive: data.isActive,
       sortOrder: data.sortOrder,
+      whopPlanId: data.whopPlanId ?? null,
     });
     revalidatePath("/admin/abonnements");
     revalidatePath("/");
     return {
       ok: true,
       message: priceChanged
-        ? "Offre enregistrée. Synchronisez avec Stripe pour créer le nouveau prix ; les abonnés actuels conservent leur tarif."
+        ? "Offre enregistrée. Le nouveau prix s'applique aux nouvelles souscriptions ; les abonnés actuels conservent leur tarif chez Whop."
         : "Offre enregistrée.",
     };
-  });
-}
-
-export async function syncPlanStripeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ planId: z.string() }), formToObject(formData), async (actor, data) => {
-    const plan = await syncPlanWithStripe(actor, data.planId);
-    revalidatePath("/admin/abonnements");
-    return { ok: true, message: `Offre synchronisée avec Stripe (${plan.stripePriceId}).` };
   });
 }
 
@@ -139,49 +132,14 @@ const packSchema = z.object({
   price: euroToCents("Prix"),
   isActive: checkbox(),
   sortOrder: intField("Ordre", { min: 0, max: 999 }),
+  whopPlanId: optionalText(80),
 });
 
 export async function saveCreditPackAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   return runAction(packSchema, formToObject(formData), async (actor, data) => {
-    await saveCreditPack(actor, { id: data.id, name: data.name, credits: data.credits, priceCents: data.price, isActive: data.isActive, sortOrder: data.sortOrder });
+    await saveCreditPack(actor, { id: data.id, name: data.name, credits: data.credits, priceCents: data.price, isActive: data.isActive, sortOrder: data.sortOrder, whopPlanId: data.whopPlanId ?? null });
     revalidatePath("/admin/abonnements");
     return { ok: true, message: "Recharge enregistrée." };
-  });
-}
-
-const promoSchema = z
-  .object({
-    code: z.preprocess((v) => (typeof v === "string" ? v.trim().toUpperCase() : v), z.string().regex(/^[A-Z0-9-]{3,30}$/, { error: "3 à 30 caractères : lettres, chiffres, tirets" })),
-    discountType: z.enum(["percent", "amount"]),
-    value: z.preprocess((v) => (typeof v === "string" && v.trim() ? Number(v.replace(",", ".")) : undefined), z.number({ error: "Valeur requise" }).positive({ error: "Valeur invalide" })),
-    duration: z.enum(["once", "repeating", "forever"]),
-    durationInMonths: optionalInt("Durée", { min: 1, max: 36 }),
-    maxRedemptions: optionalInt("Utilisations", { min: 1, max: 100000 }),
-    expiresAt: z.preprocess((v) => (typeof v === "string" && v ? new Date(`${v}T23:59:59`) : undefined), z.date().optional()),
-  })
-  .refine((v) => v.discountType !== "percent" || v.value <= 100, { error: "Pourcentage maximum : 100", path: ["value"] });
-
-export async function createPromoCodeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(promoSchema, formToObject(formData), async (actor, data) => {
-    await createPromotionCode(actor, {
-      code: data.code,
-      percentOff: data.discountType === "percent" ? data.value : null,
-      amountOffCents: data.discountType === "amount" ? Math.round(data.value * 100) : null,
-      duration: data.duration,
-      durationInMonths: data.durationInMonths ?? null,
-      maxRedemptions: data.maxRedemptions ?? null,
-      expiresAt: data.expiresAt ?? null,
-    });
-    revalidatePath("/admin/abonnements");
-    return { ok: true, message: `Code ${data.code} créé.` };
-  });
-}
-
-export async function togglePromoCodeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ id: z.string(), active: z.enum(["true", "false"]) }), formToObject(formData), async (actor, data) => {
-    await setPromotionCodeActive(actor, data.id, data.active === "true");
-    revalidatePath("/admin/abonnements");
-    return { ok: true, message: data.active === "true" ? "Code réactivé." : "Code désactivé." };
   });
 }
 
@@ -204,30 +162,6 @@ export async function saveCreditPolicyAction(_prev: ActionState, formData: FormD
     });
     revalidatePath("/admin/credits");
     return { ok: true, message: "Politique de crédits enregistrée. Elle s'applique aux prochaines allocations et achats." };
-  });
-}
-
-const customPurchaseSchema = z.object({
-  customEnabled: checkbox(),
-  unitPrice: euroToCents("Prix unitaire"),
-  minCredits: intField("Minimum", { min: 1, max: 10000 }),
-  maxCredits: intField("Maximum", { min: 1, max: 10000 }),
-});
-
-export async function saveCustomCreditPurchaseAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(customPurchaseSchema, formToObject(formData), async (actor, data) => {
-    assertAdmin(actor, "billing.manage");
-    if (data.unitPrice < 1) throw new DomainError("PRICE", "Le prix unitaire doit être supérieur à 0.", { fieldErrors: { unitPrice: "Prix invalide" } });
-    if (data.maxCredits < data.minCredits) throw new DomainError("RANGE", "Le maximum doit être supérieur ou égal au minimum.", { fieldErrors: { maxCredits: "Doit être ≥ minimum" } });
-    await updateSettings(actor, "creditPurchase", {
-      customEnabled: data.customEnabled,
-      unitPriceCents: data.unitPrice,
-      minCredits: data.minCredits,
-      maxCredits: data.maxCredits,
-    });
-    revalidatePath("/admin/credits");
-    revalidatePath("/client/credits");
-    return { ok: true, message: "Achat de crédits en quantité libre mis à jour." };
   });
 }
 

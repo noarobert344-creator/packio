@@ -16,17 +16,7 @@ function dims(r: SizeRule) {
   return parts.join(" · ") || "Selon appréciation du préparateur";
 }
 
-export function Pricing({
-  plans,
-  sizeRules,
-  packs,
-  customPurchase,
-}: {
-  plans: Plan[];
-  sizeRules: SizeRule[];
-  packs: Pack[];
-  customPurchase?: { customEnabled: boolean; unitPriceCents: number; minCredits: number; maxCredits: number };
-}) {
+export function Pricing({ plans, sizeRules, packs }: { plans: Plan[]; sizeRules: SizeRule[]; packs: Pack[] }) {
   return (
     <section id="tarifs" className="scroll-mt-20 py-24 sm:py-28">
       <Container className="space-y-14">
@@ -72,7 +62,7 @@ export function Pricing({
             </div>
           ))}
         </div>
-        <p className="text-center text-xs text-muted-foreground">Tarifs TTC, prélevés chaque mois par Stripe. Les codes promotionnels peuvent être saisis lors du paiement.</p>
+        <p className="text-center text-xs text-muted-foreground">Tarifs TTC, renouvelés automatiquement tous les 30 jours via Whop. Les codes promotionnels peuvent être saisis lors du paiement.</p>
 
         <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-3xl border bg-card p-6 sm:p-7">
@@ -95,8 +85,8 @@ export function Pricing({
             </div>
           </div>
           <div className="flex flex-col rounded-3xl border bg-card p-6 sm:p-7">
-            <p className="font-semibold">Recharges ponctuelles</p>
-            <p className="mt-1 text-sm text-muted-foreground">Besoin de plus de crédits un mois donné ? Rechargez depuis votre espace, sans changer d&apos;offre.</p>
+            <p className="font-semibold">Crédits supplémentaires</p>
+            <p className="mt-1 text-sm text-muted-foreground">Besoin de plus de crédits un mois donné ? Achetez 10, 30, 50 ou 100 crédits depuis votre espace, sans changer d&apos;offre.</p>
             <ul className="mt-5 divide-y rounded-2xl border">
               {packs.map((pk) => (
                 <li key={pk.id} className="flex items-center justify-between px-4 py-3 text-sm">
@@ -108,12 +98,6 @@ export function Pricing({
                 </li>
               ))}
             </ul>
-            {customPurchase?.customEnabled && (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Ou en <span className="font-medium text-foreground">quantité libre</span> : {formatMoney(customPurchase.unitPriceCents)} le crédit, de {customPurchase.minCredits} à{" "}
-                {customPurchase.maxCredits} crédits par achat.
-              </p>
-            )}
           </div>
         </div>
         <div className="flex gap-3 rounded-2xl border bg-muted/40 p-5 text-sm">

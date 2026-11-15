@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { CalendarClock, CheckCircle2, Coins, Lock, ShoppingCart, Wallet, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CustomCreditPurchase } from "@/components/client/custom-credit-purchase";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -14,6 +13,7 @@ import { getSetting } from "@/server/services/settings";
 import { getSizeRules } from "@/server/services/shipments";
 import { buyCreditsAction } from "@/server/actions/customer";
 import { CREDIT_TX_TYPE } from "@/lib/labels";
+import { CREDIT_PACK_SIZES } from "@/lib/credit-packs";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { one, parsePage, type SearchParams } from "@/lib/params";
@@ -24,15 +24,15 @@ export default async function CreditsPage({ searchParams }: { searchParams: Sear
   const { customer } = await requireSubscribedCustomer();
   const sp = await searchParams;
   const page = parsePage(sp.page);
-  const [overview, ledger, packs, policy, rules, purchase] = await Promise.all([
+  const [overview, ledger, packs, policy, rules] = await Promise.all([
     getWalletOverview(customer.id),
     listCreditTransactions(customer.id, { take: 25, skip: (page - 1) * 25 }),
-    db.creditPack.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
+    db.creditPack.findMany({ where: { isActive: true, credits: { in: [...CREDIT_PACK_SIZES] } }, orderBy: { credits: "asc" } }),
     getSetting("credits"),
     getSizeRules(),
-    getSetting("creditPurchase"),
   ]);
   const w = overview.wallet;
+  const bestPackId = packs.length > 1 ? [...packs].sort((a, b) => a.priceCents / a.credits - b.priceCents / b.credits)[0].id : null;
   return (
     <div className="space-y-8">
       <PageHeader
@@ -71,28 +71,28 @@ export default async function CreditsPage({ searchParams }: { searchParams: Sear
           contentClassName="space-y-4"
         >
           <span id="recharger" className="block scroll-mt-28" aria-hidden />
-          {purchase.customEnabled && (
-            <CustomCreditPurchase unitPriceCents={purchase.unitPriceCents} min={purchase.minCredits} max={purchase.maxCredits} suggested={Number(one(sp.quantite)) || undefined} />
-          )}
-          {packs.length > 0 && <p className="pt-1 text-sm font-medium">Recharges prêtes à l&apos;emploi</p>}
-          <div className="grid gap-3 sm:grid-cols-3">
-            {packs.map((p) => (
-              <div key={p.id} className="flex flex-col gap-3 rounded-xl border p-4">
-                <p className="font-medium">{p.name}</p>
-                <p>
-                  <span className="text-2xl font-semibold tabular">{p.credits}</span> <span className="text-sm text-muted-foreground">crédits</span>
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {formatMoney(p.priceCents)} · {formatMoney(Math.round(p.priceCents / p.credits))} / crédit
-                </p>
-                <ActionForm action={buyCreditsAction} silent className="mt-auto">
-                  <input type="hidden" name="packId" value={p.id} />
-                  <SubmitButton className="w-full" variant="outline" pendingLabel="Redirection…">
-                    Acheter
-                  </SubmitButton>
-                </ActionForm>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            {packs.map((p) => {
+              const best = p.id === bestPackId;
+              return (
+                <div key={p.id} className={cn("relative flex flex-col gap-3 rounded-xl border p-4", best && "border-brand ring-1 ring-brand")}>
+                  {best && <span className="absolute -top-2.5 left-4 rounded-full bg-brand px-2 py-0.5 text-[0.65rem] font-medium text-brand-foreground">Meilleur prix</span>}
+                  <p>
+                    <span className="text-3xl font-semibold tracking-tight tabular">{p.credits}</span> <span className="text-sm text-muted-foreground">crédits</span>
+                  </p>
+                  <div>
+                    <p className="text-lg font-semibold tabular">{formatMoney(p.priceCents, p.currency)}</p>
+                    <p className="text-xs text-muted-foreground">soit {formatMoney(Math.round(p.priceCents / p.credits), p.currency)} le crédit</p>
+                  </div>
+                  <ActionForm action={buyCreditsAction} silent className="mt-auto">
+                    <input type="hidden" name="packId" value={p.id} />
+                    <SubmitButton className="w-full" variant={best ? "default" : "outline"} pendingLabel="Redirection…">
+                      <ShoppingCart /> Acheter
+                    </SubmitButton>
+                  </ActionForm>
+                </div>
+              );
+            })}
           </div>
         </Section>
         <Section title="Règles" contentClassName="space-y-3 text-sm">

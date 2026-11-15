@@ -290,13 +290,13 @@ export async function listInvoices(f: { q?: string; page: number; take?: number 
   return { items, total };
 }
 
-export async function listStripeEvents(f: { status?: WebhookEventStatus; page: number; take?: number }) {
-  const where: Prisma.StripeEventWhereInput = f.status ? { status: f.status } : {};
+export async function listWebhookEvents(f: { status?: WebhookEventStatus; page: number; take?: number }) {
+  const where: Prisma.WebhookEventWhereInput = f.status ? { status: f.status } : {};
   const take = f.take ?? PAGE_SIZE;
   const [items, total, counts] = await Promise.all([
-    db.stripeEvent.findMany({ where, orderBy: { receivedAt: "desc" }, skip: (f.page - 1) * take, take }),
-    db.stripeEvent.count({ where }),
-    db.stripeEvent.groupBy({ by: ["status"], _count: true }),
+    db.webhookEvent.findMany({ where, orderBy: { receivedAt: "desc" }, skip: (f.page - 1) * take, take }),
+    db.webhookEvent.count({ where }),
+    db.webhookEvent.groupBy({ by: ["status"], _count: true }),
   ]);
   return { items, total, counts: Object.fromEntries(counts.map((c) => [c.status, c._count])) as Record<string, number> };
 }

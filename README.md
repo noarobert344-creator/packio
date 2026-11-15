@@ -33,7 +33,7 @@ Trois espaces, une seule application :
 - **Next.js 16** (App Router, Server Components, Server Actions, `proxy.ts`), **React 19**, **TypeScript strict**
 - **Tailwind CSS 4**, **shadcn/ui** (Radix), icônes **Lucide**, police **Geist**, **thème sombre par défaut** (bascule clair / sombre mémorisée)
 - **PostgreSQL 16** + **Prisma ORM 7** (adaptateur `pg`, migrations versionnées)
-- **Stripe Billing** (Checkout, portail client, webhooks signés)
+- **Whop** pour les paiements (checkout hébergé, abonnements, crédits supplémentaires, webhooks signés Standard Webhooks)
 - **Resend** pour les e-mails transactionnels (journalisation en développement)
 - Stockage de fichiers **privé** : disque local (dev) ou **S3 compatible** (AWS S3, Cloudflare R2, Scaleway…)
 - Temps réel par **Server-Sent Events** (compatible serverless)
@@ -105,7 +105,7 @@ src/
     admin/                 Back-office super administrateur
     paiement-demo/         Paiement simulé (BILLING_MODE=dev uniquement)
     api/
-      webhooks/stripe/     Webhooks Stripe (signature vérifiée)
+      webhooks/whop/       Webhooks Whop (signature vérifiée)
       uploads/  files/[id] Téléversement et téléchargement contrôlés
       realtime/            Flux SSE (messages, notifications)
       cron/[task]/         Tâches planifiées protégées par CRON_SECRET
@@ -113,7 +113,7 @@ src/
   server/
     auth/                  Sessions, mots de passe, permissions, gardes
     services/              Logique métier transactionnelle (cœur du produit)
-    billing/               Stripe, webhooks, mode démonstration
+    billing/               Client API Whop, webhooks, mode démonstration
     actions/               Server Actions (validation Zod → services)
     storage/               Pilotes de stockage local / S3
   components/              UI (shadcn/ui, composants partagés, par espace)
@@ -126,7 +126,7 @@ tests/e2e/                 Parcours Playwright
 
 ### Modèle de données (extrait)
 
-`users`, `roles`, `sessions`, `customer_profiles`, `preparer_profiles`, `preparer_locations`, `preparer_assignments`, `preparer_absences`, `suppliers`, `plans`, `subscriptions`, `credit_packs`, `credit_wallets`, `credit_lots`, `credit_transactions`, `credit_reservations`, `supplier_orders`, `supplier_order_events`, `inbound_parcels`, `inventory_items`, `inventory_movements`, `inventory_counts`, `outbound_shipments`, `shipment_items`, `shipment_events`, `shipment_classifications`, `parcel_size_rules`, `conversations`, `conversation_participants`, `conversation_access_grants`, `messages`, `notifications`, `notification_preferences`, `email_logs`, `payments`, `invoices`, `stripe_events`, `incidents`, `incident_updates`, `files`, `audit_logs`, `app_settings`, `contact_requests`.
+`users`, `roles`, `sessions`, `customer_profiles`, `preparer_profiles`, `preparer_locations`, `preparer_assignments`, `preparer_absences`, `suppliers`, `plans`, `subscriptions`, `credit_packs`, `credit_wallets`, `credit_lots`, `credit_transactions`, `credit_reservations`, `supplier_orders`, `supplier_order_events`, `inbound_parcels`, `inventory_items`, `inventory_movements`, `inventory_counts`, `outbound_shipments`, `shipment_items`, `shipment_events`, `shipment_classifications`, `parcel_size_rules`, `conversations`, `conversation_participants`, `conversation_access_grants`, `messages`, `notifications`, `notification_preferences`, `email_logs`, `payments`, `invoices`, `webhook_events`, `incidents`, `incident_updates`, `files`, `audit_logs`, `app_settings`, `contact_requests`.
 
 Contraintes notables (migration `integrity_constraints`) :
 
@@ -139,7 +139,7 @@ Contraintes notables (migration `integrity_constraints`) :
 
 ### Inscription et attribution (exclusivement manuelle)
 
-1. Le client crée son compte, choisit une offre et paie (Stripe Checkout).
+1. Le client crée son compte, choisit une offre et paie sur la page de paiement sécurisée Whop.
 2. À l'activation (webhook) : compte actif, portefeuille crédité des crédits mensuels, état **« En attente d'attribution »**, échéance à 24 h (paramétrable), notification des administrateurs (et alerte immédiate si aucun préparateur n'a de capacité).
 3. Le tableau de bord client affiche le message de bienvenue et le suivi du délai (souscription, temps écoulé, échéance, retard).
 4. Un administrateur ouvre la fiche client → **Attribuer un préparateur** → choisit parmi les préparateurs (capacité clients et stockage, points de réception validés, absences) → confirme.
@@ -168,14 +168,20 @@ Seuls les lieux **validés par un administrateur** sont communiqués aux clients
 | Pro | 69,90 € / mois | 55 | 200 articles |
 | Business | 129,90 € / mois | 120 | 600 articles |
 
-Les limites de stockage et les recharges (10, 30, 60 crédits) sont des valeurs par défaut à ajuster.
+Les limites de stockage sont des valeurs par défaut à ajuster. Les abonnements se renouvellent tous les **30 jours** (période de facturation Whop).
 
-**Crédits supplémentaires** : en plus des crédits mensuels, le client peut acheter à tout moment (`Mes crédits → Acheter des crédits`, ou depuis le tableau de bord et les écrans d'expédition) :
+**Crédits supplémentaires** : en plus des crédits mensuels, le client peut acheter à tout moment **10, 30, 50 ou 100 crédits** (`Mes crédits → Acheter des crédits`, ou depuis le tableau de bord et les écrans d'expédition). Prix par défaut, modifiables dans `Admin → Abonnements` :
 
-- des **recharges prêtes à l'emploi** (lots dégressifs, gérés dans `Admin → Abonnements`) ;
-- une **quantité libre** au prix unitaire configuré dans `Admin → Crédits` (par défaut 1,99 € le crédit, de 5 à 500 crédits par achat, désactivable).
+| Recharge | Prix | Prix par crédit |
+| --- | --- | --- |
+| 10 crédits | 19,90 € | 1,99 € |
+| 30 crédits | 54,90 € | 1,83 € |
+| 50 crédits | 84,90 € | 1,70 € |
+| 100 crédits | 159,90 € | 1,60 € |
 
-Le prix est toujours recalculé côté serveur ; le paiement passe par Stripe Checkout (codes promo acceptés, facture émise) et les crédits achetés suivent leur propre politique d'expiration.
+Seules ces quatre quantités sont acceptées (contrôle côté serveur). Les crédits achetés suivent leur propre politique d'expiration.
+
+**Changement d'offre** : programmé au **prochain renouvellement** (Whop ne facture pas de prorata). Le prix de renouvellement est modifié chez Whop ; au paiement suivant, la nouvelle offre et ses crédits mensuels s'appliquent. Le client peut annuler un changement programmé.
 
 ## Sécurité et RGPD
 
@@ -184,7 +190,7 @@ Le prix est toujours recalculé côté serveur ; le paiement passe par Stripe Ch
 - **Contrôle d'accès côté serveur partout** : un client ne voit que ses données ; un préparateur uniquement ses clients attribués et ses opérations ; l'administration selon des **permissions granulaires** (rôles `super_admin`, `operations`, `support`, rôles personnalisés).
 - Fichiers **privés** : signature binaire vérifiée (le type déclaré est ignoré), 10 Mo maximum, téléchargement via `/api/files/[id]` après contrôle des droits (URL signée de 2 minutes en S3).
 - Messagerie : l'administration n'accède aux conversations client / préparateur qu'avec un **motif**, pour une **durée limitée**, avec journalisation et **message système visible des participants**.
-- Clés Stripe et secrets **uniquement côté serveur** ; aucune variable `NEXT_PUBLIC_` sensible.
+- Clé API Whop et secrets **uniquement côté serveur** ; aucune variable `NEXT_PUBLIC_` sensible. Les montants envoyés à Whop sont toujours recalculés par le serveur.
 - Journal d'audit inaltérable des actions sensibles (crédits, attributions, remboursements, rôles, exports…).
 - RGPD : export des données par le client (`Paramètres → Données personnelles`), demande de suppression, anonymisation par l'administration (registres préservés).
 - En-têtes : `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`.
@@ -195,22 +201,24 @@ Les pages légales (`/legal/*`) sont des **modèles** alimentés par `Admin → 
 
 Toutes les variables sont décrites dans [`.env.example`](.env.example).
 
-### Stripe Billing
+### Paiements avec Whop
 
-1. Renseignez `STRIPE_SECRET_KEY` et `BILLING_MODE="stripe"`.
-2. Dans `Admin → Abonnements`, cliquez **Synchroniser avec Stripe** sur chaque offre (création du produit et du prix mensuel ; un changement de prix crée un nouveau prix, les abonnés existants conservent le leur).
-3. Créez un endpoint webhook vers `https://votre-domaine/api/webhooks/stripe` avec les événements :
-   `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `customer.subscription.paused`, `customer.subscription.resumed`, `invoice.paid`, `invoice.payment_failed`, `invoice.finalized`, `invoice.updated`, `invoice.voided`, `invoice.marked_uncollectible`, `charge.refunded`.
-4. Copiez le secret de signature dans `STRIPE_WEBHOOK_SECRET`.
-5. Activez le **portail client** Stripe (moyens de paiement, factures) et, si besoin, **Stripe Tax** (`STRIPE_AUTOMATIC_TAX="1"`). Les prix sont créés **TTC** (`tax_behavior: inclusive`).
+Packio utilise l'API Whop (`https://api.whop.com/api/v1`, ou `https://sandbox-api.whop.com/api/v1` avec `WHOP_ENVIRONMENT="sandbox"`) côté serveur uniquement.
 
-Test local :
+1. Dans le tableau de bord Whop : **Developer → API keys**, créez une clé du compte → `WHOP_API_KEY`. Notez l'identifiant de l'entreprise (`biz_…`) → `WHOP_ACCOUNT_ID`.
+2. Facultatif : créez un produit « Packio » (`prod_…`) → `WHOP_PRODUCT_ID` pour y rattacher les plans.
+3. Plans : par défaut, Packio crée au moment du paiement un plan **masqué** au prix configuré dans le back-office (abonnement renouvelé tous les 30 jours, ou paiement unique pour les crédits). Vous pouvez aussi créer vos plans dans Whop et coller leur identifiant (`plan_…`) dans `Admin → Abonnements` (offres et recharges) — le prix doit alors correspondre.
+4. Webhook : **Developer → Webhooks**, URL `https://votre-domaine/api/webhooks/whop`, événements `payment.succeeded`, `payment.failed`, `membership.activated`, `membership.updated`, `refund.created`, `refund.updated`. Copiez le secret (`ws_…`) → `WHOP_WEBHOOK_SECRET`.
+5. `BILLING_MODE="whop"`. Les codes promotionnels se créent dans le tableau de bord Whop et se saisissent sur la page de paiement.
 
-```bash
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
-```
+Fonctionnement :
 
-Les webhooks sont journalisés dans `stripe_events` : un événement déjà traité est ignoré, un événement en échec renvoie un code 500 pour être renvoyé par Stripe, puis retraité.
+- Chaque paiement porte des métadonnées (`kind`, `packio_customer_id`, `plan_id` ou `pack_id`) qui permettent de rattacher l'abonnement Whop (`mem_…`) au client Packio ; l'identifiant utilisateur Whop est ensuite mémorisé.
+- Le premier paiement d'un abonnement l'active et ouvre la demande d'attribution ; chaque paiement suivant est un renouvellement (crédits mensuels). La résiliation est programmée en fin de période ; un impayé passe le client en « paiement en retard » (Whop retente le prélèvement).
+- La signature des webhooks suit le standard *Standard Webhooks* (HMAC-SHA256 du `webhook-id.webhook-timestamp.corps`, avec le secret tel quel, tolérance 5 minutes). Les événements sont journalisés dans `webhook_events` : un événement déjà traité est ignoré, un événement en échec renvoie un code 500 pour être renvoyé par Whop, puis retraité.
+- Le bouton « Gérer mon paiement sur Whop » de la page Facturation renvoie vers la gestion de l'abonnement chez Whop (moyen de paiement, reçus, annulation).
+
+À vérifier en environnement *sandbox* Whop avant le lancement : création des plans à la volée, modification du prix de renouvellement (changement d'offre), remboursements depuis le back-office.
 
 ### E-mails
 
@@ -235,7 +243,7 @@ Définissez `CRON_SECRET` : Vercel l'envoie en `Authorization: Bearer`. (Le plan
 ## Déploiement (Vercel)
 
 1. Créez une base PostgreSQL managée (Neon, Supabase, Scaleway, RDS…). Utilisez l'URL **poolée** pour `DATABASE_URL` et, si nécessaire, l'URL directe pour `DIRECT_DATABASE_URL`.
-2. Importez le dépôt sur Vercel et renseignez les variables d'environnement (`APP_URL` = domaine de production, `BILLING_MODE="stripe"`).
+2. Importez le dépôt sur Vercel et renseignez les variables d'environnement (`APP_URL` = domaine de production, `BILLING_MODE="whop"`, variables `WHOP_*`).
 3. Appliquez les migrations et les données de référence (depuis la CI ou un poste disposant de l'URL directe) :
 
 ```bash
@@ -252,7 +260,7 @@ npm run db:bootstrap
 npm run admin:create -- --email vous@votre-domaine.fr --first Prénom --last Nom
 ```
 
-5. Configurez Stripe (ci-dessus), puis dans le back-office : paramètres légaux, fournisseurs, préparateurs et leurs points de réception (à valider).
+5. Configurez Whop (ci-dessus), puis dans le back-office : paramètres légaux, fournisseurs, préparateurs et leurs points de réception (à valider).
 
 `npm run build` exécute `prisma generate` puis `next build`. Ne lancez **jamais** `npm run db:seed` en production (le script le refuse).
 
@@ -267,7 +275,8 @@ npm test
 - **crédits** : réservation / débit / libération, invariants du registre, 8 réservations concurrentes sérialisées, idempotence, politiques d'expiration et de report, ajustements administrateur, registre en ajout seul ;
 - **attribution** : ouverture de la demande après paiement sans attribution automatique, alerte si aucun préparateur, capacité, points validés, attributions simultanées, réattribution avec transfert de stock et retrait d'accès, suivi du délai de 24 h ;
 - **expéditions** : parcours complet, dépôt confirmé 3 fois en parallèle → un seul débit, attente puis reprise après recharge, reclassification, annulation, sur-réservation de stock, contestation et correction ;
-- **webhooks Stripe** : signature, activation, rejeu et doublons, renouvellement, changement d'offre, impayé, recharge, remboursement, retraitement après échec ;
+- **webhooks Whop** : signature (vérifiée contre la bibliothèque Standard Webhooks de référence), activation, premier paiement, rejeu et doublons, renouvellement avec changement d'offre programmé, impayé, résiliation, achat de crédits, remboursement, retraitement après échec ;
+- **crédits supplémentaires** : uniquement 10, 30, 50 ou 100, achat, abonnement requis, changement d'offre programmé puis annulé / appliqué ;
 - **permissions** : isolation entre clients, entre préparateurs, permissions administrateur, messagerie, fichiers.
 
 Parcours de bout en bout (Playwright) — reproduit le parcours du cahier des charges : souscription Starter et paiement, message d'attente 24 h, attribution manuelle par l'administrateur, commande AliExpress, réception et mise en stock par le préparateur, demande d'expédition, classification (crédits réservés), préparation, étiquette, dépôt (crédits débités) avec suivi transporteur, messagerie client ↔ préparateur et supervision dans le back-office. Prérequis : base de développement initialisée (`npm run db:seed`) et `BILLING_MODE="dev"` ; le serveur de développement est démarré automatiquement s'il ne tourne pas.

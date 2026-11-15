@@ -67,10 +67,12 @@ export const DEFAULT_SIZE_RULES = [
   { size: "LARGE" as const, label: "Grand colis", description: "Manteaux, lots, objets volumineux.", creditCost: 3, maxLengthCm: 70, maxWidthCm: 50, maxHeightCm: 50, maxWeightGrams: 20000, sortOrder: 2 },
 ];
 
+/** Recharges de crédits supplémentaires : 10, 30, 50 ou 100 (prix modifiables par l'admin). */
 export const DEFAULT_CREDIT_PACKS = [
-  { name: "Recharge 10", credits: 10, priceCents: 1990, sortOrder: 1 },
-  { name: "Recharge 30", credits: 30, priceCents: 5490, sortOrder: 2 },
-  { name: "Recharge 60", credits: 60, priceCents: 9990, sortOrder: 3 },
+  { name: "10 crédits", credits: 10, priceCents: 1990, sortOrder: 1 },
+  { name: "30 crédits", credits: 30, priceCents: 5490, sortOrder: 2 },
+  { name: "50 crédits", credits: 50, priceCents: 8490, sortOrder: 3 },
+  { name: "100 crédits", credits: 100, priceCents: 15990, sortOrder: 4 },
 ];
 
 const ALL: LocationType[] = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT"];
@@ -148,9 +150,13 @@ export async function seedReferenceData(db: PrismaClient) {
   for (const rule of DEFAULT_SIZE_RULES) {
     await db.parcelSizeRule.upsert({ where: { size: rule.size }, create: rule, update: {} });
   }
-  if ((await db.creditPack.count()) === 0) {
-    await db.creditPack.createMany({ data: DEFAULT_CREDIT_PACKS });
+  // Recharges : exactement 10, 30, 50 et 100 crédits. Les prix déjà réglés sont
+  // conservés ; toute autre quantité est désactivée.
+  for (const pack of DEFAULT_CREDIT_PACKS) {
+    const existing = await db.creditPack.findFirst({ where: { credits: pack.credits } });
+    if (!existing) await db.creditPack.create({ data: pack });
   }
+  await db.creditPack.updateMany({ where: { credits: { notIn: DEFAULT_CREDIT_PACKS.map((p) => p.credits) } }, data: { isActive: false } });
   for (const s of DEFAULT_SUPPLIERS) {
     await db.supplier.upsert({ where: { code: s.code }, create: s, update: {} });
   }

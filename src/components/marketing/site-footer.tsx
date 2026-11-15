@@ -69,7 +69,7 @@ export async function SiteFooter() {
       <div className="border-t">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <p>© {new Date().getFullYear()} Packio. Tous droits réservés.</p>
-          <p>Paiements sécurisés par Stripe</p>
+          <p>Paiements sécurisés par Whop</p>
         </div>
       </div>
     </footer>

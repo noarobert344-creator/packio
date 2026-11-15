@@ -77,7 +77,7 @@ export function Faq({ ctx }: { ctx: FaqContext }) {
     },
     {
       q: "Comment résilier ou changer d'offre ?",
-      a: "Depuis la page Facturation de votre espace. Un passage à l'offre supérieure est immédiat et vos crédits du mois sont complétés ; un passage à l'offre inférieure s'applique au renouvellement. La résiliation prend effet à la fin de la période en cours. Votre stock reste consultable et sa restitution est organisée avec le support.",
+      a: "Depuis la page Facturation de votre espace. Le changement d'offre, à la hausse comme à la baisse, prend effet à votre prochain renouvellement, avec les crédits de la nouvelle offre ; besoin de crédits dès maintenant ? Achetez 10, 30, 50 ou 100 crédits supplémentaires. La résiliation prend effet à la fin de la période en cours. Votre stock reste consultable et sa restitution est organisée avec le support.",
     },
     {
       q: "Mes messages sont-ils confidentiels ?",

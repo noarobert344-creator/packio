@@ -40,7 +40,7 @@ export function Hero() {
               <CreditCard className="size-4 text-brand" /> Sans engagement
             </li>
             <li className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="size-4 text-brand" /> Paiement sécurisé par Stripe
+              <ShieldCheck className="size-4 text-brand" /> Paiement sécurisé par Whop
             </li>
           </ul>
         </div>

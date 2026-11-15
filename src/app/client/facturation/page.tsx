@@ -31,12 +31,12 @@ export default async function BillingPage() {
     <div className="space-y-8">
       <PageHeader
         title="Facturation"
-        description="Abonnement, factures et paiements. Paiements sécurisés par Stripe."
+        description="Abonnement, factures et paiements. Paiements sécurisés par Whop."
         actions={
-          !dev && customer.stripeCustomerId ? (
+          !dev && sub?.provider === "whop" ? (
             <form action={openPortalAction}>
               <Button type="submit" variant="outline">
-                <CreditCard /> Moyens de paiement <ExternalLink />
+                <CreditCard /> Gérer mon paiement sur Whop <ExternalLink />
               </Button>
             </form>
           ) : null
@@ -44,7 +44,7 @@ export default async function BillingPage() {
       />
       {customer.status === "PAST_DUE" && (
         <p className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
-          <TriangleAlert className="size-4 shrink-0" /> Le paiement de votre abonnement a échoué. Mettez à jour votre moyen de paiement : Stripe réessaiera automatiquement.
+          <TriangleAlert className="size-4 shrink-0" /> Le paiement de votre abonnement a échoué. Mettez à jour votre moyen de paiement sur Whop : le paiement sera retenté automatiquement.
         </p>
       )}
       <Section title="Abonnement">
@@ -58,6 +58,11 @@ export default async function BillingPage() {
               <p className="text-sm text-muted-foreground">
                 {formatMoney(sub.plan.priceCents)} / mois · {sub.plan.monthlyCredits} crédits par mois
               </p>
+              {sub.pendingPlan && (
+                <p className="text-sm text-brand">
+                  Changement programmé : passage à l&apos;offre {sub.pendingPlan.name} ({sub.pendingPlan.monthlyCredits} crédits / mois) au prochain renouvellement.
+                </p>
+              )}
               {sub.currentPeriodEnd && (
                 <p className="text-sm">
                   {sub.cancelAtPeriodEnd ? (

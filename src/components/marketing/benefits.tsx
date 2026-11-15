@@ -6,7 +6,7 @@ const BENEFITS = [
   { icon: Boxes, title: "Un stock toujours visible", text: "Photos, quantités disponibles, réservées et expédiées, emplacement : tout est à jour dans votre espace." },
   { icon: Coins, title: "Des crédits transparents", text: "Un coût fixe par taille de colis, réservé puis débité au dépôt. Chaque mouvement figure dans votre historique." },
   { icon: MessagesSquare, title: "Un lien direct", text: "Une messagerie privée avec votre préparateur, liée à vos commandes et expéditions, et un support Packio dédié." },
-  { icon: ShieldCheck, title: "Paiements sécurisés", text: "Abonnement, recharges et factures gérés par Stripe. Packio ne stocke jamais vos données de carte." },
+  { icon: ShieldCheck, title: "Paiements sécurisés", text: "Abonnement, crédits supplémentaires et reçus gérés par Whop. Packio ne stocke jamais vos données de carte." },
   { icon: LockKeyhole, title: "Données protégées", text: "Accès strictement limités par rôle, fichiers privés, journal d'audit des actions sensibles, droits RGPD respectés." },
 ];
 

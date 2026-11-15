@@ -10,7 +10,7 @@ const STEPS = [
   {
     icon: CreditCard,
     title: "Choisissez votre offre",
-    text: "Souscrivez un abonnement mensuel adapté à votre volume. Vos crédits de préparation sont disponibles dès le paiement, géré de façon sécurisée par Stripe.",
+    text: "Souscrivez un abonnement mensuel adapté à votre volume. Vos crédits de préparation sont disponibles dès le paiement, géré de façon sécurisée par Whop.",
   },
   {
     icon: UserRoundCheck,

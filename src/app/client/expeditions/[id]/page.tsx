@@ -45,7 +45,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
         <div className="flex flex-col gap-3 rounded-2xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger sm:flex-row sm:items-center sm:justify-between">
           <p>Solde insuffisant : {formatCredits(s.creditCost)} requis. L&apos;expédition reprendra automatiquement après votre recharge.</p>
           <Button asChild size="sm" variant="destructive">
-            <Link href={`/client/credits?quantite=${s.creditCost ?? ""}#recharger`}>Acheter des crédits</Link>
+            <Link href="/client/credits#recharger">Acheter des crédits</Link>
           </Button>
         </div>
       )}

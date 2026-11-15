@@ -20,22 +20,39 @@ export const env = {
   get appUrl() {
     return (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   },
-  /** "stripe" (défaut) ou "dev" (paiements simulés, interdit en production). */
-  get billingMode(): "stripe" | "dev" {
-    const mode = process.env.BILLING_MODE === "dev" ? "dev" : "stripe";
+  /** "whop" (défaut) ou "dev" (paiements simulés, interdit en production). */
+  get billingMode(): "whop" | "dev" {
+    const mode = process.env.BILLING_MODE === "dev" ? "dev" : "whop";
     if (mode === "dev" && process.env.NODE_ENV === "production" && !bool(process.env.ALLOW_DEV_BILLING_IN_PRODUCTION)) {
-      return "stripe";
+      return "whop";
     }
     return mode;
   },
-  get stripeSecretKey() {
-    return process.env.STRIPE_SECRET_KEY ?? "";
-  },
-  get stripeWebhookSecret() {
-    return process.env.STRIPE_WEBHOOK_SECRET ?? "";
-  },
-  get stripeTaxEnabled() {
-    return bool(process.env.STRIPE_AUTOMATIC_TAX);
+  whop: {
+    /** Clé API du compte Whop (Developer → API keys). */
+    get apiKey() {
+      return process.env.WHOP_API_KEY ?? "";
+    },
+    /** Secret de signature du webhook (commence par « ws_ »). */
+    get webhookSecret() {
+      return process.env.WHOP_WEBHOOK_SECRET ?? "";
+    },
+    /** Identifiant du compte / de l'entreprise Whop (biz_…). */
+    get accountId() {
+      return process.env.WHOP_ACCOUNT_ID ?? "";
+    },
+    /** Produit Whop auquel rattacher les plans créés à la volée (prod_…), facultatif. */
+    get productId() {
+      return process.env.WHOP_PRODUCT_ID ?? "";
+    },
+    /** "production" (défaut) ou "sandbox". */
+    get environment(): "production" | "sandbox" {
+      return process.env.WHOP_ENVIRONMENT === "sandbox" ? "sandbox" : "production";
+    },
+    /** Version d'API figée (en-tête Api-Version-Date), facultative. */
+    get apiVersionDate() {
+      return process.env.WHOP_API_VERSION_DATE ?? "";
+    },
   },
   get resendApiKey() {
     return process.env.RESEND_API_KEY ?? "";

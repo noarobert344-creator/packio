@@ -6,11 +6,26 @@ import type { FormAction } from "@/lib/action-types";
 
 type Plan = { id: string; code: string; name: string; tagline: string | null; priceCents: number; monthlyCredits: number; storageLimit: number | null; features: string[]; highlighted: boolean };
 
-export function PlanPicker({ plans, action, currentPlanId, preselect, ctaLabel }: { plans: Plan[]; action: FormAction; currentPlanId?: string; preselect?: string; ctaLabel: (p: Plan) => string }) {
+export function PlanPicker({
+  plans,
+  action,
+  currentPlanId,
+  pendingPlanId,
+  preselect,
+  ctaLabel,
+}: {
+  plans: Plan[];
+  action: FormAction;
+  currentPlanId?: string;
+  pendingPlanId?: string | null;
+  preselect?: string;
+  ctaLabel: (p: Plan) => string;
+}) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {plans.map((p) => {
         const current = p.id === currentPlanId;
+        const pending = p.id === pendingPlanId;
         const focus = preselect ? p.code === preselect : p.highlighted;
         return (
           <div key={p.id} className={cn("relative flex flex-col rounded-2xl border bg-card p-6 shadow-soft", focus && "border-brand ring-1 ring-brand", current && "bg-muted/40")}>
@@ -32,8 +47,8 @@ export function PlanPicker({ plans, action, currentPlanId, preselect, ctaLabel }
             </ul>
             <ActionForm action={action} silent className="mt-6">
               <input type="hidden" name="planId" value={p.id} />
-              <SubmitButton className="h-10 w-full" variant={focus ? "default" : "outline"} disabled={current} pendingLabel="Redirection…">
-                {current ? "Offre actuelle" : ctaLabel(p)}
+              <SubmitButton className="h-10 w-full" variant={focus ? "default" : "outline"} disabled={pending || (current && !pendingPlanId)} pendingLabel="Enregistrement…">
+                {pending ? "Programmée au renouvellement" : current ? (pendingPlanId ? `Conserver ${p.name}` : "Offre actuelle") : ctaLabel(p)}
               </SubmitButton>
             </ActionForm>
           </div>

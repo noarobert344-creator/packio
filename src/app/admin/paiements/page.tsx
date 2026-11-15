@@ -3,7 +3,7 @@ import { BadgeEuro, CircleAlert, Receipt, Undo2 } from "lucide-react";
 import type { PaymentKind, PaymentStatus, WebhookEventStatus } from "@/generated/prisma/enums";
 import { requireAdmin } from "@/server/auth/current";
 import { can } from "@/server/auth/actor";
-import { PAGE_SIZE, listInvoices, listPayments, listStripeEvents, paymentKpis } from "@/server/queries/admin-ops";
+import { PAGE_SIZE, listInvoices, listPayments, listWebhookEvents, paymentKpis } from "@/server/queries/admin-ops";
 import { refundPaymentAction } from "@/server/actions/admin/ops";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -53,7 +53,7 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
 
   return (
     <>
-      <PageHeader title="Paiements" description="Encaissements, factures, échecs de paiement et journal des webhooks Stripe." actions={<ExportLink entity="paiements" />} />
+      <PageHeader title="Paiements" description="Encaissements, factures, échecs de paiement et journal des webhooks Whop." actions={<ExportLink entity="paiements" />} />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Encaissé sur 30 jours" value={formatMoney(kpis.grossCents)} icon={BadgeEuro} tone="brand" hint={`${kpis.count} paiement(s)`} />
         <StatCard label="Remboursé sur 30 jours" value={formatMoney(kpis.refundedCents)} icon={Undo2} />
@@ -67,7 +67,7 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
             { value: "", label: "Paiements" },
             { value: "factures", label: "Factures" },
             { value: "echecs", label: "Échecs de paiement" },
-            { value: "webhooks", label: "Webhooks Stripe" },
+            { value: "webhooks", label: "Webhooks Whop" },
           ]}
         />
       </div>
@@ -94,7 +94,7 @@ async function PaymentsTab({ q, page, status, kind, failuresOnly, canRefund }: {
         </div>
       }
       title={failuresOnly ? "Échecs de paiement" : "Paiements"}
-      description={failuresOnly ? "Le client est notifié et invité à mettre à jour son moyen de paiement ; Stripe relance automatiquement." : undefined}
+      description={failuresOnly ? "Le client est notifié et invité à mettre à jour son moyen de paiement  ; Whop relance automatiquement le paiement." : undefined}
       contentClassName="p-0"
     >
       <Table>
@@ -134,7 +134,7 @@ async function PaymentsTab({ q, page, status, kind, failuresOnly, canRefund }: {
                 <TableCell>
                   <StatusFrom map={PAYMENT_STATUS} value={p.status} />
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{p.provider === "dev" ? "Démonstration" : "Stripe"}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{p.provider === "dev" ? "Démonstration" : p.provider === "whop" ? "Whop" : p.provider}</TableCell>
                 <TableCell className="pr-5 text-right">
                   {refundable && (
                     <ActionDialog
@@ -144,7 +144,7 @@ async function PaymentsTab({ q, page, status, kind, failuresOnly, canRefund }: {
                         </Button>
                       }
                       title="Rembourser le paiement"
-                      description={`Montant remboursable : ${formatMoney(remaining, p.currency)}. Le remboursement est effectué via ${p.provider === "dev" ? "le mode démonstration (aucun mouvement réel)" : "Stripe"}.`}
+                      description={`Montant remboursable : ${formatMoney(remaining, p.currency)}. Le remboursement est effectué via ${p.provider === "dev" ? "le mode démonstration (aucun mouvement réel)" : "Whop"}.`}
                       action={refundPaymentAction}
                       submitLabel="Rembourser"
                       destructive
@@ -248,11 +248,11 @@ async function InvoicesTab({ q, page }: { q?: string; page: number }) {
 }
 
 async function WebhooksTab({ page, status }: { page: number; status?: WebhookEventStatus }) {
-  const { items, total, counts } = await listStripeEvents({ page, status });
+  const { items, total, counts } = await listWebhookEvents({ page, status });
   return (
     <Section
-      title="Webhooks Stripe"
-      description="Événements reçus et vérifiés. Un événement en échec est retraité automatiquement lors du renvoi par Stripe ; un événement déjà traité est ignoré (idempotence)."
+      title="Webhooks Whop"
+      description="Événements reçus et vérifiés. Un événement en échec est retraité automatiquement lors du renvoi par Whop ; un événement déjà traité est ignoré (idempotence)."
       actions={<FilterSelect param="statut" options={(Object.keys(WEBHOOK_STATUS) as WebhookEventStatus[]).map((s) => ({ value: s, label: `${WEBHOOK_STATUS[s].label} (${counts[s] ?? 0})` }))} placeholder="Tous les statuts" />}
       contentClassName="p-0"
     >
@@ -283,7 +283,7 @@ async function WebhooksTab({ page, status }: { page: number; status?: WebhookEve
           {items.length === 0 && (
             <TableRow>
               <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                Aucun événement reçu{status ? " avec ce statut" : ""}. Configurez l&apos;URL <code className="font-mono">/api/webhooks/stripe</code> dans le tableau de bord Stripe.
+                Aucun événement reçu{status ? " avec ce statut" : ""}. Configurez l&apos;URL <code className="font-mono">/api/webhooks/whop</code> dans le tableau de bord développeur Whop.
               </TableCell>
             </TableRow>
           )}

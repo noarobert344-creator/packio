@@ -76,7 +76,7 @@ export function CustomerStatusDialog({ customerId, suspended }: { customerId: st
       description={
         suspended
           ? "Le client pourra de nouveau se connecter. Son statut est recalculé selon son abonnement."
-          : "Le client est déconnecté et ne peut plus se connecter. L'abonnement Stripe n'est pas modifié."
+          : "Le client est déconnecté et ne peut plus se connecter. L'abonnement Whop n'est pas modifié."
       }
       action={setCustomerStatusAction}
       destructive={!suspended}

@@ -48,7 +48,7 @@ export default async function HomePage() {
         }))}
       />
       <Benefits />
-      <Pricing plans={plans} sizeRules={sizeRules} packs={packs} customPurchase={await getSetting("creditPurchase")} />
+      <Pricing plans={plans} sizeRules={sizeRules} packs={packs} />
       <Faq
         ctx={{
           slaHours: assignment.slaHours,

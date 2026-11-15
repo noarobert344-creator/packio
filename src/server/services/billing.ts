@@ -9,7 +9,7 @@ import { openAssignmentRequest, WAITING_STATES } from "./assignments";
 
 /**
  * TRAITEMENTS DE FACTURATION (indépendants du prestataire)
- * Appelés par le traitement des webhooks Stripe vérifiés, ou par le mode de
+ * Appelés par le traitement des webhooks Whop vérifiés, ou par le mode de
  * paiement de démonstration en développement. Tous sont idempotents.
  */
 
@@ -19,7 +19,7 @@ const DELINQUENT: SubscriptionStatus[] = ["PAST_DUE", "UNPAID"];
 export type SubscriptionSnapshot = {
   customerId: string;
   planId: string;
-  provider: "stripe" | "dev";
+  provider: "whop" | "dev";
   externalId: string;
   status: SubscriptionStatus;
   periodStart: Date | null;
@@ -80,32 +80,6 @@ export async function syncSubscription(tx: Tx, fx: Effects, snap: SubscriptionSn
     });
   }
 
-  // Changement d'offre : à la hausse, la différence de crédits mensuels est accordée immédiatement.
-  if (existing && existing.planId !== snap.planId && isActive) {
-    const diff = subscription.plan.monthlyCredits - existing.plan.monthlyCredits;
-    if (diff > 0) {
-      await grantCredits(tx, {
-        customerId: customer.id,
-        bucket: "MONTHLY",
-        amount: diff,
-        source: "PLAN_CHANGE",
-        sourceRef: snap.externalId,
-        expiresAt: snap.periodEnd ? new Date(snap.periodEnd.getTime() + 3 * 86400000) : null,
-        type: "PLAN_CHANGE_GRANT",
-        description: `Passage de ${existing.plan.name} à ${subscription.plan.name} (+${diff} crédits)`,
-        idempotencyKey: `planchange:${snap.externalId}:${existing.planId}:${snap.planId}:${snap.periodStart?.toISOString() ?? "na"}`,
-      });
-    }
-    await audit({ actor: null, action: "subscription.plan_changed", entityType: "customer", entityId: customer.id, summary: `${existing.plan.name} → ${subscription.plan.name}` }, tx);
-    fx.notify(customer.userId, {
-      type: "SUBSCRIPTION_UPDATED",
-      title: "Offre modifiée",
-      body: `Votre abonnement passe à ${subscription.plan.name}${diff > 0 ? ` : ${diff} crédits supplémentaires ont été ajoutés pour la période en cours` : " à partir du prochain renouvellement"}.`,
-      link: "/client/facturation",
-    });
-    if (diff > 0) fx.after(async () => (await import("./shipments")).retryAwaitingCredits(customer.id));
-  }
-
   if (existing && existing.cancelAtPeriodEnd !== snap.cancelAtPeriodEnd && snap.status !== "CANCELED") {
     fx.notify(customer.userId, {
       type: "SUBSCRIPTION_UPDATED",
@@ -154,8 +128,8 @@ export type InvoiceSnapshot = {
   periodEnd: Date | null;
   issuedAt: Date;
   planId: string | null;
-  paymentIntentId: string | null;
-  provider: "stripe" | "dev";
+  membershipId: string | null;
+  provider: "whop" | "dev";
 };
 
 export async function recordInvoice(tx: Tx, snap: InvoiceSnapshot) {
@@ -185,10 +159,26 @@ function periodLabel(start: Date | null, end: Date | null) {
   return `${format(start, "d MMM", { locale: fr })} – ${format(end, "d MMM yyyy", { locale: fr })}`;
 }
 
-/** Facture payée : enregistrement du paiement et allocation mensuelle de crédits. */
+/**
+ * Paiement d'abonnement réussi : enregistrement du paiement et de la facture,
+ * application d'un éventuel changement d'offre programmé (au renouvellement),
+ * puis allocation mensuelle de crédits.
+ */
 export async function onInvoicePaid(tx: Tx, fx: Effects, snap: InvoiceSnapshot) {
   const invoice = await recordInvoice(tx, snap);
-  const plan = snap.planId ? await tx.plan.findUnique({ where: { id: snap.planId } }) : null;
+  let subscription = snap.subscriptionExternalId
+    ? await tx.subscription.findUnique({ where: { externalId: snap.subscriptionExternalId }, include: { plan: true, pendingPlan: true } })
+    : null;
+  if (subscription && snap.billingReason === "subscription_cycle" && subscription.pendingPlan) {
+    const from = subscription.plan.name;
+    subscription = await tx.subscription.update({
+      where: { id: subscription.id },
+      data: { planId: subscription.pendingPlan.id, pendingPlanId: null },
+      include: { plan: true, pendingPlan: true },
+    });
+    await audit({ actor: null, action: "subscription.plan_changed", entityType: "customer", entityId: snap.customerId, summary: `${from} → ${subscription.plan.name}` }, tx);
+  }
+  const plan = subscription?.plan ?? (snap.planId ? await tx.plan.findUnique({ where: { id: snap.planId } }) : null);
   const paymentData = {
     customerId: snap.customerId,
     kind: "SUBSCRIPTION" as const,
@@ -198,7 +188,7 @@ export async function onInvoicePaid(tx: Tx, fx: Effects, snap: InvoiceSnapshot) 
     description: `Abonnement ${plan?.name ?? ""} ${periodLabel(snap.periodStart, snap.periodEnd)}`.trim(),
     provider: snap.provider,
     invoiceId: invoice.id,
-    paymentIntentId: snap.paymentIntentId,
+    membershipId: snap.membershipId,
     failureMessage: null,
   };
   await tx.payment.upsert({ where: { externalId: snap.externalId }, create: { ...paymentData, externalId: snap.externalId }, update: paymentData });
@@ -241,6 +231,7 @@ export async function onInvoicePaymentFailed(tx: Tx, fx: Effects, snap: InvoiceS
       description: `Échec de paiement de l'abonnement ${periodLabel(snap.periodStart, snap.periodEnd)}`.trim(),
       provider: snap.provider,
       invoiceId: invoice.id,
+      membershipId: snap.membershipId,
       failureMessage: snap.failureMessage?.slice(0, 300) ?? null,
     };
     await tx.payment.upsert({ where: { externalId: snap.externalId }, create: { ...data, externalId: snap.externalId }, update: data });
@@ -275,8 +266,8 @@ export async function onCreditPackPaid(
     amountCents: number;
     currency: string;
     externalId: string;
-    paymentIntentId: string | null;
-    provider: "stripe" | "dev";
+    membershipId: string | null;
+    provider: "whop" | "dev";
     description: string;
   },
 ) {
@@ -288,7 +279,7 @@ export async function onCreditPackPaid(
     currency: input.currency,
     description: input.description,
     provider: input.provider,
-    paymentIntentId: input.paymentIntentId,
+    membershipId: input.membershipId,
     creditPackId: input.packId,
     creditsGranted: input.credits,
   };
@@ -318,12 +309,8 @@ export async function onCreditPackPaid(
   return { payment, applied };
 }
 
-export async function onPaymentRefunded(tx: Tx, input: { paymentIntentId?: string | null; externalId?: string | null; amountRefundedCents: number }) {
-  const payment = input.externalId
-    ? await tx.payment.findUnique({ where: { externalId: input.externalId } })
-    : input.paymentIntentId
-      ? await tx.payment.findUnique({ where: { paymentIntentId: input.paymentIntentId } })
-      : null;
+export async function onPaymentRefunded(tx: Tx, input: { externalId: string; amountRefundedCents: number }) {
+  const payment = await tx.payment.findUnique({ where: { externalId: input.externalId } });
   if (!payment) return null;
   const refunded = Math.min(payment.amountCents, Math.max(payment.refundedCents, input.amountRefundedCents));
   return tx.payment.update({

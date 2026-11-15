@@ -10,7 +10,6 @@ import { requireCustomer } from "@/server/auth/current";
 import {
   changePlan,
   devCompleteCreditPack,
-  devCompleteCustomCredits,
   devCompleteSubscription,
   devRecoverPayment,
   devSimulatePaymentFailure,
@@ -18,7 +17,6 @@ import {
   openBillingPortal,
   setCancelAtPeriodEnd,
   startCreditPackCheckout,
-  startCustomCreditCheckout,
   startSubscriptionCheckout,
 } from "@/server/billing";
 import { createSupplierOrder, customerUpdateOrder, reportOrderProblem } from "@/server/services/orders";
@@ -38,9 +36,13 @@ export async function startSubscriptionAction(_prev: ActionState, formData: Form
 
 export async function changePlanAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   return runAction(z.object({ planId: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    const { upgrade } = await changePlan(actor, data.planId);
+    const { scheduled } = await changePlan(actor, data.planId);
     revalidatePath("/client", "layout");
-    return { ok: true, message: upgrade ? "Offre mise à niveau : les crédits supplémentaires sont disponibles." : "Changement d'offre enregistré. Il s'appliquera au prochain renouvellement." };
+    return {
+      ok: true,
+      message: scheduled ? "Changement d'offre programmé : il prendra effet au prochain renouvellement." : "Changement d'offre annulé : vous conservez votre offre actuelle.",
+      redirectTo: "/client/facturation",
+    };
   });
 }
 
@@ -65,21 +67,9 @@ export async function buyCreditsAction(_prev: ActionState, formData: FormData): 
   });
 }
 
-export async function buyCustomCreditsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ credits: intField("Nombre de crédits", { min: 1, max: 10_000 }) }), formToObject(formData), async (actor, data) => {
-    const { url } = await startCustomCreditCheckout(actor, data.credits);
-    return { ok: true, message: "Redirection vers le paiement sécurisé…", redirectTo: url };
-  });
-}
-
 /** Paiement de démonstration (BILLING_MODE=dev uniquement, vérifié côté serveur). */
 export async function devCheckoutAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ type: z.enum(["abonnement", "credits", "credits-libre"]), id: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    if (data.type === "credits-libre") {
-      await devCompleteCustomCredits(actor, Number(data.id));
-      revalidatePath("/client", "layout");
-      return { ok: true, message: "Paiement simulé : crédits ajoutés.", redirectTo: "/client/credits?recharge=confirmee" };
-    }
+  return runAction(z.object({ type: z.enum(["abonnement", "credits"]), id: z.string().min(1) }), formToObject(formData), async (actor, data) => {
     if (data.type === "abonnement") {
       await devCompleteSubscription(actor, data.id);
       revalidatePath("/client", "layout");

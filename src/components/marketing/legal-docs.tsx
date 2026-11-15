@@ -186,7 +186,7 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
       </p>
       <h2>3. Paiement</h2>
       <p>
-        Le paiement est réalisé par carte bancaire (ou tout moyen proposé) via Stripe, prestataire de paiement sécurisé. Packio ne stocke aucune donnée de carte.
+        Le paiement est réalisé par carte bancaire (ou tout moyen proposé) via Whop, plateforme de paiement sécurisée. Packio ne stocke aucune donnée de carte.
         L&apos;abonnement est prélevé mensuellement et renouvelé automatiquement. Des codes promotionnels peuvent être appliqués lors du paiement, selon leurs conditions
         propres. Les factures sont disponibles dans l&apos;espace Facturation.
       </p>
@@ -214,8 +214,9 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
       </p>
       <h2>7. Changement d&apos;offre et résiliation</h2>
       <p>
-        Le passage à une offre supérieure est immédiat : la différence de prix est facturée au prorata et la différence de crédits mensuels est accordée pour la
-        période en cours. Le passage à une offre inférieure prend effet au renouvellement suivant. L&apos;abonnement est sans engagement : la résiliation prend effet à la
+        Le changement d&apos;offre, à la hausse comme à la baisse, prend effet au renouvellement suivant, sans facturation au prorata : le nouveau prix et les
+        crédits mensuels de la nouvelle offre s&apos;appliquent à compter de ce renouvellement. Des crédits supplémentaires (10, 30, 50 ou 100) peuvent être achetés à
+        tout moment. L&apos;abonnement est renouvelé automatiquement par périodes de 30 jours et sans engagement : la résiliation prend effet à la
         fin de la période payée, sans remboursement de la période en cours ni des crédits consommés. Le stock est alors restitué au Client selon des modalités
         convenues avec le support (frais de transport à sa charge).
       </p>
@@ -254,7 +255,7 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
         <li>Identité et contact : nom, prénom, adresse e-mail, téléphone, société.</li>
         <li>Compte : identifiants (mot de passe chiffré par hachage), journaux de connexion, préférences de notification.</li>
         <li>Logistique : commandes déclarées, numéros de suivi, codes de retrait, articles en stock, photos, adresses des destinataires des expéditions.</li>
-        <li>Facturation : abonnement, paiements, factures (les données de carte sont traitées exclusivement par Stripe).</li>
+        <li>Facturation : abonnement, paiements, factures (les données de carte sont traitées exclusivement par Whop et ses prestataires de paiement).</li>
         <li>Communications : messages échangés, pièces jointes, demandes de support et de contact, incidents.</li>
         <li>Préparateurs : informations professionnelles, adresses de réception, disponibilités, capacité.</li>
       </ul>
@@ -270,7 +271,7 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
       <ul>
         <li>Votre préparateur attitré, uniquement pour les données nécessaires à l&apos;exécution du service.</li>
         <li>L&apos;équipe Packio habilitée, selon des permissions par rôle.</li>
-        <li>Stripe — traitement des paiements et de la facturation.</li>
+        <li>Whop — traitement des paiements, des abonnements et des reçus.</li>
         <li>
           <Fill value={ctx.legal.hostName} label="hébergeur" /> — hébergement de l&apos;application et de la base de données.
         </li>
@@ -348,7 +349,7 @@ export function Cookies({ ctx }: { ctx: LegalContext }) {
       </p>
       <h2>Paiement</h2>
       <p>
-        Lors du paiement, vous êtes redirigé vers la page sécurisée de Stripe, qui peut déposer ses propres cookies nécessaires à la sécurité des transactions et à la
+        Lors du paiement, vous êtes redirigé vers la page de paiement sécurisée de Whop, qui peut déposer ses propres cookies nécessaires à la sécurité des transactions et à la
         prévention de la fraude, selon sa propre politique.
       </p>
       <h2>Gérer les cookies</h2>

@@ -52,12 +52,12 @@ async function markDemo(userId: string) {
 
 async function subscribe(customerId: string, planCode: string, startedAt: Date) {
   const plan = await db.plan.findUniqueOrThrow({ where: { code: planCode } });
-  const externalId = `dev_sub_${randomCode(14)}`;
+  const externalId = `dev_mem_${randomCode(14)}`;
   const end = addDays(startedAt, 30);
   await withEffects(async (tx, fx) => {
     await syncSubscription(tx, fx, { customerId, planId: plan.id, provider: "dev", externalId, status: "ACTIVE", periodStart: startedAt, periodEnd: end, cancelAtPeriodEnd: false, canceledAt: null, endedAt: null });
     await onInvoicePaid(tx, fx, {
-      externalId: `dev_in_${randomCode(14)}`,
+      externalId: `dev_pay_${randomCode(14)}`,
       customerId,
       subscriptionExternalId: externalId,
       number: `DEMO-${randomCode(6)}`,
@@ -72,7 +72,7 @@ async function subscribe(customerId: string, planCode: string, startedAt: Date) 
       periodEnd: end,
       issuedAt: startedAt,
       planId: plan.id,
-      paymentIntentId: null,
+      membershipId: externalId,
       provider: "dev",
     });
   });

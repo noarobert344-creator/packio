@@ -5,7 +5,7 @@ export async function getActiveSubscription(customerId: string, client: Tx | typ
   return client.subscription.findFirst({
     where: { customerId, status: { in: ["ACTIVE", "TRIALING", "PAST_DUE"] } },
     orderBy: { createdAt: "desc" },
-    include: { plan: true },
+    include: { plan: true, pendingPlan: true },
   });
 }
 

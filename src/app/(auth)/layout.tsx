@@ -6,7 +6,7 @@ const POINTS = [
   { icon: Truck, title: "Un préparateur attitré", text: "Vos colis arrivent chez une personne identifiée, qui réceptionne, contrôle et expédie." },
   { icon: Boxes, title: "Votre stock en temps réel", text: "Chaque article reçu est photographié, référencé et suivi jusqu'à son expédition." },
   { icon: MessagesSquare, title: "Une messagerie directe", text: "Échangez avec votre préparateur à propos d'une commande ou d'une expédition." },
-  { icon: ShieldCheck, title: "Paiements sécurisés", text: "Abonnement et recharges gérés par Stripe. Vos crédits sont tracés au détail près." },
+  { icon: ShieldCheck, title: "Paiements sécurisés", text: "Abonnement et crédits supplémentaires payés via Whop. Vos crédits sont tracés au détail près." },
 ];
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {

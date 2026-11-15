@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
 import { SelectField, TextField } from "@/components/shared/form-field";
 import { CopyButton } from "@/components/shared/copy-button";
-import { createPromoCodeAction, inviteAdminAction } from "@/server/actions/admin/ops";
+import { inviteAdminAction } from "@/server/actions/admin/ops";
 
 /** Code de retrait masqué par défaut (donnée sensible). */
 export function PickupCode({ code }: { code: string }) {
@@ -50,40 +50,3 @@ export function InviteAdminForm({ roles }: { roles: { value: string; label: stri
   );
 }
 
-export function PromoCodeForm() {
-  const [type, setType] = useState("percent");
-  const [duration, setDuration] = useState("once");
-  return (
-    <ActionForm action={createPromoCodeAction} resetOnSuccess className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <TextField name="code" label="Code" required placeholder="BIENVENUE10" />
-      <SelectField
-        name="discountType"
-        label="Type de remise"
-        value={type}
-        onChange={(e) => setType(e.target.value)}
-        options={[
-          { value: "percent", label: "Pourcentage (%)" },
-          { value: "amount", label: "Montant fixe (€)" },
-        ]}
-      />
-      <TextField name="value" label={type === "percent" ? "Remise (%)" : "Remise (€)"} required inputMode="decimal" placeholder={type === "percent" ? "10" : "5,00"} />
-      <SelectField
-        name="duration"
-        label="Durée"
-        value={duration}
-        onChange={(e) => setDuration(e.target.value)}
-        options={[
-          { value: "once", label: "Premier paiement uniquement" },
-          { value: "repeating", label: "Plusieurs mois" },
-          { value: "forever", label: "Permanente" },
-        ]}
-      />
-      {duration === "repeating" && <TextField name="durationInMonths" label="Nombre de mois" type="number" min={1} max={36} required />}
-      <TextField name="maxRedemptions" label="Utilisations maximum" type="number" min={1} placeholder="Illimité" />
-      <TextField name="expiresAt" label="Date d'expiration" type="date" />
-      <div className="sm:col-span-2 lg:col-span-3">
-        <SubmitButton pendingLabel="Création…">Créer le code promotionnel</SubmitButton>
-      </div>
-    </ActionForm>
-  );
-}
