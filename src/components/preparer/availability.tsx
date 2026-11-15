@@ -27,19 +27,19 @@ function DayRow({ day, label, value }: { day: string; label: string; value: Day 
   const [open, setOpen] = useState(value.open);
   const error = useFieldError(`from:${day}`);
   return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 py-3 sm:grid-cols-[9rem_1fr]">
+    <li className="grid grid-cols-1 items-center gap-x-3 gap-y-2 py-3 sm:grid-cols-[7.5rem_minmax(0,1fr)]">
       <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium">
         <input type="checkbox" name={`open:${day}`} checked={open} onChange={(e) => setOpen(e.target.checked)} className="size-4 accent-[var(--brand)]" />
         {label}
       </label>
-      <div className={cn("col-span-2 flex items-center gap-2 sm:col-span-1", !open && "opacity-50")}>
+      <div className={cn("flex min-w-0 items-center gap-2", !open && "opacity-50")} aria-label={open ? undefined : `${label} : indisponible`}>
         <input
           type="time"
           name={`from:${day}`}
           defaultValue={value.from}
           disabled={!open}
           aria-label={`${label} — ouverture`}
-          className="h-10 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+          className="h-10 w-full max-w-[8.5rem] min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
         />
         <span className="text-sm text-muted-foreground">à</span>
         <input
@@ -48,11 +48,10 @@ function DayRow({ day, label, value }: { day: string; label: string; value: Day 
           defaultValue={value.to}
           disabled={!open}
           aria-label={`${label} — fermeture`}
-          className="h-10 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+          className="h-10 w-full max-w-[8.5rem] min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
         />
-        {!open && <span className="text-xs text-muted-foreground">Indisponible</span>}
       </div>
-      {error && <p className="col-span-2 text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive sm:col-span-2">{error}</p>}
     </li>
   );
 }

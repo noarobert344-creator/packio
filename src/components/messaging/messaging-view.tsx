@@ -76,6 +76,7 @@ export function MessagingView(props: Props) {
               description="L'équipe Packio vous répond dans cette messagerie, en général sous un jour ouvré."
               action={createSupportRequestAction}
               submitLabel="Envoyer"
+              defaultOpen={props.openSupportDialog}
             >
               <TextField name="subject" label="Objet" required placeholder="Ex. : question sur ma facture" />
               <TextAreaField name="body" label="Message" required rows={5} />

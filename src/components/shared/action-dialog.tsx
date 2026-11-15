@@ -21,6 +21,7 @@ export function ActionDialog<T = undefined>({
   destructive,
   successMessage,
   wide,
+  defaultOpen = false,
 }: {
   trigger: React.ReactNode;
   title: string;
@@ -32,8 +33,9 @@ export function ActionDialog<T = undefined>({
   destructive?: boolean;
   successMessage?: string;
   wide?: boolean;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, use, useActionState, useEffect, useRef } from "react";
+import { createContext, use, useActionState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
@@ -44,28 +44,37 @@ export function ActionForm<T = undefined>({
   silent?: boolean;
   id?: string;
 }) {
-  const [state, formAction, pending] = useActionState(withNetworkGuard(action), null);
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
-  const onSuccessRef = useRef(onSuccess);
+  const optionsRef = useRef({ onSuccess, successMessage, resetOnSuccess, silent });
   useEffect(() => {
-    onSuccessRef.current = onSuccess;
+    optionsRef.current = { onSuccess, successMessage, resetOnSuccess, silent };
   });
 
-  useEffect(() => {
-    if (!state) return;
-    if (state.ok) {
-      if (!silent) toast.success(state.message ?? successMessage ?? "Modifications enregistrées.");
-      if (resetOnSuccess) formRef.current?.reset();
-      onSuccessRef.current?.(state as Extract<ActionState<T>, { ok: true }>);
-      if (state.redirectTo) {
-        if (/^https?:\/\//.test(state.redirectTo)) window.location.assign(state.redirectTo);
-        else router.push(state.redirectTo);
+  // Le résultat est traité dès le retour de l'action (et non dans un effet) :
+  // le message s'affiche même si le formulaire disparaît après le
+  // rafraîchissement de la page (ex. bouton d'étape remplacé par le suivant).
+  const handled = useMemo(() => {
+    const guarded = withNetworkGuard(action);
+    return async (prev: ActionState<T>, formData: FormData): Promise<ActionState<T>> => {
+      const result = await guarded(prev, formData);
+      const opts = optionsRef.current;
+      if (result?.ok) {
+        if (!opts.silent) toast.success(result.message ?? opts.successMessage ?? "Modifications enregistrées.");
+        if (opts.resetOnSuccess) formRef.current?.reset();
+        opts.onSuccess?.(result as Extract<ActionState<T>, { ok: true }>);
+        if (result.redirectTo) {
+          if (/^https?:\/\//.test(result.redirectTo)) window.location.assign(result.redirectTo);
+          else router.push(result.redirectTo);
+        }
+      } else if (result) {
+        toast.error(result.error);
       }
-    } else {
-      toast.error(state.error);
-    }
-  }, [state, successMessage, resetOnSuccess, silent, router]);
+      return result;
+    };
+  }, [action, router]);
+
+  const [state, formAction, pending] = useActionState(handled, null);
 
   return (
     <FormStateContext value={{ state: state as ActionState<unknown>, pending }}>

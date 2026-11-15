@@ -22,6 +22,7 @@ export default async function ClientMessagesPage({ searchParams }: { searchParam
         orderHref="/client/commandes/"
         shipmentHref="/client/expeditions/"
         allowNewSupport
+        openSupportDialog={one(sp.support) === "1"}
         emptyHint="La conversation avec votre préparateur s'ouvrira dès son attribution."
       />
     </div>

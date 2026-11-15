@@ -54,11 +54,11 @@ const SPACE_LABEL: Record<Role, string> = { CUSTOMER: "Espace client", PREPARER:
 export function Sidebar({ role, badges, footer }: { role: Role; badges: Record<string, number>; footer?: React.ReactNode }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r bg-sidebar lg:flex">
-      <div className="flex h-16 items-center gap-2 px-5">
+      <div className="flex h-16 items-center gap-2 px-4">
         <Link href="/" aria-label="Accueil Packio">
           <Logo />
         </Link>
-        <span className="ml-auto rounded-md bg-muted px-1.5 py-0.5 text-[0.65rem] font-medium text-muted-foreground">{SPACE_LABEL[role]}</span>
+        <span className="ml-auto shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[0.62rem] font-medium whitespace-nowrap text-muted-foreground">{SPACE_LABEL[role]}</span>
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-3">
         <NavList groups={NAV[role]} badges={badges} />
