@@ -20,6 +20,11 @@ async function bareShipment(customerId: string, preparerId: string) {
   });
 }
 
+/** Les crédits mensuels sont rattachés à la souscription qui les verse. */
+async function subscriptionRef(customerId: string) {
+  return (await db.subscription.findFirstOrThrow({ where: { customerId } })).externalId;
+}
+
 describe("Registre de crédits", () => {
   let customerId: string;
   let preparerId: string;
@@ -117,8 +122,9 @@ describe("Registre de crédits", () => {
   });
 
   it("politique EXPIRE : les crédits mensuels non utilisés expirent au renouvellement", async () => {
+    const sourceRef = await subscriptionRef(customerId);
     await db.$transaction((tx) =>
-      grantMonthlyCycle(tx, { customerId, amount: 20, periodEnd: addDays(new Date(), 60), sourceRef: "in_2", idempotencyKey: "cycle:in_2", description: "cycle 2" }),
+      grantMonthlyCycle(tx, { customerId, amount: 20, periodEnd: addDays(new Date(), 60), sourceRef, idempotencyKey: "cycle:in_2", description: "cycle 2" }),
     );
     const w = await wallet(customerId);
     expect(w.monthlyBalance).toBe(20);
@@ -127,8 +133,9 @@ describe("Registre de crédits", () => {
 
   it("politique ROLLOVER : report plafonné", async () => {
     await saveSetting("credits", { monthly: { mode: "ROLLOVER", rolloverMonths: 1, rolloverCapPercent: 50 }, purchased: { mode: "NEVER", days: 365 } }, null);
+    const sourceRef = await subscriptionRef(customerId);
     await db.$transaction((tx) =>
-      grantMonthlyCycle(tx, { customerId, amount: 20, periodEnd: addDays(new Date(), 60), sourceRef: "in_2", idempotencyKey: "cycle:in_2", description: "cycle 2" }),
+      grantMonthlyCycle(tx, { customerId, amount: 20, periodEnd: addDays(new Date(), 60), sourceRef, idempotencyKey: "cycle:in_2", description: "cycle 2" }),
     );
     // 20 restants, plafond de report = 50 % de 20 = 10 → 10 expirent, puis +20
     expect((await wallet(customerId)).monthlyBalance).toBe(30);

@@ -246,13 +246,19 @@ export async function grantCredits(tx: Tx, input: GrantInput): Promise<{ applied
  */
 export async function grantMonthlyCycle(
   tx: Tx,
+  /** sourceRef : identifiant de la souscription (adhésion Whop) qui verse les crédits. */
   input: { customerId: string; amount: number; periodEnd: Date; sourceRef: string; idempotencyKey: string; description: string },
 ): Promise<{ applied: boolean }> {
   const walletId = await lockWallet(tx, input.customerId);
   if (await alreadyApplied(tx, input.idempotencyKey)) return { applied: false };
   await sweepExpired(tx, walletId);
   const policy = (await getSetting("credits", tx)).monthly;
-  const previous = (await usableLots(tx, walletId, "MONTHLY")).filter((l) => l.source !== "RELEASE");
+  // Seuls les crédits mensuels de la même souscription sont concernés : lors d'un
+  // changement d'offre immédiat, ceux de l'offre remplacée restent utilisables
+  // jusqu'à leur propre échéance.
+  const previous = (await usableLots(tx, walletId, "MONTHLY")).filter(
+    (l) => l.source !== "RELEASE" && (l.source !== "SUBSCRIPTION_CYCLE" || l.sourceRef === input.sourceRef),
+  );
 
   let expiresAt: Date;
   if (policy.mode === "EXPIRE") {

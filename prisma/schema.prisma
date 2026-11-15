@@ -403,12 +403,21 @@ model Plan {
   sortOrder       Int            @default(0)
   /// Plan Whop (plan_…) facultatif ; sinon le plan est créé à la volée au checkout.
   whopPlanId      String?        @unique
+  /// Prix de la formule annuelle (null = formule annuelle non proposée).
+  annualPriceCents Int?
+  /// Plan Whop annuel (plan_…) facultatif ; sinon créé à la volée au checkout.
+  whopAnnualPlanId String?       @unique
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   subscriptions   Subscription[] @relation("SubscriptionPlan")
   pendingSubscriptions Subscription[] @relation("SubscriptionPendingPlan")
 
   @@map("plans")
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
 }
 
 enum SubscriptionStatus {
@@ -433,8 +442,22 @@ model Subscription {
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
   cancelAtPeriodEnd  Boolean            @default(false)
+  /// Périodicité de facturation : mensuelle ou annuelle.
+  billingInterval    BillingInterval    @default(MONTHLY)
   /// Offre qui s'appliquera au prochain renouvellement (changement d'offre programmé).
   pendingPlanId      String?
+  /// Date de transmission à Whop de la baisse de prix programmée (après quoi elle n'est plus annulable).
+  pendingSyncedAt    DateTime?
+  /// Périodicité choisie pour l'après-échéance (passage de l'annuel au mensuel).
+  pendingBillingInterval BillingInterval?
+  /// Formule annuelle : point de départ de la distribution mensuelle des crédits.
+  creditAnchorAt     DateTime?
+  /// Formule annuelle : distributions mensuelles déjà effectuées sur la période (0 à 12).
+  creditMonthsGranted Int               @default(0)
+  /// Formule annuelle : date de la prochaine distribution mensuelle de crédits.
+  nextCreditGrantAt  DateTime?
+  /// Remplacée par une nouvelle souscription (changement d'offre immédiat) : n'est plus renouvelée.
+  supersededAt       DateTime?
   canceledAt         DateTime?
   endedAt            DateTime?
   createdAt          DateTime           @default(now())
@@ -446,6 +469,7 @@ model Subscription {
   invoices    Invoice[]
 
   @@index([customerId, status])
+  @@index([nextCreditGrantAt])
   @@map("subscriptions")
 }
 

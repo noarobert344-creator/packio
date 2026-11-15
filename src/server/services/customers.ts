@@ -1,10 +1,12 @@
 import { db, type Tx } from "@/server/db";
 import { DomainError, NotFoundError } from "@/server/errors";
 
+/** Souscription principale active (ou en impayé) du client. */
 export async function getActiveSubscription(customerId: string, client: Tx | typeof db = db) {
   return client.subscription.findFirst({
     where: { customerId, status: { in: ["ACTIVE", "TRIALING", "PAST_DUE"] } },
-    orderBy: { createdAt: "desc" },
+    // Souscription principale : celle qui n'a pas été remplacée par un changement d'offre.
+    orderBy: [{ supersededAt: { sort: "asc", nulls: "first" } }, { createdAt: "desc" }],
     include: { plan: true, pendingPlan: true },
   });
 }

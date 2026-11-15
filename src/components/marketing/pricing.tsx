@@ -1,11 +1,8 @@
-import Link from "next/link";
-import { ArrowRight, Check, Info, Package } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Info, Package } from "lucide-react";
+import { commonAnnualBadge } from "@/lib/billing-intervals";
 import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { Container, SectionHeading } from "./section";
-
-type Plan = { id: string; code: string; name: string; tagline: string | null; priceCents: number; currency: string; monthlyCredits: number; storageLimit: number | null; features: string[]; highlighted: boolean };
+import { PricingPlans, type PricingPlan } from "./pricing-plans";
 type SizeRule = { size: string; label: string; description: string | null; creditCost: number; maxLengthCm: number | null; maxWidthCm: number | null; maxHeightCm: number | null; maxWeightGrams: number | null };
 type Pack = { id: string; name: string; credits: number; priceCents: number; currency: string };
 
@@ -16,53 +13,17 @@ function dims(r: SizeRule) {
   return parts.join(" · ") || "Selon appréciation du préparateur";
 }
 
-export function Pricing({ plans, sizeRules, packs }: { plans: Plan[]; sizeRules: SizeRule[]; packs: Pack[] }) {
+export function Pricing({ plans, sizeRules, packs }: { plans: PricingPlan[]; sizeRules: SizeRule[]; packs: Pack[] }) {
+  const annualBadge = commonAnnualBadge(plans);
   return (
     <section id="tarifs" className="scroll-mt-20 py-24 sm:py-28">
       <Container className="space-y-14">
         <SectionHeading
           eyebrow="Tarifs"
           title="Un abonnement simple, des crédits pour chaque colis"
-          description="Chaque offre inclut un préparateur attitré, le tableau de bord, le suivi du stock et la messagerie. Sans engagement : résiliable à tout moment, effectif à la fin de la période de 30 jours en cours."
+          description={`Chaque offre inclut un préparateur attitré, le tableau de bord, le suivi du stock et la messagerie. En mensuel, sans engagement : résiliable à tout moment, effectif à la fin de la période de 30 jours en cours.${annualBadge ? ` En annuel : ${annualBadge}.` : ""}`}
         />
-        <div className={cn("grid gap-5", plans.length >= 3 ? "lg:grid-cols-3" : "md:grid-cols-2")}>
-          {plans.map((p) => (
-            <div
-              key={p.id}
-              className={cn(
-                "relative flex flex-col rounded-3xl border bg-card p-7 shadow-soft",
-                p.highlighted && "border-brand/50 bg-gradient-to-b from-brand-soft/70 to-card glow-brand lg:-my-3 lg:py-10",
-              )}
-            >
-              {p.highlighted && (
-                <span className="absolute -top-3 left-7 rounded-full bg-brand px-3 py-1 text-xs font-semibold text-brand-foreground">Recommandé</span>
-              )}
-              <p className="text-lg font-semibold">{p.name}</p>
-              {p.tagline && <p className="mt-1 min-h-10 text-sm text-muted-foreground">{p.tagline}</p>}
-              <p className="mt-6 flex items-baseline gap-1.5">
-                <span className="text-4xl font-semibold tracking-tight tabular">{formatMoney(p.priceCents, p.currency)}</span>
-                <span className="text-sm text-muted-foreground">/ mois</span>
-              </p>
-              <p className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-medium text-brand">
-                {p.monthlyCredits} crédits par mois
-              </p>
-              <ul className="mt-7 flex-1 space-y-3">
-                {p.features.map((f) => (
-                  <li key={f} className="flex gap-2.5 text-sm">
-                    <Check className="mt-0.5 size-4 shrink-0 text-brand" />
-                    <span>{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button asChild size="lg" variant={p.highlighted ? "default" : "outline"} className="mt-8 h-11 w-full text-[0.95rem]">
-                <Link href={`/inscription?offre=${p.code}`}>
-                  Choisir {p.name} <ArrowRight />
-                </Link>
-              </Button>
-            </div>
-          ))}
-        </div>
-        <p className="text-center text-xs text-muted-foreground">Tarifs TTC, renouvelés automatiquement tous les 30 jours via Whop. Les codes promotionnels peuvent être saisis lors du paiement.</p>
+        <PricingPlans plans={plans} />
 
         <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-3xl border bg-card p-6 sm:p-7">

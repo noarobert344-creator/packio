@@ -9,7 +9,8 @@ import { env } from "@/server/env";
  *  - POST   /checkout_configurations           → { id, purchase_url }
  *  - GET    /memberships/{id}
  *  - POST   /memberships/{id}/cancel           { cancel_at_period_end }
- *  - PATCH  /memberships/{id}                  { cancel_at_period_end, renewal_price, metadata }
+ *  - PATCH  /memberships/{id}                  { cancel_at_period_end } | { renewal_price } | { metadata }
+ *    (un seul champ par appel ; renewal_price ne peut que baisser)
  *  - GET    /payments/{id}
  *  - POST   /payments/{id}/refund              { partial_amount } (unités monétaires)
  *  - Webhooks au format Standard Webhooks, HMAC-SHA256 avec le secret tel quel.
@@ -103,7 +104,15 @@ export function cancelMembershipAtPeriodEnd(id: string) {
   return whopRequest<Record<string, unknown>>("POST", `/memberships/${encodeURIComponent(id)}/cancel`, { cancel_at_period_end: true });
 }
 
-export function updateMembership(id: string, body: { cancel_at_period_end?: boolean; renewal_price?: number; metadata?: Record<string, unknown> }) {
+/**
+ * Modification d'une adhésion Whop. Whop n'accepte qu'un champ par appel pour
+ * renewal_price, et ce prix ne peut que baisser : une montée en gamme passe
+ * donc par un nouveau paiement (voir startPlanChangeCheckout).
+ */
+export function updateMembership(
+  id: string,
+  body: { cancel_at_period_end: boolean } | { renewal_price: number } | { metadata: Record<string, unknown> },
+) {
   return whopRequest<Record<string, unknown>>("PATCH", `/memberships/${encodeURIComponent(id)}`, body);
 }
 

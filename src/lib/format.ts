@@ -20,6 +20,13 @@ export function formatMoney(cents: number | null | undefined, currency = "eur") 
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100);
 }
 
+/** Prix affiché sans décimales lorsqu'il est rond (« 299 € », « 29,90 € »). */
+export function formatPrice(cents: number | null | undefined, currency = "eur") {
+  if (cents === null || cents === undefined) return "—";
+  const round = cents % 100 === 0;
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: currency.toUpperCase(), minimumFractionDigits: round ? 0 : 2, maximumFractionDigits: 2 }).format(cents / 100);
+}
+
 export function formatCredits(n: number | null | undefined) {
   if (n === null || n === undefined) return "—";
   return `${n} crédit${Math.abs(n) > 1 ? "s" : ""}`;

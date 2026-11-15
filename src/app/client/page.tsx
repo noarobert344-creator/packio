@@ -102,7 +102,7 @@ export default async function ClientOverview({ searchParams }: { searchParams: S
         <div className="col-span-2 sm:col-span-1 lg:col-span-2">
         <StatCard
           label="Abonnement actuel"
-          value={sub?.plan.name ?? "—"}
+          value={sub ? `${sub.plan.name}${sub.billingInterval === "YEARLY" ? " · annuel" : ""}` : "—"}
           icon={CreditCard}
           href="/client/facturation"
           hint={sub?.currentPeriodEnd ? `${sub.cancelAtPeriodEnd ? "Prend fin" : "Renouvellement"} le ${formatDate(sub.currentPeriodEnd)}` : undefined}

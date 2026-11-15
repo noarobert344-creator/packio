@@ -41,6 +41,13 @@ export const euroToCents = (label: string) =>
     z.number({ error: `${label} invalide` }).int().min(0, { error: `${label} invalide` }),
   );
 
+/** Montant facultatif en euros (vide → null). */
+export const optionalEuroToCents = (label: string) =>
+  z.preprocess(
+    (v) => (typeof v === "string" && v.trim() !== "" ? Math.round(Number(v.replace(",", ".").replace(/\s/g, "")) * 100) : null),
+    z.number({ error: `${label} invalide` }).int().min(1, { error: `${label} invalide` }).nullable(),
+  );
+
 export const checkbox = () => z.preprocess((v) => v === "on" || v === "true" || v === true, z.boolean());
 
 export const dateField = (label: string) =>

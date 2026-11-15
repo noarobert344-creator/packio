@@ -67,7 +67,7 @@ export async function createPreparerWithLocation(admin: Actor, opts?: { maxClien
   return { preparer, location, actor };
 }
 
-export async function createCustomer(opts?: { plan?: "STARTER" | "PRO" | "BUSINESS"; subscribe?: boolean }) {
+export async function createCustomer(opts?: { plan?: "STARTER" | "PRO" | "BUSINESS"; subscribe?: boolean; interval?: "MONTHLY" | "YEARLY" }) {
   const user = await registerCustomer({
     firstName: "Chloé",
     lastName: `Client ${uid()}`,
@@ -77,7 +77,7 @@ export async function createCustomer(opts?: { plan?: "STARTER" | "PRO" | "BUSINE
   let actor = await actorFor(user.id);
   if (opts?.subscribe !== false) {
     const plan = await db.plan.findUniqueOrThrow({ where: { code: opts?.plan ?? "STARTER" } });
-    await devCompleteSubscription(actor, plan.id);
+    await devCompleteSubscription(actor, plan.id, opts?.interval ?? "MONTHLY");
     actor = await actorFor(user.id);
   }
   return { user, actor, customerId: actor.customerId! };

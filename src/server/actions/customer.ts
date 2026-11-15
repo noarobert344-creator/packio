@@ -7,8 +7,10 @@ import type { ActionState } from "@/lib/action-types";
 import { checkbox, intField, optionalDate, optionalText, phoneField, requiredText, stringArray } from "@/lib/forms";
 import { formToObject, runAction } from "@/server/action";
 import { requireCustomer } from "@/server/auth/current";
+import { intervalFromParam } from "@/lib/billing-intervals";
 import {
   changePlan,
+  devAdvanceAnnualMonth,
   devCompleteCreditPack,
   devCompleteSubscription,
   devRecoverPayment,
@@ -27,21 +29,24 @@ const SUPPLIER_STATUS_BY_CUSTOMER = ["SUPPLIER_CONFIRMED", "IN_TRANSIT", "AT_LOC
 
 // ----------------------------------------------------------------------------- Abonnement
 
+const intervalField = z.preprocess((v) => intervalFromParam(typeof v === "string" ? v : null), z.enum(["MONTHLY", "YEARLY"]));
+
 export async function startSubscriptionAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ planId: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    const { url } = await startSubscriptionCheckout(actor, data.planId);
+  return runAction(z.object({ planId: z.string().min(1), interval: intervalField }), formToObject(formData), async (actor, data) => {
+    const { url } = await startSubscriptionCheckout(actor, data.planId, data.interval);
     return { ok: true, message: "Redirection vers le paiement sécurisé…", redirectTo: url };
   });
 }
 
 export async function changePlanAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ planId: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    const { scheduled } = await changePlan(actor, data.planId);
+  return runAction(z.object({ planId: z.string().min(1), interval: intervalField }), formToObject(formData), async (actor, data) => {
+    const result = await changePlan(actor, data.planId, data.interval);
     revalidatePath("/client", "layout");
+    if (result.mode === "checkout") return { ok: true, message: "Redirection vers le paiement sécurisé…", redirectTo: result.url };
     return {
       ok: true,
-      message: scheduled ? "Changement d'offre programmé : il prendra effet au prochain renouvellement." : "Changement d'offre annulé : vous conservez votre offre actuelle.",
-      redirectTo: "/client/facturation",
+      message: result.mode === "scheduled" ? "Changement programmé : il prendra effet à l'échéance de votre période en cours." : "Changement annulé : vous conservez votre offre actuelle.",
+      redirectTo: "/client/abonnement",
     };
   });
 }
@@ -69,11 +74,15 @@ export async function buyCreditsAction(_prev: ActionState, formData: FormData): 
 
 /** Paiement de démonstration (BILLING_MODE=dev uniquement, vérifié côté serveur). */
 export async function devCheckoutAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ type: z.enum(["abonnement", "credits"]), id: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    if (data.type === "abonnement") {
-      await devCompleteSubscription(actor, data.id);
+  const schema = z.object({ type: z.enum(["abonnement", "changement", "credits"]), id: z.string().min(1), interval: intervalField });
+  return runAction(schema, formToObject(formData), async (actor, data) => {
+    if (data.type === "abonnement" || data.type === "changement") {
+      const change = data.type === "changement";
+      await devCompleteSubscription(actor, data.id, data.interval, { change });
       revalidatePath("/client", "layout");
-      return { ok: true, message: "Paiement simulé : abonnement activé.", redirectTo: "/client?abonnement=confirme" };
+      return change
+        ? { ok: true, message: "Paiement simulé : nouvelle offre activée.", redirectTo: "/client/abonnement?changement=confirme" }
+        : { ok: true, message: "Paiement simulé : abonnement activé.", redirectTo: "/client?abonnement=confirme" };
     }
     await devCompleteCreditPack(actor, data.id);
     revalidatePath("/client", "layout");
@@ -82,9 +91,10 @@ export async function devCheckoutAction(_prev: ActionState, formData: FormData):
 }
 
 export async function devBillingToolAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ tool: z.enum(["renewal", "failure", "recover"]) }), formToObject(formData), async (actor, data) => {
+  return runAction(z.object({ tool: z.enum(["renewal", "month", "failure", "recover"]) }), formToObject(formData), async (actor, data) => {
     const customerId = actor.customerId!;
     if (data.tool === "renewal") await devSimulateRenewal(customerId);
+    else if (data.tool === "month") await devAdvanceAnnualMonth(customerId);
     else if (data.tool === "failure") await devSimulatePaymentFailure(customerId);
     else await devRecoverPayment(customerId);
     revalidatePath("/client", "layout");

@@ -45,6 +45,7 @@ const registerSchema = z.object({
   password: z.string().min(1, { error: "Mot de passe requis" }).max(200),
   acceptTerms: z.literal("on", { error: "Vous devez accepter les conditions pour créer un compte" }),
   offre: z.string().optional(),
+  periodicite: z.enum(["mensuel", "annuel"]).optional().catch(undefined),
 });
 
 export async function registerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -58,7 +59,10 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
   } catch (err) {
     return toActionError(err);
   }
-  redirect(offre ? `/client/abonnement?offre=${encodeURIComponent(offre)}` : "/client/abonnement");
+  const params = new URLSearchParams();
+  if (offre) params.set("offre", offre);
+  if (parsed.data.periodicite === "annuel") params.set("periodicite", "annuel");
+  redirect(params.size ? `/client/abonnement?${params}` : "/client/abonnement");
 }
 
 export async function logoutAction() {

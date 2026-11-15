@@ -76,8 +76,12 @@ export function Faq({ ctx }: { ctx: FaqContext }) {
       a: "Non. Les crédits couvrent la préparation ; l'affranchissement est distinct. Vous pouvez fournir votre propre étiquette (celle générée par une plateforme de vente, par exemple), ou les frais de transport vous sont indiqués séparément.",
     },
     {
+      q: "Comment fonctionne la formule annuelle ?",
+      a: "Vous payez l'année en une fois, à un prix réduit (deux mois offerts sur les tarifs actuels), et vous recevez vos crédits chaque mois comme en formule mensuelle : le premier mois au paiement, puis le même jour les mois suivants. Elle est renouvelée automatiquement chaque année, sauf si vous désactivez le renouvellement.",
+    },
+    {
       q: "Comment résilier ou changer d'offre ?",
-      a: "Depuis la page Facturation de votre espace. Le changement d'offre, à la hausse comme à la baisse, prend effet à votre prochain renouvellement, avec les crédits de la nouvelle offre ; besoin de crédits dès maintenant ? Achetez 10, 30, 50 ou 100 crédits supplémentaires. La résiliation prend effet à la fin de la période en cours. Votre stock reste consultable et sa restitution est organisée avec le support.",
+      a: "Depuis votre espace (Facturation, puis Changer d'offre). Une offre supérieure ou le passage à l'annuel s'appliquent immédiatement, avec un nouveau paiement : votre offre précédente n'est plus renouvelée et ses crédits restent utilisables. Une offre inférieure prend effet à votre prochain renouvellement. Le retour au mensuel se fait à l'échéance de votre année. La résiliation prend effet à la fin de la période payée. Votre stock reste consultable et sa restitution est organisée avec le support.",
     },
     {
       q: "Mes messages sont-ils confidentiels ?",

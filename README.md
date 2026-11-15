@@ -80,7 +80,7 @@ Le seed refuse de s'exécuter en production et sur une base distante. Tous les c
 | `yanis.benali@demo.packio.local` | Préparateur (Lille) |
 | `lea.moreau@demo.packio.local` | Cliente Pro attribuée, avec commandes, stock, expéditions et messages |
 | `hugo.petit@demo.packio.local` | Client Starter en attente d'attribution (5 h) |
-| `nina.garnier@demo.packio.local` | Cliente Business en **retard** d'attribution (> 24 h) |
+| `nina.garnier@demo.packio.local` | Cliente Business **annuelle** en **retard** d'attribution (> 24 h) |
 | `tom.roux@demo.packio.local` | Compte créé, abonnement non payé |
 
 Avec `BILLING_MODE="dev"`, les paiements sont **simulés** (écran `/paiement-demo`, aucune carte demandée) et la page Facturation propose des outils pour simuler un renouvellement mensuel ou un échec de paiement.
@@ -162,13 +162,15 @@ Seuls les lieux **validés par un administrateur** sont communiqués aux clients
 
 ### Offres (valeurs initiales modifiables dans `Admin → Abonnements`)
 
-| Offre | Prix | Crédits / mois | Stockage |
-| --- | --- | --- | --- |
-| Starter | 29,90 € / mois | 20 | 50 articles |
-| Pro | 69,90 € / mois | 55 | 200 articles |
-| Business | 129,90 € / mois | 120 | 600 articles |
+| Offre | Mensuel | Annuel (2 mois offerts) | Crédits / mois | Stockage |
+| --- | --- | --- | --- | --- |
+| Starter | 29,90 € / mois | 299 € / an (≈ 24,92 € / mois) | 20 | 50 articles |
+| Pro | 69,90 € / mois | 699 € / an (≈ 58,25 € / mois) | 55 | 200 articles |
+| Business | 129,90 € / mois | 1 299 € / an (≈ 108,25 € / mois) | 120 | 600 articles |
 
-Les limites de stockage sont des valeurs par défaut à ajuster. Les abonnements se renouvellent tous les **30 jours** (période de facturation Whop).
+Les limites de stockage sont des valeurs par défaut à ajuster. La formule mensuelle se renouvelle tous les **30 jours**, la formule annuelle tous les **365 jours** (périodes de facturation Whop). Un prix annuel vide dans le back-office retire la formule annuelle de l'offre.
+
+**Formule annuelle** : payée en une fois, elle verse les crédits **chaque mois** (12 versements : le premier au paiement, les suivants le même jour des mois suivants) par la tâche planifiée `credits` (`/api/cron/credits`, toutes les heures), avec rattrapage si une exécution est manquée. Les règles d'expiration des crédits mensuels s'appliquent à chaque versement.
 
 **Crédits supplémentaires** : en plus des crédits mensuels, le client peut acheter à tout moment **10, 30, 50 ou 100 crédits** (`Mes crédits → Acheter des crédits`, ou depuis le tableau de bord et les écrans d'expédition). Prix par défaut, modifiables dans `Admin → Abonnements` :
 
@@ -181,7 +183,13 @@ Les limites de stockage sont des valeurs par défaut à ajuster. Les abonnements
 
 Seules ces quatre quantités sont acceptées (contrôle côté serveur). Les crédits achetés suivent leur propre politique d'expiration.
 
-**Changement d'offre** : programmé au **prochain renouvellement** (Whop ne facture pas de prorata). Le prix de renouvellement est modifié chez Whop ; au paiement suivant, la nouvelle offre et ses crédits mensuels s'appliquent. Le client peut annuler un changement programmé.
+**Changement d'offre** (Whop ne facture pas de prorata et ne permet que de **baisser** le prix d'un abonnement existant) :
+
+| Changement | Effet |
+| --- | --- |
+| Offre moins chère, même formule | Programmé au **prochain renouvellement**. Le nouveau prix est transmis à Whop 2 jours avant l'échéance (tâche `credits`) ; avant cela, le client peut l'annuler. |
+| Offre plus chère, ou mensuel → annuel | **Immédiat** : nouveau paiement Whop. À l'activation, l'ancien abonnement n'est plus renouvelé (arrêt demandé à Whop, alerte administrateur en cas d'échec) ; ses crédits déjà versés restent utilisables et, pour un annuel, les mois restants continuent d'être versés. |
+| Annuel → mensuel | À l'**échéance annuelle** : le renouvellement annuel est désactivé, puis le client active la formule mensuelle en un clic (notification et e-mail). Annulable avant l'échéance. |
 
 ## Sécurité et RGPD
 
@@ -207,18 +215,18 @@ Packio utilise l'API Whop (`https://api.whop.com/api/v1`, ou `https://sandbox-ap
 
 1. Dans le tableau de bord Whop : **Developer → API keys**, créez une clé du compte → `WHOP_API_KEY`. Notez l'identifiant de l'entreprise (`biz_…`) → `WHOP_ACCOUNT_ID`.
 2. Facultatif : créez un produit « Packio » (`prod_…`) → `WHOP_PRODUCT_ID` pour y rattacher les plans.
-3. Plans : par défaut, Packio crée au moment du paiement un plan **masqué** au prix configuré dans le back-office (abonnement renouvelé tous les 30 jours, ou paiement unique pour les crédits). Vous pouvez aussi créer vos plans dans Whop et coller leur identifiant (`plan_…`) dans `Admin → Abonnements` (offres et recharges) — le prix doit alors correspondre.
+3. Plans : par défaut, Packio crée au moment du paiement un plan **masqué** au prix configuré dans le back-office (abonnement renouvelé tous les 30 jours ou tous les 365 jours pour la formule annuelle, ou paiement unique pour les crédits). Vous pouvez aussi créer vos plans dans Whop et coller leur identifiant (`plan_…`) dans `Admin → Abonnements` (plan mensuel et plan annuel de chaque offre, recharges) — le prix doit alors correspondre.
 4. Webhook : **Developer → Webhooks**, URL `https://votre-domaine/api/webhooks/whop`, événements `payment.succeeded`, `payment.failed`, `membership.activated`, `membership.updated`, `refund.created`, `refund.updated`. Copiez le secret (`ws_…`) → `WHOP_WEBHOOK_SECRET`.
 5. `BILLING_MODE="whop"`. Les codes promotionnels se créent dans le tableau de bord Whop et se saisissent sur la page de paiement.
 
 Fonctionnement :
 
-- Chaque paiement porte des métadonnées (`kind`, `packio_customer_id`, `plan_id` ou `pack_id`) qui permettent de rattacher l'abonnement Whop (`mem_…`) au client Packio ; l'identifiant utilisateur Whop est ensuite mémorisé.
+- Chaque paiement porte des métadonnées (`kind`, `packio_customer_id`, `plan_id` ou `pack_id`, `billing_interval`, et `replaces` pour un changement d'offre immédiat) qui permettent de rattacher l'abonnement Whop (`mem_…`) au client Packio ; l'identifiant utilisateur Whop est ensuite mémorisé.
 - Le premier paiement d'un abonnement l'active et ouvre la demande d'attribution ; chaque paiement suivant est un renouvellement (crédits mensuels). La résiliation est programmée en fin de période ; un impayé passe le client en « paiement en retard » (Whop retente le prélèvement).
 - La signature des webhooks suit le standard *Standard Webhooks* (HMAC-SHA256 du `webhook-id.webhook-timestamp.corps`, avec le secret tel quel, tolérance 5 minutes). Les événements sont journalisés dans `webhook_events` : un événement déjà traité est ignoré, un événement en échec renvoie un code 500 pour être renvoyé par Whop, puis retraité.
 - Le bouton « Gérer mon paiement sur Whop » de la page Facturation renvoie vers la gestion de l'abonnement chez Whop (moyen de paiement, reçus, annulation).
 
-À vérifier en environnement *sandbox* Whop avant le lancement : création des plans à la volée, modification du prix de renouvellement (changement d'offre), remboursements depuis le back-office.
+À vérifier en environnement *sandbox* Whop avant le lancement : création des plans à la volée (mensuels et annuels), baisse du prix de renouvellement (offre inférieure), arrêt de l'ancien abonnement lors d'un changement immédiat, remboursements depuis le back-office.
 
 ### E-mails
 
@@ -270,13 +278,14 @@ npm run admin:create -- --email vous@votre-domaine.fr --first Prénom --last Nom
 npm test
 ```
 
-46 tests d'intégration sur une base PostgreSQL réelle (`packio_test`, migrée automatiquement) :
+63 tests d'intégration sur une base PostgreSQL réelle (`packio_test`, migrée automatiquement) :
 
 - **crédits** : réservation / débit / libération, invariants du registre, 8 réservations concurrentes sérialisées, idempotence, politiques d'expiration et de report, ajustements administrateur, registre en ajout seul ;
 - **attribution** : ouverture de la demande après paiement sans attribution automatique, alerte si aucun préparateur, capacité, points validés, attributions simultanées, réattribution avec transfert de stock et retrait d'accès, suivi du délai de 24 h ;
 - **expéditions** : parcours complet, dépôt confirmé 3 fois en parallèle → un seul débit, attente puis reprise après recharge, reclassification, annulation, sur-réservation de stock, contestation et correction ;
-- **webhooks Whop** : signature (vérifiée contre la bibliothèque Standard Webhooks de référence), activation, premier paiement, rejeu et doublons, renouvellement avec changement d'offre programmé, impayé, résiliation, achat de crédits, remboursement, retraitement après échec ;
-- **crédits supplémentaires** : uniquement 10, 30, 50 ou 100, achat, abonnement requis, changement d'offre programmé puis annulé / appliqué ;
+- **webhooks Whop** : signature (vérifiée contre la bibliothèque Standard Webhooks de référence), activation, premier paiement, rejeu et doublons, renouvellement avec changement d'offre transmis (ou non) à Whop, impayé, résiliation, achat de crédits, remboursement, retraitement après échec, formule annuelle (métadonnées ou durée de période), remplacement d'abonnement ;
+- **formule annuelle** : prix par défaut, paiement unique, 12 versements mensuels sans doublon avec rattrapage, renouvellement annuel, montée en gamme immédiate, passage à l'annuel, baisse programmée annulable, retour au mensuel à l'échéance ;
+- **crédits supplémentaires** : uniquement 10, 30, 50 ou 100, achat, abonnement requis ;
 - **permissions** : isolation entre clients, entre préparateurs, permissions administrateur, messagerie, fichiers.
 
 Parcours de bout en bout (Playwright) — reproduit le parcours du cahier des charges : souscription Starter et paiement, message d'attente 24 h, attribution manuelle par l'administrateur, commande AliExpress, réception et mise en stock par le préparateur, demande d'expédition, classification (crédits réservés), préparation, étiquette, dépôt (crédits débités) avec suivi transporteur, messagerie client ↔ préparateur et supervision dans le back-office. Prérequis : base de développement initialisée (`npm run db:seed`) et `BILLING_MODE="dev"` ; le serveur de développement est démarré automatiquement s'il ne tourne pas.

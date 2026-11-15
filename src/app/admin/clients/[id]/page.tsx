@@ -153,7 +153,8 @@ export default async function AdminCustomerPage({ params, searchParams }: { para
               {subscription ? (
                 <dl className="grid grid-cols-2 gap-4">
                   <KeyValue label="Offre">
-                    {subscription.plan.name} · {formatMoney(subscription.plan.priceCents)}/mois
+                    {subscription.plan.name} ·{" "}
+                    {subscription.billingInterval === "YEARLY" ? `annuel, ${formatMoney(subscription.plan.annualPriceCents)}/an` : `mensuel, ${formatMoney(subscription.plan.priceCents)}/mois`}
                   </KeyValue>
                   <KeyValue label="Statut">
                     <StatusFrom map={SUBSCRIPTION_STATUS} value={subscription.status} />
@@ -161,9 +162,26 @@ export default async function AdminCustomerPage({ params, searchParams }: { para
                   <KeyValue label="Période en cours">
                     {formatDate(subscription.currentPeriodStart)} → {formatDate(subscription.currentPeriodEnd)}
                   </KeyValue>
-                  <KeyValue label="Renouvellement">{subscription.cancelAtPeriodEnd ? <span className="text-warning">Résiliation programmée</span> : "Automatique"}</KeyValue>
+                  <KeyValue label="Renouvellement">
+                    {subscription.pendingBillingInterval ? (
+                      <span className="text-brand">Passage au mensuel à l&apos;échéance</span>
+                    ) : subscription.cancelAtPeriodEnd ? (
+                      <span className="text-warning">Résiliation programmée</span>
+                    ) : subscription.pendingPlanId ? (
+                      <span className="text-brand">Changement d&apos;offre programmé</span>
+                    ) : (
+                      "Automatique"
+                    )}
+                  </KeyValue>
                   <KeyValue label="Prestataire">{subscription.provider === "dev" ? "Paiement simulé (démo)" : "Whop"}</KeyValue>
-                  <KeyValue label="Crédits mensuels">{formatCredits(subscription.plan.monthlyCredits)}</KeyValue>
+                  <KeyValue label="Crédits mensuels">
+                    {formatCredits(subscription.plan.monthlyCredits)}
+                    {subscription.billingInterval === "YEARLY" && (
+                      <span className="block text-xs text-muted-foreground">
+                        {subscription.creditMonthsGranted}/12 versés{subscription.nextCreditGrantAt ? ` · prochain le ${formatDate(subscription.nextCreditGrantAt)}` : ""}
+                      </span>
+                    )}
+                  </KeyValue>
                 </dl>
               ) : (
                 <p className="text-sm text-muted-foreground">Aucun abonnement souscrit.</p>

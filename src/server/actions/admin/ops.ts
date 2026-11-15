@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ActionState } from "@/lib/action-types";
-import { checkbox, emailField, euroToCents, intField, optionalInt, optionalText, requiredText, stringArray } from "@/lib/forms";
+import { checkbox, emailField, euroToCents, intField, optionalEuroToCents, optionalInt, optionalText, requiredText, stringArray } from "@/lib/forms";
 import { formToObject, runAction } from "@/server/action";
 import { assertAdmin } from "@/server/auth/actor";
 import { ALL_PERMISSIONS } from "@/server/auth/permissions";
@@ -67,6 +67,8 @@ const planSchema = z.object({
   isActive: checkbox(),
   sortOrder: intField("Ordre", { min: 0, max: 999 }),
   whopPlanId: optionalText(80),
+  annualPrice: optionalEuroToCents("Prix annuel"),
+  whopAnnualPlanId: optionalText(80),
 });
 
 export async function savePlanAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -84,6 +86,8 @@ export async function savePlanAction(_prev: ActionState, formData: FormData): Pr
       isActive: data.isActive,
       sortOrder: data.sortOrder,
       whopPlanId: data.whopPlanId ?? null,
+      annualPriceCents: data.annualPrice,
+      whopAnnualPlanId: data.whopAnnualPlanId ?? null,
     });
     revalidatePath("/admin/abonnements");
     revalidatePath("/");

@@ -3,6 +3,7 @@ import { env } from "@/server/env";
 import { db } from "@/server/db";
 import { runAssignmentSlaCheck } from "@/server/services/assignments";
 import { expireDueCredits } from "@/server/services/credits";
+import { runBillingSchedule } from "@/server/billing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,8 +24,11 @@ export async function GET(request: Request, ctx: RouteContext<"/api/cron/[task]"
   switch (task) {
     case "attribution":
       return Response.json(await runAssignmentSlaCheck());
-    case "credits":
-      return Response.json(await expireDueCredits());
+    case "credits": {
+      // Expiration, puis crédits mensuels de la formule annuelle et changements d'offre programmés.
+      const expired = await expireDueCredits();
+      return Response.json({ expired, billing: await runBillingSchedule() });
+    }
     case "maintenance": {
       const now = new Date();
       const [sessions, attempts, tokens] = await Promise.all([

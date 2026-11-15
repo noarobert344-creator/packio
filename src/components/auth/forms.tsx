@@ -24,10 +24,11 @@ export function LoginForm({ next }: { next?: string }) {
   );
 }
 
-export function RegisterForm({ offre }: { offre?: string }) {
+export function RegisterForm({ offre, periodicite }: { offre?: string; periodicite?: "mensuel" | "annuel" }) {
   return (
     <ActionForm action={registerAction} silent className="grid gap-4">
       <input type="hidden" name="offre" value={offre ?? ""} />
+      <input type="hidden" name="periodicite" value={periodicite ?? "mensuel"} />
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField name="firstName" label="Prénom" autoComplete="given-name" required />
         <TextField name="lastName" label="Nom" autoComplete="family-name" required />

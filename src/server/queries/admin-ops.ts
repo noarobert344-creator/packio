@@ -1,4 +1,5 @@
 import "server-only";
+import { monthlyEquivalentCents } from "@/lib/billing-intervals";
 import type { Prisma } from "@/generated/prisma/client";
 import type {
   CreditTransactionType,
@@ -190,17 +191,21 @@ export async function listSubscriptions(f: { status?: SubscriptionStatus; page: 
       orderBy: { createdAt: "desc" },
       skip: (f.page - 1) * take,
       take,
-      include: { plan: { select: { name: true, priceCents: true, currency: true } }, customer: { select: { id: true, referenceCode: true, user: { select: { firstName: true, lastName: true } } } } },
+      include: { plan: { select: { name: true, priceCents: true, annualPriceCents: true, currency: true } }, customer: { select: { id: true, referenceCode: true, user: { select: { firstName: true, lastName: true } } } } },
     }),
     db.subscription.count({ where }),
-    db.subscription.findMany({ where: { status: { in: ["ACTIVE", "TRIALING", "PAST_DUE"] } }, select: { status: true, cancelAtPeriodEnd: true, plan: { select: { priceCents: true } } } }),
+    db.subscription.findMany({
+      where: { status: { in: ["ACTIVE", "TRIALING", "PAST_DUE"] }, supersededAt: null },
+      select: { status: true, cancelAtPeriodEnd: true, billingInterval: true, plan: { select: { priceCents: true, annualPriceCents: true } } },
+    }),
   ]);
   return {
     items,
     total,
     kpis: {
-      mrrCents: active.filter((s) => s.status !== "PAST_DUE").reduce((sum, s) => sum + s.plan.priceCents, 0),
+      mrrCents: active.filter((s) => s.status !== "PAST_DUE").reduce((sum, s) => sum + monthlyEquivalentCents(s.plan, s.billingInterval), 0),
       active: active.filter((s) => s.status !== "PAST_DUE").length,
+      yearly: active.filter((s) => s.status !== "PAST_DUE" && s.billingInterval === "YEARLY").length,
       pastDue: active.filter((s) => s.status === "PAST_DUE").length,
       cancelScheduled: active.filter((s) => s.cancelAtPeriodEnd).length,
     },

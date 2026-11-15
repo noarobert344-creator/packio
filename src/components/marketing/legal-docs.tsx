@@ -180,14 +180,16 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
       </p>
       <h2>2. Offres et prix</h2>
       <p>
-        Les offres (abonnements mensuels incluant un nombre de crédits de préparation) et les recharges ponctuelles sont présentées sur la page Tarifs, avec leurs prix
-        TTC en vigueur au jour de la souscription. Chaque offre inclut un préparateur attitré, le tableau de bord, le suivi du stock et la messagerie. Packio peut faire
+        Les offres (abonnements incluant un nombre mensuel de crédits de préparation) et les recharges ponctuelles sont présentées sur la page Tarifs, avec leurs prix
+        TTC en vigueur au jour de la souscription. Chaque offre est proposée en formule mensuelle et, lorsque la page Tarifs l&apos;indique, en formule annuelle à
+        prix réduit. Chaque offre inclut un préparateur attitré, le tableau de bord, le suivi du stock et la messagerie. Packio peut faire
         évoluer ses tarifs ; les nouveaux prix s&apos;appliquent aux nouvelles souscriptions, et aux abonnements en cours après information préalable du Client.
       </p>
       <h2>3. Paiement</h2>
       <p>
         Le paiement est réalisé par carte bancaire (ou tout moyen proposé) via Whop, plateforme de paiement sécurisée. Packio ne stocke aucune donnée de carte.
-        L&apos;abonnement est prélevé mensuellement et renouvelé automatiquement. Des codes promotionnels peuvent être appliqués lors du paiement, selon leurs conditions
+        La formule mensuelle est prélevée tous les 30 jours ; la formule annuelle est payée en une fois pour 12 mois. Les deux sont renouvelées automatiquement à
+        leur échéance. Des codes promotionnels peuvent être appliqués lors du paiement, selon leurs conditions
         propres. Les factures sont disponibles dans l&apos;espace Facturation.
       </p>
       <h2>4. Échec de paiement</h2>
@@ -200,6 +202,10 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
         <li>Un crédit rémunère la réception, le stockage et la préparation des colis ; il n&apos;a pas de valeur monétaire et n&apos;est ni cessible ni remboursable.</li>
         <li>
           Coût par colis selon la catégorie déterminée par le préparateur : {ctx.sizes.map((s) => `${s.label.toLowerCase()} ${s.creditCost} crédit${s.creditCost > 1 ? "s" : ""}`).join(", ")}.
+        </li>
+        <li>
+          Les crédits de l&apos;abonnement sont versés chaque mois, y compris en formule annuelle : le premier mois au paiement, puis le même jour les mois suivants,
+          soit 12 versements par an.
         </li>
         <li>Les crédits sont réservés à la classification, débités au dépôt du colis, et libérés en cas d&apos;annulation avant le début de la préparation.</li>
         <li>
@@ -214,11 +220,17 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
       </p>
       <h2>7. Changement d&apos;offre et résiliation</h2>
       <p>
-        Le changement d&apos;offre, à la hausse comme à la baisse, prend effet au renouvellement suivant, sans facturation au prorata : le nouveau prix et les
-        crédits mensuels de la nouvelle offre s&apos;appliquent à compter de ce renouvellement. Des crédits supplémentaires (10, 30, 50 ou 100) peuvent être achetés à
-        tout moment. L&apos;abonnement est renouvelé automatiquement par périodes de 30 jours et sans engagement : la résiliation prend effet à la
-        fin de la période payée, sans remboursement de la période en cours ni des crédits consommés. Le stock est alors restitué au Client selon des modalités
-        convenues avec le support (frais de transport à sa charge).
+        Aucun changement n&apos;est facturé au prorata. Le passage à une offre moins chère, dans la même formule, prend effet au renouvellement suivant, avec le
+        nouveau prix et les crédits de la nouvelle offre. Le passage à une offre plus chère, ou de la formule mensuelle à la formule annuelle, est immédiat : la
+        nouvelle offre est payée et ses crédits versés le jour même ; l&apos;offre précédente n&apos;est plus renouvelée, ses crédits déjà versés restent utilisables
+        et, pour une formule annuelle, les crédits mensuels restant dus sur la période payée continuent d&apos;être versés jusqu&apos;à son échéance. Le passage de la
+        formule annuelle à la formule mensuelle prend effet à l&apos;échéance annuelle : le Client active alors la formule mensuelle. Des crédits supplémentaires
+        (10, 30, 50 ou 100) peuvent être achetés à tout moment.
+      </p>
+      <p>
+        La formule mensuelle est sans engagement. La formule annuelle engage le Client pour la période de 12 mois payée. Dans les deux cas, la résiliation (arrêt du
+        renouvellement automatique) prend effet à la fin de la période payée, sans remboursement de la période en cours ni des crédits consommés. Le stock est alors
+        restitué au Client selon des modalités convenues avec le support (frais de transport à sa charge).
       </p>
       <h2>8. Droit de rétractation</h2>
       <p>

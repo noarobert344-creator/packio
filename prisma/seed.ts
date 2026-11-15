@@ -50,12 +50,13 @@ async function markDemo(userId: string) {
   await db.user.update({ where: { id: userId }, data: { isDemo: true, passwordHash: await hashPassword(PASSWORD), emailVerifiedAt: new Date() } });
 }
 
-async function subscribe(customerId: string, planCode: string, startedAt: Date) {
+async function subscribe(customerId: string, planCode: string, startedAt: Date, interval: "MONTHLY" | "YEARLY" = "MONTHLY") {
   const plan = await db.plan.findUniqueOrThrow({ where: { code: planCode } });
   const externalId = `dev_mem_${randomCode(14)}`;
-  const end = addDays(startedAt, 30);
+  const end = addDays(startedAt, interval === "YEARLY" ? 365 : 30);
+  const price = interval === "YEARLY" ? (plan.annualPriceCents ?? plan.priceCents * 10) : plan.priceCents;
   await withEffects(async (tx, fx) => {
-    await syncSubscription(tx, fx, { customerId, planId: plan.id, provider: "dev", externalId, status: "ACTIVE", periodStart: startedAt, periodEnd: end, cancelAtPeriodEnd: false, canceledAt: null, endedAt: null });
+    await syncSubscription(tx, fx, { customerId, planId: plan.id, provider: "dev", externalId, status: "ACTIVE", periodStart: startedAt, periodEnd: end, cancelAtPeriodEnd: false, canceledAt: null, endedAt: null, billingInterval: interval });
     await onInvoicePaid(tx, fx, {
       externalId: `dev_pay_${randomCode(14)}`,
       customerId,
@@ -63,8 +64,8 @@ async function subscribe(customerId: string, planCode: string, startedAt: Date) 
       number: `DEMO-${randomCode(6)}`,
       status: "paid",
       billingReason: "subscription_create",
-      amountDueCents: plan.priceCents,
-      amountPaidCents: plan.priceCents,
+      amountDueCents: price,
+      amountPaidCents: price,
       currency: plan.currency,
       hostedUrl: null,
       pdfUrl: null,
@@ -216,7 +217,7 @@ async function main() {
   // Client en retard d'attribution (26 h)
   const nina = await registerCustomer({ firstName: "Nina", lastName: "Garnier", email: `nina.garnier@${DEMO_DOMAIN}`, password: PASSWORD, companyName: "Garnier Shop" });
   await markDemo(nina.id);
-  await subscribe(nina.customerProfile!.id, "BUSINESS", subHours(new Date(), 26));
+  await subscribe(nina.customerProfile!.id, "BUSINESS", subHours(new Date(), 26), "YEARLY");
 
   // Compte créé sans paiement
   const tom = await registerCustomer({ firstName: "Tom", lastName: "Roux", email: `tom.roux@${DEMO_DOMAIN}`, password: PASSWORD });

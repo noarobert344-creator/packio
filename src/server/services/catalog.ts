@@ -22,12 +22,15 @@ export type PlanInput = {
   isActive: boolean;
   sortOrder: number;
   whopPlanId?: string | null;
+  /** Prix de la formule annuelle (null = non proposée). */
+  annualPriceCents?: number | null;
+  whopAnnualPlanId?: string | null;
 };
 
-function cleanWhopPlanId(v: string | null | undefined) {
+function cleanWhopPlanId(v: string | null | undefined, field = "whopPlanId") {
   const id = v?.trim() || null;
   if (id && !/^plan_[A-Za-z0-9]+$/.test(id)) {
-    throw new DomainError("WHOP_PLAN", "Identifiant de plan Whop invalide (format attendu : plan_…).", { fieldErrors: { whopPlanId: "Format : plan_…" } });
+    throw new DomainError("WHOP_PLAN", "Identifiant de plan Whop invalide (format attendu : plan_…).", { fieldErrors: { [field]: "Format : plan_…" } });
   }
   return id;
 }
@@ -47,7 +50,15 @@ export async function savePlan(actor: Actor, input: PlanInput & { id?: string })
     isActive: input.isActive,
     sortOrder: input.sortOrder,
     whopPlanId: cleanWhopPlanId(input.whopPlanId),
+    annualPriceCents: input.annualPriceCents ?? null,
+    whopAnnualPlanId: cleanWhopPlanId(input.whopAnnualPlanId, "whopAnnualPlanId"),
   };
+  if (data.annualPriceCents !== null && data.annualPriceCents >= data.priceCents * 12) {
+    throw new DomainError("ANNUAL_PRICE", "Le prix annuel doit être inférieur à 12 mensualités.", { fieldErrors: { annualPrice: "Doit être inférieur à 12 × le prix mensuel" } });
+  }
+  if (data.whopPlanId && data.whopPlanId === data.whopAnnualPlanId) {
+    throw new DomainError("WHOP_PLAN", "Les plans Whop mensuel et annuel doivent être différents.", { fieldErrors: { whopAnnualPlanId: "Doit différer du plan mensuel" } });
+  }
   const before = input.id ? await db.plan.findUnique({ where: { id: input.id } }) : null;
   const plan = input.id ? await db.plan.update({ where: { id: input.id }, data }) : await db.plan.create({ data });
   await audit({
@@ -55,10 +66,10 @@ export async function savePlan(actor: Actor, input: PlanInput & { id?: string })
     action: input.id ? "plan.updated" : "plan.created",
     entityType: "plan",
     entityId: plan.id,
-    summary: `${plan.name} — ${(plan.priceCents / 100).toFixed(2)} € / ${plan.monthlyCredits} crédits`,
-    metadata: before ? { before: { priceCents: before.priceCents, monthlyCredits: before.monthlyCredits } } : undefined,
+    summary: `${plan.name} — ${(plan.priceCents / 100).toFixed(2)} € / mois${plan.annualPriceCents ? `, ${(plan.annualPriceCents / 100).toFixed(2)} € / an` : ""} / ${plan.monthlyCredits} crédits`,
+    metadata: before ? { before: { priceCents: before.priceCents, annualPriceCents: before.annualPriceCents, monthlyCredits: before.monthlyCredits } } : undefined,
   });
-  return { plan, priceChanged: !!before && before.priceCents !== plan.priceCents };
+  return { plan, priceChanged: !!before && (before.priceCents !== plan.priceCents || before.annualPriceCents !== plan.annualPriceCents) };
 }
 
 // ----------------------------------------------------------------------------- Catégories de colis

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { changePlan, devCompleteCreditPack, devSimulateRenewal, startCreditPackCheckout } from "@/server/billing";
+import { devCompleteCreditPack, startCreditPackCheckout } from "@/server/billing";
 import { saveCreditPack } from "@/server/services/catalog";
 import { CREDIT_PACK_SIZES } from "@/lib/credit-packs";
 import { createAdmin, createCustomer, db, resetDb, wallet } from "../helpers";
 
-describe("Crédits supplémentaires (10, 30, 50 ou 100) et changement d'offre", () => {
+describe("Crédits supplémentaires (10, 30, 50 ou 100)", () => {
   beforeEach(resetDb);
 
   it("propose exactement 10, 30, 50 et 100 crédits", async () => {
@@ -34,30 +34,5 @@ describe("Crédits supplémentaires (10, 30, 50 ou 100) et changement d'offre", 
     await expect(startCreditPackCheckout(actor, pack10.id)).rejects.toThrow(/abonnement actif/);
     const subscribed = await createCustomer({ plan: "STARTER" });
     await expect(startCreditPackCheckout(subscribed.actor, odd.id)).rejects.toThrow(/pas disponible/);
-  });
-
-  it("changement d'offre programmé : appliqué au renouvellement avec ses crédits, annulable", async () => {
-    await createAdmin();
-    const { actor, customerId } = await createCustomer({ plan: "STARTER" });
-    const pro = await db.plan.findUniqueOrThrow({ where: { code: "PRO" } });
-    const starter = await db.plan.findUniqueOrThrow({ where: { code: "STARTER" } });
-
-    await changePlan(actor, pro.id);
-    let sub = await db.subscription.findFirstOrThrow({ where: { customerId } });
-    expect(sub.planId).toBe(starter.id);
-    expect(sub.pendingPlanId).toBe(pro.id);
-    expect((await wallet(customerId)).monthlyBalance).toBe(20); // rien n'est accordé avant le renouvellement
-
-    await changePlan(actor, starter.id); // annulation du changement
-    expect((await db.subscription.findFirstOrThrow({ where: { customerId } })).pendingPlanId).toBeNull();
-
-    await changePlan(actor, pro.id);
-    await devSimulateRenewal(customerId);
-    sub = await db.subscription.findFirstOrThrow({ where: { customerId } });
-    expect(sub.planId).toBe(pro.id);
-    expect(sub.pendingPlanId).toBeNull();
-    expect((await wallet(customerId)).monthlyBalance).toBe(55);
-    const lastPayment = await db.payment.findFirstOrThrow({ where: { customerId, kind: "SUBSCRIPTION" }, orderBy: { createdAt: "desc" } });
-    expect(lastPayment.amountCents).toBe(pro.priceCents);
   });
 });

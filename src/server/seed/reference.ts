@@ -7,12 +7,14 @@ import { SYSTEM_ROLES } from "@/server/auth/permissions";
  * Ce module est idempotent : il ne remplace jamais une valeur déjà éditée.
  */
 
+/** Formule annuelle : 10 mois facturés, 2 mois offerts. */
 export const DEFAULT_PLANS = [
   {
     code: "STARTER",
     name: "Starter",
     tagline: "Pour lancer votre activité sans gérer un seul colis.",
     priceCents: 2990,
+    annualPriceCents: 29900,
     monthlyCredits: 20,
     storageLimit: 50,
     highlighted: false,
@@ -30,6 +32,7 @@ export const DEFAULT_PLANS = [
     name: "Pro",
     tagline: "Pour les vendeurs réguliers qui expédient chaque semaine.",
     priceCents: 6990,
+    annualPriceCents: 69900,
     monthlyCredits: 55,
     storageLimit: 200,
     highlighted: true,
@@ -47,6 +50,7 @@ export const DEFAULT_PLANS = [
     name: "Business",
     tagline: "Pour les boutiques à fort volume.",
     priceCents: 12990,
+    annualPriceCents: 129900,
     monthlyCredits: 120,
     storageLimit: 600,
     highlighted: false,

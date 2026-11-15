@@ -14,7 +14,7 @@ import { billingMode } from "@/server/billing";
 import { getActiveSubscription } from "@/server/services/customers";
 import { cancelSubscriptionAction, devBillingToolAction, openPortalAction } from "@/server/actions/customer";
 import { PAYMENT_STATUS, SUBSCRIPTION_STATUS } from "@/lib/labels";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatMoney, formatPrice } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Facturation" };
 
@@ -27,6 +27,7 @@ export default async function BillingPage() {
     db.customerProfile.findUniqueOrThrow({ where: { id: actor.customerId } }),
   ]);
   const dev = billingMode() === "dev";
+  const yearly = sub?.billingInterval === "YEARLY";
   return (
     <div className="space-y-8">
       <PageHeader
@@ -51,24 +52,36 @@ export default async function BillingPage() {
         {sub ? (
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <p className="text-xl font-semibold">{sub.plan.name}</p>
+                <span className="rounded-full border px-2 py-0.5 text-xs font-medium">{yearly ? "Annuel" : "Mensuel"}</span>
                 <StatusFrom map={SUBSCRIPTION_STATUS} value={sub.status} />
               </div>
               <p className="text-sm text-muted-foreground">
-                {formatMoney(sub.plan.priceCents)} / mois · {sub.plan.monthlyCredits} crédits par mois
+                {yearly ? `${formatPrice(sub.plan.annualPriceCents)} / an` : `${formatMoney(sub.plan.priceCents)} / mois`} · {sub.plan.monthlyCredits} crédits par mois
               </p>
-              {sub.pendingPlan && (
+              {yearly && (
+                <p className="text-sm text-muted-foreground">
+                  {sub.nextCreditGrantAt
+                    ? `Crédits versés chaque mois : ${sub.creditMonthsGranted}/12 reçus, prochain versement le ${formatDate(sub.nextCreditGrantAt)}.`
+                    : "Tous les crédits mensuels de la période annuelle ont été versés."}
+                </p>
+              )}
+              {sub.pendingPlan && !sub.pendingBillingInterval && (
                 <p className="text-sm text-brand">
                   Changement programmé : passage à l&apos;offre {sub.pendingPlan.name} ({sub.pendingPlan.monthlyCredits} crédits / mois) au prochain renouvellement.
                 </p>
               )}
               {sub.currentPeriodEnd && (
                 <p className="text-sm">
-                  {sub.cancelAtPeriodEnd ? (
+                  {sub.pendingBillingInterval === "MONTHLY" ? (
+                    <span className="text-brand">
+                      Passage au mensuel programmé : votre formule annuelle prend fin le {formatDate(sub.currentPeriodEnd)}, vous activerez ensuite l&apos;offre {sub.pendingPlan?.name ?? ""} en mensuel.
+                    </span>
+                  ) : sub.cancelAtPeriodEnd ? (
                     <span className="text-warning">Résiliation programmée : l&apos;abonnement prendra fin le {formatDate(sub.currentPeriodEnd)}.</span>
                   ) : (
-                    <>Prochain renouvellement le {formatDate(sub.currentPeriodEnd)}.</>
+                    <>Prochain renouvellement {yearly ? "annuel " : ""}le {formatDate(sub.currentPeriodEnd)}.</>
                   )}
                 </p>
               )}
@@ -79,7 +92,7 @@ export default async function BillingPage() {
               </Button>
               {sub.cancelAtPeriodEnd ? (
                 <ActionButton action={cancelSubscriptionAction} fields={{ cancel: "0" }}>
-                  Conserver mon abonnement
+                  {sub.pendingBillingInterval ? "Rester en annuel" : "Conserver mon abonnement"}
                 </ActionButton>
               ) : (
                 <ActionButton action={cancelSubscriptionAction} fields={{ cancel: "1" }} variant="ghost">
@@ -104,9 +117,17 @@ export default async function BillingPage() {
             <ActionForm action={devBillingToolAction}>
               <input type="hidden" name="tool" value="renewal" />
               <SubmitButton variant="outline">
-                <FlaskConical /> Simuler le renouvellement mensuel
+                <FlaskConical /> {sub.cancelAtPeriodEnd ? "Simuler la fin de la période" : yearly ? "Simuler le renouvellement annuel" : "Simuler le renouvellement mensuel"}
               </SubmitButton>
             </ActionForm>
+            {yearly && sub.nextCreditGrantAt && (
+              <ActionForm action={devBillingToolAction}>
+                <input type="hidden" name="tool" value="month" />
+                <SubmitButton variant="outline">
+                  <FlaskConical /> Simuler le mois suivant (crédits)
+                </SubmitButton>
+              </ActionForm>
+            )}
             {sub.status === "PAST_DUE" ? (
               <ActionForm action={devBillingToolAction}>
                 <input type="hidden" name="tool" value="recover" />

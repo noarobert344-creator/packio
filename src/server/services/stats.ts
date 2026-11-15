@@ -1,3 +1,4 @@
+import { monthlyEquivalentCents } from "@/lib/billing-intervals";
 import { startOfMonth, subMonths } from "date-fns";
 import { db } from "@/server/db";
 import { SHIPMENT_ACTIVE_STATUSES } from "@/lib/labels";
@@ -65,9 +66,12 @@ export async function getAdminOverview(now = new Date()) {
       listPreparerCapacities(),
       db.customerProfile.count({ where: { createdAt: { gte: monthStart } } }),
     ]);
-  const mrrCents = activeSubs.filter((s) => s.status !== "PAST_DUE").reduce((sum, s) => sum + s.plan.priceCents, 0);
+  // Revenu récurrent mensuel : formule annuelle ramenée au mois, offres remplacées exclues.
+  const mrrCents = activeSubs
+    .filter((s) => s.status !== "PAST_DUE" && !s.supersededAt)
+    .reduce((sum, s) => sum + monthlyEquivalentCents(s.plan, s.billingInterval), 0);
   const planMix = Object.values(
-    activeSubs.reduce<Record<string, { name: string; count: number }>>((acc, s) => {
+    activeSubs.filter((s) => !s.supersededAt).reduce<Record<string, { name: string; count: number }>>((acc, s) => {
       acc[s.planId] ??= { name: s.plan.name, count: 0 };
       acc[s.planId].count++;
       return acc;

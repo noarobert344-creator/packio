@@ -21,7 +21,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { CustomerLink, Notice } from "@/components/admin/ops/ui";
 import { SUBSCRIPTION_STATUS } from "@/lib/labels";
 import { CREDIT_PACK_SIZES } from "@/lib/credit-packs";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatMoney, formatPrice } from "@/lib/format";
+import { annualSavingsLabel, monthlyEquivalentCents } from "@/lib/billing-intervals";
 import { oneOf, parsePage, type SearchParams } from "@/lib/params";
 
 export const metadata: Metadata = { title: "Abonnements" };
@@ -47,8 +48,8 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
     <>
       <PageHeader title="Abonnements et offres" description="Offres commerciales, coût des catégories de colis, crédits supplémentaires, codes promotionnels et abonnements en cours. Paiements gérés par Whop." />
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Revenu mensuel récurrent" value={formatMoney(subs.kpis.mrrCents)} icon={BadgeEuro} tone="brand" hint="Abonnements actifs à jour" />
-        <StatCard label="Abonnements actifs" value={subs.kpis.active} icon={CreditCard} tone="success" />
+        <StatCard label="Revenu mensuel récurrent" value={formatMoney(subs.kpis.mrrCents)} icon={BadgeEuro} tone="brand" hint="Abonnements à jour, annuel ramené au mois" />
+        <StatCard label="Abonnements actifs" value={subs.kpis.active} icon={CreditCard} tone="success" hint={`Dont ${subs.kpis.yearly} en formule annuelle`} />
         <StatCard label="Impayés" value={subs.kpis.pastDue} icon={CircleAlert} tone={subs.kpis.pastDue ? "danger" : "default"} href="/admin/paiements?onglet=echecs" />
         <StatCard label="Résiliations programmées" value={subs.kpis.cancelScheduled} icon={CalendarX2} tone={subs.kpis.cancelScheduled ? "warning" : "default"} />
       </div>
@@ -62,7 +63,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
       <div className="space-y-6">
         <Section
           title="Offres"
-          description="Paramètres modifiables : prix, crédits mensuels, limite de stockage et contenu affiché sur le site. Sans plan Whop renseigné, un plan masqué au prix indiqué est créé automatiquement au paiement ; les abonnés existants conservent leur tarif."
+          description="Paramètres modifiables : prix mensuel et annuel, crédits mensuels, limite de stockage et contenu affiché sur le site. La formule annuelle est payée en une fois et verse les crédits chaque mois ; laissez son prix vide pour ne pas la proposer. Sans plan Whop renseigné, un plan masqué au prix indiqué est créé automatiquement au paiement ; les abonnés existants conservent leur tarif."
         >
           <div className="grid gap-4 xl:grid-cols-3">
             {plans.map((p) => (
@@ -86,6 +87,14 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
                     <div className="grid grid-cols-2 gap-3">
                       <TextField name="name" label="Nom" defaultValue={p.name} required />
                       <TextField name="price" label="Prix mensuel (€ TTC)" defaultValue={euros(p.priceCents)} inputMode="decimal" required />
+                      <TextField
+                        name="annualPrice"
+                        label="Prix annuel (€ TTC)"
+                        defaultValue={p.annualPriceCents ? euros(p.annualPriceCents) : ""}
+                        inputMode="decimal"
+                        placeholder="Non proposé"
+                        hint={annualSavingsLabel(p) ? `${annualSavingsLabel(p)} · ${formatMoney(monthlyEquivalentCents(p, "YEARLY"))} / mois` : "Vide = pas de formule annuelle"}
+                      />
                       <TextField name="monthlyCredits" label="Crédits / mois" type="number" min={0} defaultValue={p.monthlyCredits} required />
                       <TextField name="storageLimit" label="Limite de stockage" type="number" min={0} defaultValue={p.storageLimit ?? ""} placeholder="Illimité" hint="En articles" />
                     </div>
@@ -98,16 +107,20 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
                       </div>
                       <TextField name="sortOrder" label="Ordre" type="number" min={0} defaultValue={p.sortOrder} className="w-20" />
                     </div>
-                    <TextField name="whopPlanId" label="Plan Whop (facultatif)" defaultValue={p.whopPlanId ?? ""} placeholder="plan_…" hint="Plan récurrent mensuel créé dans Whop, au même prix." />
+                    <div className="grid grid-cols-2 gap-3">
+                      <TextField name="whopPlanId" label="Plan Whop mensuel" defaultValue={p.whopPlanId ?? ""} placeholder="plan_…" hint="Facultatif, tous les 30 jours, même prix." />
+                      <TextField name="whopAnnualPlanId" label="Plan Whop annuel" defaultValue={p.whopAnnualPlanId ?? ""} placeholder="plan_…" hint="Facultatif, tous les 365 jours, même prix." />
+                    </div>
                     <SubmitButton pendingLabel="Enregistrement…">Enregistrer l&apos;offre</SubmitButton>
                   </ActionForm>
                 ) : (
                   <p className="text-sm">
-                    {formatMoney(p.priceCents)} / mois · {p.monthlyCredits} crédits · stockage {p.storageLimit ?? "illimité"}
+                    {formatMoney(p.priceCents)} / mois{p.annualPriceCents ? ` · ${formatPrice(p.annualPriceCents)} / an` : ""} · {p.monthlyCredits} crédits · stockage {p.storageLimit ?? "illimité"}
                   </p>
                 )}
                 <div className="mt-4 border-t pt-3 text-xs text-muted-foreground">
-                  <span className="font-mono">{p.whopPlanId ?? "Plan Whop créé au paiement (prix ci-dessus)"}</span>
+                  <span className="block font-mono">Mensuel : {p.whopPlanId ?? "plan Whop créé au paiement"}</span>
+                  <span className="block font-mono">Annuel : {p.annualPriceCents ? (p.whopAnnualPlanId ?? "plan Whop créé au paiement") : "non proposé"}</span>
                 </div>
               </div>
             ))}
@@ -228,13 +241,29 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
                   </TableCell>
                   <TableCell>
                     {s.plan.name}
-                    <span className="block text-xs text-muted-foreground">{formatMoney(s.plan.priceCents, s.plan.currency)} / mois</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {s.billingInterval === "YEARLY" ? `Annuel · ${formatPrice(s.plan.annualPriceCents, s.plan.currency)} / an` : `Mensuel · ${formatMoney(s.plan.priceCents, s.plan.currency)} / mois`}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <StatusFrom map={SUBSCRIPTION_STATUS} value={s.status} />
                   </TableCell>
                   <TableCell>{formatDate(s.currentPeriodEnd)}</TableCell>
-                  <TableCell>{s.status === "CANCELED" ? "—" : s.cancelAtPeriodEnd ? <StatusBadge tone="warning" label="Résiliation programmée" /> : "Automatique"}</TableCell>
+                  <TableCell>
+                    {s.status === "CANCELED" ? (
+                      "—"
+                    ) : s.supersededAt ? (
+                      <StatusBadge tone="neutral" label="Remplacé (non renouvelé)" />
+                    ) : s.pendingBillingInterval ? (
+                      <StatusBadge tone="brand" label="Passage au mensuel" />
+                    ) : s.cancelAtPeriodEnd ? (
+                      <StatusBadge tone="warning" label="Résiliation programmée" />
+                    ) : s.pendingPlanId ? (
+                      <StatusBadge tone="brand" label="Changement programmé" />
+                    ) : (
+                      "Automatique"
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{s.provider === "dev" ? "Démonstration" : s.provider === "whop" ? "Whop" : s.provider}</TableCell>
                   <TableCell className="pr-5 text-muted-foreground">{formatDate(s.createdAt)}</TableCell>
                 </TableRow>

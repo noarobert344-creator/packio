@@ -121,10 +121,10 @@ describe("Webhooks Whop", () => {
     expect((await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } })).status).toBe("ACTIVE");
   });
 
-  it("renouvellement : nouveau paiement, nouvelle allocation, changement d'offre programmé appliqué", async () => {
+  it("renouvellement : nouveau paiement, nouvelle allocation, changement d'offre transmis à Whop appliqué", async () => {
     await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_1")), deps);
     const sub = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } });
-    await db.subscription.update({ where: { id: sub.id }, data: { pendingPlanId: proId } });
+    await db.subscription.update({ where: { id: sub.id }, data: { pendingPlanId: proId, pendingSyncedAt: new Date() } });
     memberships.mem_1 = membership({ current_period_start: new Date(Date.now() + 30 * DAY).toISOString(), current_period_end: new Date(Date.now() + 60 * DAY).toISOString() });
     await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2", { total: { amount: "69.90", currency: "eur" } })), deps);
     const after = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" }, include: { plan: true } });
@@ -132,6 +132,18 @@ describe("Webhooks Whop", () => {
     expect(after.pendingPlanId).toBeNull();
     expect((await wallet(customerId)).monthlyBalance).toBe(55); // politique EXPIRE : 20 expirent, 55 accordés
     expect(await db.notification.count({ where: { userId, type: "SUBSCRIPTION_RENEWED" } })).toBe(1);
+  });
+
+  it("renouvellement : un changement programmé non transmis à Whop n'est pas appliqué et les admins sont alertés", async () => {
+    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_1")), deps);
+    const sub = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } });
+    await db.subscription.update({ where: { id: sub.id }, data: { pendingPlanId: proId } });
+    memberships.mem_1 = membership({ current_period_start: new Date(Date.now() + 30 * DAY).toISOString(), current_period_end: new Date(Date.now() + 60 * DAY).toISOString() });
+    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2")), deps);
+    const after = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" }, include: { plan: true } });
+    expect(after.plan.code).toBe("STARTER");
+    expect(after.pendingPlanId).toBe(proId);
+    expect(await db.notification.count({ where: { title: "Changement d'offre non transmis à Whop" } })).toBe(1);
   });
 
   it("échec de paiement : paiement en échec, impayé, notification et blocage des expéditions", async () => {
@@ -186,6 +198,48 @@ describe("Webhooks Whop", () => {
     expect(retry.status).toBe(200);
     const record = await db.webhookEvent.findUniqueOrThrow({ where: { id: "msg_orphan" } });
     expect(record).toMatchObject({ status: "PROCESSED", attempts: 2, provider: "whop" });
+  });
+
+  it("formule annuelle : périodicité lue dans les métadonnées, crédits du mois et calendrier", async () => {
+    memberships.mem_1 = membership({
+      current_period_end: new Date(Date.now() + 365 * DAY).toISOString(),
+      metadata: { kind: "subscription", packio_customer_id: customerId, plan_id: starterId, billing_interval: "yearly" },
+    });
+    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_y1", { total: { amount: "299.00", currency: "eur" } })), deps);
+    const sub = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } });
+    expect(sub.billingInterval).toBe("YEARLY");
+    expect(sub.creditMonthsGranted).toBe(1);
+    expect(sub.nextCreditGrantAt).not.toBeNull();
+    expect((await wallet(customerId)).monthlyBalance).toBe(20);
+    expect((await db.payment.findUniqueOrThrow({ where: { externalId: "pay_y1" } })).amountCents).toBe(29900);
+  });
+
+  it("formule annuelle sans métadonnée de périodicité : déduite de la durée de la période", async () => {
+    memberships.mem_1 = membership({ current_period_end: new Date(Date.now() + 365 * DAY).toISOString() });
+    await processWhopWebhook(whopRequest("membership.activated", memberships.mem_1), deps);
+    expect((await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } })).billingInterval).toBe("YEARLY");
+  });
+
+  it("changement d'offre immédiat : la nouvelle adhésion remplace l'ancienne (arrêt demandé à Whop, alerte si impossible)", async () => {
+    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_1")), deps);
+    memberships.mem_2 = membership({
+      id: "mem_2",
+      variant_id: "plan_auto_pro",
+      metadata: { kind: "subscription", packio_customer_id: customerId, plan_id: proId, billing_interval: "monthly", replaces: "mem_1" },
+    });
+    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2", { membership_id: "mem_2", total: { amount: "69.90", currency: "eur" } })), deps);
+    const old = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } });
+    expect(old.supersededAt).not.toBeNull();
+    expect(old.cancelAtPeriodEnd).toBe(true);
+    const customer = await db.customerProfile.findUniqueOrThrow({ where: { id: customerId } });
+    expect(customer.status).toBe("ACTIVE");
+    expect((await wallet(customerId)).monthlyBalance).toBe(75);
+    // Sans clé API dans les tests, l'arrêt chez Whop échoue : les admins sont alertés.
+    expect(await db.notification.count({ where: { title: "Ancienne adhésion Whop à arrêter" } })).toBe(1);
+    // L'avis de Whop sur l'ancienne adhésion ne déclenche pas d'avis de résiliation.
+    memberships.mem_1 = membership({ cancel_at_period_end: true });
+    await processWhopWebhook(whopRequest("membership.updated", memberships.mem_1), deps);
+    expect(await db.notification.count({ where: { userId, title: "Résiliation programmée" } })).toBe(0);
   });
 
   it("ignore proprement les événements non gérés", async () => {

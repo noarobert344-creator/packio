@@ -1,3 +1,4 @@
+import type { BillingInterval } from "@/generated/prisma/enums";
 import { db } from "@/server/db";
 import { isUniqueViolation } from "@/server/errors";
 import { withEffects } from "@/server/services/notifications";
@@ -115,10 +116,24 @@ async function resolvePlanId(ctx: Context, variantId: string | null): Promise<st
     if (plan) return plan.id;
   }
   if (variantId) {
-    const plan = await db.plan.findUnique({ where: { whopPlanId: variantId }, select: { id: true } });
+    const plan = await db.plan.findFirst({ where: { OR: [{ whopPlanId: variantId }, { whopAnnualPlanId: variantId }] }, select: { id: true } });
     if (plan) return plan.id;
   }
   return null;
+}
+
+/**
+ * Périodicité d'une nouvelle adhésion : métadonnées Packio, plan Whop annuel
+ * configuré, ou à défaut durée de la période (plus de 60 jours = annuelle).
+ */
+async function resolveInterval(ctx: Context, membership: Record<string, unknown>): Promise<BillingInterval> {
+  if (ctx.meta.billing_interval === "yearly") return "YEARLY";
+  if (ctx.meta.billing_interval === "monthly") return "MONTHLY";
+  const variantId = variantIdOf(membership);
+  if (variantId && (await db.plan.findUnique({ where: { whopAnnualPlanId: variantId }, select: { id: true } }))) return "YEARLY";
+  const start = toDate(membership.current_period_start) ?? toDate(membership.renewal_period_start);
+  const end = toDate(membership.current_period_end) ?? toDate(membership.renewal_period_end);
+  return start && end && end.getTime() - start.getTime() > 60 * 86_400_000 ? "YEARLY" : "MONTHLY";
 }
 
 function variantIdOf(o: Record<string, unknown>) {
@@ -130,10 +145,12 @@ async function syncMembership(membership: Record<string, unknown>, ctx: Context)
   const planId = await resolvePlanId(ctx, variantIdOf(membership));
   if (!planId) throw new Error(`Abonnement ${ctx.membershipId} : offre Packio introuvable`);
   const status = mapMembershipStatus(membership.status);
+  const billingInterval = await resolveInterval(ctx, membership);
   await withEffects((tx, fx) =>
     syncSubscription(tx, fx, {
       customerId: ctx.customerId!,
       planId,
+      billingInterval,
       provider: "whop",
       externalId: ctx.membershipId!,
       status,
