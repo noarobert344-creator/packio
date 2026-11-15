@@ -4,11 +4,8 @@ import { DomainError } from "@/server/errors";
 import { getActor } from "@/server/auth/current";
 import type { Actor } from "@/server/auth/actor";
 
-export type ActionResult<T = undefined> =
-  | { ok: true; data?: T; message?: string }
-  | { ok: false; error: string; fieldErrors?: Record<string, string> };
-
-export type ActionState<T = undefined> = ActionResult<T> | null;
+import type { ActionResult } from "@/lib/action-types";
+export type { ActionResult, ActionState, FormAction } from "@/lib/action-types";
 
 /** Convertit un FormData en objet simple (champs multiples -> tableaux). */
 export function formToObject(formData: FormData): Record<string, unknown> {
@@ -55,10 +52,10 @@ export function toActionError(err: unknown): { ok: false; error: string; fieldEr
  * Exécute une action serveur authentifiée : résolution de l'acteur côté serveur,
  * validation Zod des données et conversion des erreurs métier.
  */
-export async function runAction<S extends z.ZodType, T>(
+export async function runAction<S extends z.ZodType, T = undefined>(
   schema: S,
   input: unknown,
-  fn: (actor: Actor, data: z.infer<S>) => Promise<ActionResult<T> | T | void>,
+  fn: (actor: Actor, data: z.infer<S>) => Promise<ActionResult<T> | void>,
 ): Promise<ActionResult<T>> {
   try {
     const actor = await getActor();
@@ -68,8 +65,7 @@ export async function runAction<S extends z.ZodType, T>(
       return { ok: false, error: "Certains champs sont invalides.", fieldErrors: zodFieldErrors(parsed.error) };
     }
     const result = await fn(actor, parsed.data);
-    if (result && typeof result === "object" && "ok" in result) return result as ActionResult<T>;
-    return { ok: true, data: result as T };
+    return result ?? { ok: true };
   } catch (err) {
     return toActionError(err);
   }
