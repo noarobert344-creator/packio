@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CustomerLink, Notice } from "@/components/admin/ops/ui";
 import { SUBSCRIPTION_STATUS } from "@/lib/labels";
-import { CREDIT_PACK_SIZES } from "@/lib/credit-packs";
+import { CREDIT_PACK_SIZES, MIN_CREDIT_PRICE_CENTS } from "@/lib/credit-packs";
 import { formatDate, formatMoney, formatPrice } from "@/lib/format";
 import { annualSavingsLabel, monthlyEquivalentCents } from "@/lib/billing-intervals";
 import { oneOf, parsePage, type SearchParams } from "@/lib/params";
@@ -86,7 +86,14 @@ export default async function AdminSubscriptionsPage({ searchParams }: { searchP
                     <input type="hidden" name="code" value={p.code} />
                     <div className="grid grid-cols-2 gap-3">
                       <TextField name="name" label="Nom" defaultValue={p.name} required />
-                      <TextField name="price" label="Prix mensuel (€ TTC)" defaultValue={euros(p.priceCents)} inputMode="decimal" required />
+                      <TextField
+                        name="price"
+                        label="Prix mensuel (€ TTC)"
+                        defaultValue={euros(p.priceCents)}
+                        inputMode="decimal"
+                        required
+                        hint={`Minimum ${formatMoney(p.monthlyCredits * MIN_CREDIT_PRICE_CENTS)} (1,90 € le crédit)`}
+                      />
                       <TextField
                         name="annualPrice"
                         label="Prix annuel (€ TTC)"
@@ -297,7 +304,7 @@ function PackFields({ pack }: { pack: { name: string; credits: number; priceCent
       <TextField name="name" label="Nom affiché" required defaultValue={pack.name} />
       <div className="grid grid-cols-2 gap-3">
         <TextField name="creditsDisplay" label="Crédits" defaultValue={String(pack.credits)} disabled hint="10, 30, 50 ou 100" />
-        <TextField name="price" label="Prix (€ TTC)" required inputMode="decimal" defaultValue={euros(pack.priceCents)} />
+        <TextField name="price" label="Prix (€ TTC)" required inputMode="decimal" defaultValue={euros(pack.priceCents)} hint={`Minimum ${formatMoney(pack.credits * MIN_CREDIT_PRICE_CENTS)}`} />
       </div>
       <TextField name="whopPlanId" label="Plan Whop (facultatif)" defaultValue={pack.whopPlanId ?? ""} placeholder="plan_…" hint="Plan à paiement unique au même prix ; sinon créé au paiement." />
       <CheckboxField name="isActive" label="Proposée aux clients" defaultChecked={pack.isActive} />

@@ -90,7 +90,7 @@ export function MessagingView(props: Props) {
                 {results.map((r) => (
                   <li key={r.id}>
                     <Link href={`${basePath}?c=${r.conversationId}`} className="block px-4 py-3 hover:bg-muted/60" onClick={() => setQuery("")}>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground" suppressHydrationWarning>
                         {r.sender} · {formatRelative(r.createdAt)}
                       </p>
                       <p className="line-clamp-2 text-sm">{r.body}</p>
@@ -116,7 +116,9 @@ export function MessagingView(props: Props) {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
                         <p className={cn("truncate text-sm", c.unread ? "font-semibold" : "font-medium")}>{c.title}</p>
-                        <span className="shrink-0 text-[0.7rem] text-muted-foreground">{formatRelative(c.lastMessageAt)}</span>
+                        <span className="shrink-0 text-[0.7rem] text-muted-foreground" suppressHydrationWarning>
+                          {formatRelative(c.lastMessageAt)}
+                        </span>
                       </div>
                       <p className="truncate text-xs text-muted-foreground">{c.subtitle}</p>
                       <div className="mt-0.5 flex items-center gap-2">

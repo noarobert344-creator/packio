@@ -78,7 +78,9 @@ export function NotificationBell({ settingsHref }: { settingsHref: string }) {
                     <div className="min-w-0 space-y-0.5">
                       <p className="text-sm font-medium">{n.title}</p>
                       <p className="line-clamp-2 text-xs text-muted-foreground">{n.body}</p>
-                      <p className="text-[0.7rem] text-muted-foreground/80">{formatRelative(n.createdAt)}</p>
+                      <p className="text-[0.7rem] text-muted-foreground/80" suppressHydrationWarning>
+                        {formatRelative(n.createdAt)}
+                      </p>
                     </div>
                   </div>
                 );

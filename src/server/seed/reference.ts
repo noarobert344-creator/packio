@@ -7,7 +7,10 @@ import { SYSTEM_ROLES } from "@/server/auth/permissions";
  * Ce module est idempotent : il ne remplace jamais une valeur déjà éditée.
  */
 
-/** Formule annuelle : 11 mois facturés, 1 mois offert. */
+/**
+ * Prix : au moins 1,90 € le crédit en mensuel (Starter 1,95 €, Pro et Business
+ * 1,90 €). Formule annuelle : 11 mois facturés, 1 mois offert.
+ */
 const plan = (code: string, name: string, tagline: string, priceCents: number, monthlyCredits: number, storageLimit: number, highlighted: boolean, sortOrder: number) => ({
   code,
   name,
@@ -30,8 +33,8 @@ const plan = (code: string, name: string, tagline: string, priceCents: number, m
 
 export const DEFAULT_PLANS = [
   plan("STARTER", "Starter", "Pour lancer votre activité sans gérer un seul colis.", 3900, 20, 10, false, 1),
-  plan("PRO", "Pro", "Pour les vendeurs réguliers qui expédient chaque semaine.", 7900, 50, 25, true, 2),
-  plan("BUSINESS", "Business", "Pour les boutiques à fort volume.", 15900, 90, 60, false, 3),
+  plan("PRO", "Pro", "Pour les vendeurs réguliers qui expédient chaque semaine.", 9500, 50, 25, true, 2),
+  plan("BUSINESS", "Business", "Pour les boutiques à fort volume.", 17100, 90, 60, false, 3),
 ];
 
 export const DEFAULT_SIZE_RULES = [

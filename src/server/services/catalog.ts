@@ -6,7 +6,9 @@ import { ALL_PERMISSIONS } from "@/server/auth/permissions";
 import { audit } from "./audit";
 import { normalizeEmail, sendInvitation, anonymizeUser } from "./auth";
 import { saveSetting, type SettingKey, type Settings } from "./settings";
-import { isCreditPackSize } from "@/lib/credit-packs";
+import { isCreditPackSize, MIN_CREDIT_PRICE_CENTS, pricePerCreditCents } from "@/lib/credit-packs";
+
+const euro = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
 
 // ----------------------------------------------------------------------------- Offres
 
@@ -53,6 +55,12 @@ export async function savePlan(actor: Actor, input: PlanInput & { id?: string })
     annualPriceCents: input.annualPriceCents ?? null,
     whopAnnualPlanId: cleanWhopPlanId(input.whopAnnualPlanId, "whopAnnualPlanId"),
   };
+  if (data.monthlyCredits > 0 && pricePerCreditCents(data.priceCents, data.monthlyCredits) < MIN_CREDIT_PRICE_CENTS) {
+    const min = Math.ceil(data.monthlyCredits * MIN_CREDIT_PRICE_CENTS);
+    throw new DomainError("CREDIT_PRICE", `Un crédit ne peut pas coûter moins de ${euro(MIN_CREDIT_PRICE_CENTS)} € : pour ${data.monthlyCredits} crédits, le prix mensuel minimum est ${euro(min)} €.`, {
+      fieldErrors: { price: `Minimum ${euro(min)} €` },
+    });
+  }
   if (data.annualPriceCents !== null && data.annualPriceCents >= data.priceCents * 12) {
     throw new DomainError("ANNUAL_PRICE", "Le prix annuel doit être inférieur à 12 mensualités.", { fieldErrors: { annualPrice: "Doit être inférieur à 12 × le prix mensuel" } });
   }
@@ -108,6 +116,12 @@ export async function saveCreditPack(actor: Actor, input: { id?: string; name: s
   const duplicate = await db.creditPack.findFirst({ where: { credits: input.credits, ...(input.id ? { NOT: { id: input.id } } : {}) } });
   if (duplicate) throw new DomainError("PACK_EXISTS", `Une recharge de ${input.credits} crédits existe déjà : modifiez-la.`);
   if (input.priceCents < 1) throw new DomainError("PRICE", "Prix invalide.", { fieldErrors: { price: "Prix invalide" } });
+  if (pricePerCreditCents(input.priceCents, input.credits) < MIN_CREDIT_PRICE_CENTS) {
+    const min = input.credits * MIN_CREDIT_PRICE_CENTS;
+    throw new DomainError("CREDIT_PRICE", `Un crédit ne peut pas coûter moins de ${euro(MIN_CREDIT_PRICE_CENTS)} € : minimum ${euro(min)} € pour ${input.credits} crédits.`, {
+      fieldErrors: { price: `Minimum ${euro(min)} €` },
+    });
+  }
   const data = {
     name: input.name.trim(),
     credits: input.credits,

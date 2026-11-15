@@ -19,8 +19,8 @@ describe("Formule annuelle", () => {
     const plans = await db.plan.findMany({ orderBy: { sortOrder: "asc" } });
     expect(plans.map((p) => [p.code, p.annualPriceCents])).toEqual([
       ["STARTER", 42900],
-      ["PRO", 86900],
-      ["BUSINESS", 174900],
+      ["PRO", 104500],
+      ["BUSINESS", 188100],
     ]);
   });
 
@@ -72,7 +72,7 @@ describe("Formule annuelle", () => {
     expect(after.creditAnchorAt?.getTime()).toBe(before.currentPeriodEnd?.getTime());
     expect(after.creditMonthsGranted).toBe(1);
     const last = await db.payment.findFirstOrThrow({ where: { customerId, kind: "SUBSCRIPTION" }, orderBy: { createdAt: "desc" } });
-    expect(last.amountCents).toBe(86900);
+    expect(last.amountCents).toBe(104500);
   });
 
   it("refuse la formule annuelle quand elle n'est pas proposée pour l'offre", async () => {
@@ -97,7 +97,7 @@ describe("Formule annuelle", () => {
     ]);
     expect((await getActiveSubscription(customerId))?.plan.code).toBe("PRO");
     expect((await wallet(customerId)).monthlyBalance).toBe(70); // 20 Starter conservés + 50 Pro
-    expect((await listSubscriptions({ page: 1 })).kpis.mrrCents).toBe(7900);
+    expect((await listSubscriptions({ page: 1 })).kpis.mrrCents).toBe(9500);
 
     // Fin de période de l'ancienne offre : pas d'avis de résiliation, le client reste actif.
     await devSimulateRenewal(customerId);
@@ -115,8 +115,8 @@ describe("Formule annuelle", () => {
     const primary = await getActiveSubscription(customerId);
     expect(primary?.billingInterval).toBe("YEARLY");
     const last = await db.payment.findFirstOrThrow({ where: { customerId, kind: "SUBSCRIPTION" }, orderBy: { createdAt: "desc" } });
-    expect(last.amountCents).toBe(86900);
-    expect((await listSubscriptions({ page: 1 })).kpis).toMatchObject({ mrrCents: 7242, yearly: 1 });
+    expect(last.amountCents).toBe(104500);
+    expect((await listSubscriptions({ page: 1 })).kpis).toMatchObject({ mrrCents: 8708, yearly: 1 });
 
     // Démonstration : la fin de l'année clôt aussi l'ancienne offre mensuelle, puis le client choisit le mensuel.
     const starter = await plan("STARTER");

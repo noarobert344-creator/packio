@@ -90,7 +90,7 @@ export async function buyStorageSlotsTx(
   });
 }
 
-/** Achat de places par le client depuis son espace (« 1 crédit = 5 places »). */
+/** Achat de places par le client depuis son espace (« 1 crédit = 3 places »). */
 export async function purchaseStorageSlots(actor: Actor, input: { credits: number; requestId: string }) {
   const customerId = assertCustomer(actor);
   if (!Number.isInteger(input.credits) || input.credits < 1 || input.credits > 50) {

@@ -92,7 +92,7 @@ export const SETTINGS_DEFAULTS: Settings = {
     consumerMediator: "",
   },
   messaging: { supervisionMinutes: 60 },
-  storage: { includedDays: 14, extensionDays: 14, extensionCredits: 1, slotsPerCredit: 5, extraSlotsDays: 30, reminderDaysBefore: 2 },
+  storage: { includedDays: 14, extensionDays: 14, extensionCredits: 1, slotsPerCredit: 3, extraSlotsDays: 30, reminderDaysBefore: 2 },
   shipping: { slaHours: 48 },
 };
 

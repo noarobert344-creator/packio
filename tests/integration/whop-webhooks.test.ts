@@ -126,7 +126,7 @@ describe("Webhooks Whop", () => {
     const sub = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } });
     await db.subscription.update({ where: { id: sub.id }, data: { pendingPlanId: proId, pendingSyncedAt: new Date() } });
     memberships.mem_1 = membership({ current_period_start: new Date(Date.now() + 30 * DAY).toISOString(), current_period_end: new Date(Date.now() + 60 * DAY).toISOString() });
-    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2", { total: { amount: "79.00", currency: "eur" } })), deps);
+    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2", { total: { amount: "95.00", currency: "eur" } })), deps);
     const after = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" }, include: { plan: true } });
     expect(after.plan.code).toBe("PRO");
     expect(after.pendingPlanId).toBeNull();
@@ -227,7 +227,7 @@ describe("Webhooks Whop", () => {
       variant_id: "plan_auto_pro",
       metadata: { kind: "subscription", packio_customer_id: customerId, plan_id: proId, billing_interval: "monthly", replaces: "mem_1" },
     });
-    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2", { membership_id: "mem_2", total: { amount: "79.00", currency: "eur" } })), deps);
+    await processWhopWebhook(whopRequest("payment.succeeded", payment("pay_2", { membership_id: "mem_2", total: { amount: "95.00", currency: "eur" } })), deps);
     const old = await db.subscription.findUniqueOrThrow({ where: { externalId: "mem_1" } });
     expect(old.supersededAt).not.toBeNull();
     expect(old.cancelAtPeriodEnd).toBe(true);

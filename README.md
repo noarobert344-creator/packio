@@ -165,8 +165,10 @@ Seuls les lieux **validés par un administrateur** sont communiqués aux clients
 | Offre | Mensuel | Annuel (1 mois offert) | Crédits / mois | Places de stockage |
 | --- | --- | --- | --- | --- |
 | Starter | 39 € / mois | 429 € / an (≈ 35,75 € / mois) | 20 | 10 articles |
-| Pro | 79 € / mois | 869 € / an (≈ 72,42 € / mois) | 50 | 25 articles |
-| Business | 159 € / mois | 1 749 € / an (≈ 145,75 € / mois) | 90 | 60 articles |
+| Pro | 95 € / mois | 1 045 € / an (≈ 87,08 € / mois) | 50 | 25 articles |
+| Business | 171 € / mois | 1 881 € / an (≈ 156,75 € / mois) | 90 | 60 articles |
+
+**Prix minimum d'un crédit : 1,90 €** en abonnement mensuel comme en recharge (Starter 1,95 €, Pro et Business 1,90 €, recharges de 1,99 € à 2,49 €). Le back-office refuse un prix inférieur ; seule la formule annuelle (1 mois offert) descend en dessous.
 
 Les places de stockage correspondent au nombre d'articles stockés **en même temps** (voir [Stockage](#stockage)). Ce sont des valeurs par défaut, modifiables par offre ; une valeur modifiée dans le back-office n'est jamais écrasée par une migration. La formule mensuelle se renouvelle tous les **30 jours**, la formule annuelle tous les **365 jours** (périodes de facturation Whop). Un prix annuel vide dans le back-office retire la formule annuelle de l'offre.
 
@@ -200,7 +202,7 @@ Règles paramétrables (réglage `storage`, valeurs par défaut dans `src/server
 | Durée incluse par article | 14 jours à compter de la mise en stock |
 | Prolongation | 1 crédit **par article** pour 14 jours de plus, prélevé automatiquement |
 | Rappel | 2 jours avant la fin de la durée payée |
-| Places supplémentaires | 1 crédit = 5 places pendant 30 jours, ajoutées par le client depuis `Mon stock` |
+| Places supplémentaires | 1 crédit = 3 places pendant 30 jours, ajoutées par le client depuis `Mon stock` |
 
 - **Places** : articles en stock (disponibles ou réservés) + quantités des commandes en cours d'acheminement. Capacité = places de l'offre + places supplémentaires en cours de validité.
 - **À la commande** : si la commande dépasse la capacité, le formulaire affiche les crédits nécessaires (places manquantes ÷ 5, arrondi au supérieur) ; le client doit **cocher son accord**, les places sont alors achetées et débitées dans la même transaction. Sans accord ou sans solde suffisant, la commande est refusée.

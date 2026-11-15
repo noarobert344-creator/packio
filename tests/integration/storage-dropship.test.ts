@@ -7,6 +7,7 @@ import { adminAdjustCredits } from "@/server/services/credits";
 import { getStorageOverview, purchaseStorageSlots, runStorageBilling } from "@/server/services/storage";
 import { updateItemDetails } from "@/server/services/inventory";
 import { buildZip } from "@/server/lib/zip";
+import { saveCreditPack, savePlan } from "@/server/services/catalog";
 import type { Actor } from "@/server/auth/actor";
 import { createAdmin, createCustomer, createPreparerWithLocation, db, ledgerInvariant, resetDb, wallet } from "../helpers";
 
@@ -49,12 +50,12 @@ async function drain(admin: Actor, customerId: string) {
 describe("Stockage, retours, dropshipping et délai de 48 h", () => {
   beforeEach(resetDb);
 
-  it("nouvelles offres : 39 €, 79 €, 159 € ; 20, 50, 90 crédits ; 10, 25, 60 places ; recharges réévaluées", async () => {
+  it("offres : 39 €, 95 €, 171 € (1,90 € minimum le crédit) ; 20, 50, 90 crédits ; 10, 25, 60 places ; recharges réévaluées", async () => {
     const plans = await db.plan.findMany({ orderBy: { sortOrder: "asc" } });
     expect(plans.map((p) => [p.code, p.priceCents, p.monthlyCredits, p.storageLimit, p.annualPriceCents])).toEqual([
       ["STARTER", 3900, 20, 10, 42900],
-      ["PRO", 7900, 50, 25, 86900],
-      ["BUSINESS", 15900, 90, 60, 174900],
+      ["PRO", 9500, 50, 25, 104500],
+      ["BUSINESS", 17100, 90, 60, 188100],
     ]);
     const packs = await db.creditPack.findMany({ where: { isActive: true }, orderBy: { credits: "asc" } });
     expect(packs.map((p) => [p.credits, p.priceCents])).toEqual([
@@ -65,7 +66,18 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
     ]);
   });
 
-  it("commande au-delà des places : crédits demandés avec accord, places ajoutées pour 30 jours", async () => {
+  it("refuse un prix inférieur à 1,90 € le crédit (offre mensuelle et recharge)", async () => {
+    const admin = await createAdmin();
+    const pro = await db.plan.findUniqueOrThrow({ where: { code: "PRO" } });
+    const base = { id: pro.id, code: pro.code, name: pro.name, monthlyCredits: 50, features: pro.features, highlighted: true, isActive: true, sortOrder: 2, annualPriceCents: null };
+    await expect(savePlan(admin, { ...base, priceCents: 9400 })).rejects.toMatchObject({ code: "CREDIT_PRICE" });
+    await expect(savePlan(admin, { ...base, priceCents: 9500 })).resolves.toBeTruthy();
+    const pack = await db.creditPack.findFirstOrThrow({ where: { credits: 100 } });
+    await expect(saveCreditPack(admin, { id: pack.id, name: pack.name, credits: 100, priceCents: 18900, isActive: true, sortOrder: 4 })).rejects.toMatchObject({ code: "CREDIT_PRICE" });
+    await expect(saveCreditPack(admin, { id: pack.id, name: pack.name, credits: 100, priceCents: 19000, isActive: true, sortOrder: 4 })).resolves.toBeTruthy();
+  });
+
+  it("commande au-delà des places : crédits demandés avec accord, 3 places par crédit pour 30 jours", async () => {
     const { prep, client } = await setup();
     await stocked(client.actor, prep.actor, prep.location.id, 8);
     const sid = await supplierId();
@@ -75,13 +87,13 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
     const created = await createSupplierOrder(client.actor, { ...order, acceptStorageCharge: true });
     expect(created.storageCreditsCharged).toBe(1);
     const overview = await getStorageOverview(client.customerId);
-    expect([overview.included, overview.extra, overview.capacity, overview.used, overview.incoming]).toEqual([10, 5, 15, 8, 4]);
+    expect([overview.included, overview.extra, overview.capacity, overview.used, overview.incoming]).toEqual([10, 3, 13, 8, 4]);
     expect(overview.purchases[0].expiresAt.getTime() - overview.purchases[0].startsAt.getTime()).toBe(30 * 86_400_000);
     expect(await db.creditTransaction.count({ where: { type: "STORAGE_FEE" } })).toBe(1);
     expect((await wallet(client.customerId)).monthlyBalance).toBe(19);
 
     // Dans la capacité : aucun débit.
-    await createSupplierOrder(client.actor, { ...order, quantity: 3 });
+    await createSupplierOrder(client.actor, { ...order, quantity: 1 });
     expect(await db.creditTransaction.count({ where: { type: "STORAGE_FEE" } })).toBe(1);
   });
 
@@ -94,13 +106,13 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
     ).rejects.toMatchObject({ code: "INSUFFICIENT_CREDITS" });
   });
 
-  it("achat de places depuis Mon stock : 1 crédit = 5 places, idempotent", async () => {
+  it("achat de places depuis Mon stock : 1 crédit = 3 places, idempotent", async () => {
     const { client } = await setup();
     const a = await purchaseStorageSlots(client.actor, { credits: 2, requestId: "req-123456" });
     const b = await purchaseStorageSlots(client.actor, { credits: 2, requestId: "req-123456" });
-    expect(a?.slots).toBe(10);
+    expect(a?.slots).toBe(6);
     expect(b).toBeNull();
-    expect((await getStorageOverview(client.customerId)).capacity).toBe(20);
+    expect((await getStorageOverview(client.customerId)).capacity).toBe(16);
     expect((await wallet(client.customerId)).monthlyBalance).toBe(18);
   });
 
