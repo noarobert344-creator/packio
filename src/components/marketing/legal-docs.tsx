@@ -1,0 +1,371 @@
+import Link from "next/link";
+import type { Settings } from "@/server/services/settings";
+
+/**
+ * Modèles de documents légaux générés à partir des paramètres de la
+ * plateforme (Back-office → Paramètres → Légal). Toute valeur manquante est
+ * signalée par un marqueur « [À compléter] ».
+ */
+
+export type LegalContext = {
+  legal: Settings["legal"];
+  support: Settings["support"];
+  credits: Settings["credits"];
+  slaHours: number;
+  supervisionMinutes: number;
+  appUrl: string;
+  sizes: { label: string; creditCost: number }[];
+};
+
+export function Fill({ value, label }: { value?: string | null; label?: string }) {
+  if (value && value.trim()) return <>{value}</>;
+  return (
+    <mark className="rounded bg-warning-soft px-1 font-medium text-warning" title={label}>
+      [À compléter{label ? ` : ${label}` : ""}]
+    </mark>
+  );
+}
+
+function Company({ ctx }: { ctx: LegalContext }) {
+  return <Fill value={ctx.legal.companyName} label="raison sociale" />;
+}
+
+function ContactEmail({ ctx }: { ctx: LegalContext }) {
+  const email = ctx.legal.contactEmail || ctx.support.email;
+  return email ? <a href={`mailto:${email}`}>{email}</a> : <Fill label="e-mail de contact" />;
+}
+
+export function MentionsLegales({ ctx }: { ctx: LegalContext }) {
+  const l = ctx.legal;
+  return (
+    <>
+      <h2>Éditeur du site</h2>
+      <ul>
+        <li>
+          Raison sociale : <Company ctx={ctx} />
+        </li>
+        <li>
+          Forme juridique : <Fill value={l.legalForm} label="forme juridique" /> — capital social : <Fill value={l.capital} label="capital" />
+        </li>
+        <li>
+          Siège social : <Fill value={l.address} label="adresse du siège" />
+        </li>
+        <li>
+          SIRET : <Fill value={l.siret} label="SIRET" /> — RCS : <Fill value={l.rcs} label="RCS" />
+        </li>
+        <li>
+          N° de TVA intracommunautaire : <Fill value={l.vatNumber} label="TVA" />
+        </li>
+        <li>
+          Directeur de la publication : <Fill value={l.publicationDirector} label="directeur de la publication" />
+        </li>
+        <li>
+          Contact : <ContactEmail ctx={ctx} />
+          {ctx.support.phone ? ` — ${ctx.support.phone}` : ""}
+        </li>
+      </ul>
+      <h2>Hébergement</h2>
+      <p>
+        Le site et l&apos;application sont hébergés par <Fill value={l.hostName} label="hébergeur" />, <Fill value={l.hostAddress} label="adresse de l'hébergeur" />.
+      </p>
+      <h2>Propriété intellectuelle</h2>
+      <p>
+        La marque Packio, son logo, l&apos;interface, les textes et le code de la plateforme sont protégés. Toute reproduction ou représentation, totale ou partielle, sans
+        autorisation écrite préalable de <Company ctx={ctx} /> est interdite.
+      </p>
+      <h2>Données personnelles</h2>
+      <p>
+        Le traitement de vos données personnelles est décrit dans la <Link href="/legal/confidentialite">politique de confidentialité</Link>. L&apos;usage des cookies est
+        détaillé dans la <Link href="/legal/cookies">politique relative aux cookies</Link>.
+      </p>
+      <h2>Signalement</h2>
+      <p>
+        Pour signaler un contenu ou un comportement contraire à la loi, écrivez à <ContactEmail ctx={ctx} />.
+      </p>
+    </>
+  );
+}
+
+export function Cgu({ ctx }: { ctx: LegalContext }) {
+  return (
+    <>
+      <h2>1. Objet</h2>
+      <p>
+        Les présentes conditions générales d&apos;utilisation (CGU) encadrent l&apos;accès et l&apos;utilisation de la plateforme Packio, éditée par <Company ctx={ctx} />,
+        accessible à l&apos;adresse {ctx.appUrl}. Packio met en relation des vendeurs (les « Clients ») avec des préparateurs de commandes indépendants ou salariés
+        (les « Préparateurs ») chargés de réceptionner, stocker, préparer et expédier les articles des Clients.
+      </p>
+      <h2>2. Comptes et rôles</h2>
+      <ul>
+        <li>
+          <strong>Client</strong> : crée son compte librement, souscrit un abonnement et gère ses commandes, son stock, ses expéditions, ses crédits et sa messagerie.
+        </li>
+        <li>
+          <strong>Préparateur</strong> : compte créé sur invitation de Packio ; il n&apos;accède qu&apos;aux Clients qui lui sont attribués et aux opérations les concernant.
+        </li>
+        <li>
+          <strong>Administration Packio</strong> : gère la plateforme selon des permissions définies, chaque action sensible étant journalisée.
+        </li>
+      </ul>
+      <p>
+        L&apos;utilisateur s&apos;engage à fournir des informations exactes, à garder ses identifiants confidentiels et à signaler sans délai toute utilisation non
+        autorisée. Les tentatives de connexion répétées sont temporairement bloquées par mesure de sécurité.
+      </p>
+      <h2>3. Attribution du préparateur</h2>
+      <p>
+        Après activation de l&apos;abonnement, un préparateur personnel est attribué au Client par l&apos;équipe Packio, manuellement, dans un délai cible de{" "}
+        {ctx.slaHours} heures. Aucune attribution n&apos;est réalisée automatiquement. En cas de retard, le Client en est informé. Packio peut procéder à une
+        réattribution (indisponibilité, capacité, qualité de service) ; l&apos;historique des commandes est conservé et un éventuel transfert de stock est organisé de
+        manière contrôlée.
+      </p>
+      <h2>4. Commandes et points de réception</h2>
+      <p>
+        Le Client déclare ses achats dans son espace et les fait livrer exclusivement aux points de réception validés de son préparateur, en reprenant le nom de
+        destinataire et le code client indiqués. Packio vérifie la compatibilité déclarée entre fournisseur et type de point de réception, mais les options de
+        livraison proposées restent sous la responsabilité de chaque fournisseur. Pour les lockers, le Client transmet le code de retrait reçu.
+      </p>
+      <h2>5. Stock</h2>
+      <p>
+        Les articles réceptionnés sont contrôlés, photographiés si possible et enregistrés dans le stock du Client avec une référence interne et un emplacement. Tout
+        mouvement (réception, réservation, expédition, perte, casse, inventaire) est historisé et ne peut être effacé. Les limites de stockage dépendent de
+        l&apos;offre souscrite. Sont interdits : produits illicites, dangereux, contrefaits, périssables, animaux, armes, substances réglementées, et tout article
+        dont le transport est restreint.
+      </p>
+      <h2>6. Expéditions, classification et crédits</h2>
+      <p>
+        Le Client demande l&apos;expédition d&apos;articles en stock. Seul le Préparateur détermine la catégorie réelle du colis ({ctx.sizes.map((s) => s.label.toLowerCase()).join(", ")}),
+        selon les règles fixées par Packio. Le coût en crédits correspondant est réservé à la classification puis définitivement débité au dépôt du colis chez le
+        transporteur. Toute classification peut être contestée depuis la fiche de l&apos;expédition. Les frais de transport sont distincts des crédits de préparation.
+      </p>
+      <h2>7. Messagerie</h2>
+      <p>
+        Une conversation privée est ouverte entre le Client et son Préparateur. L&apos;équipe Packio n&apos;y accède que pour un besoin de support, avec un motif
+        obligatoire, pour une durée limitée ({ctx.supervisionMinutes} minutes par accès) ; chaque accès est journalisé et signalé aux participants par un message
+        visible dans la conversation. Les échanges doivent rester courtois et liés au service ; tout contenu illicite ou abusif peut entraîner la suspension du compte.
+      </p>
+      <h2>8. Incidents</h2>
+      <p>
+        Colis abîmé, manquant, non conforme ou problème de transport : l&apos;incident est déclaré depuis la plateforme, avec photos si possible, et suivi jusqu&apos;à
+        sa résolution par l&apos;équipe Packio.
+      </p>
+      <h2>9. Suspension et clôture</h2>
+      <p>
+        Packio peut suspendre un compte en cas de manquement grave aux présentes CGU, d&apos;impayé ou de risque pour la sécurité, après information de
+        l&apos;utilisateur sauf urgence. L&apos;utilisateur peut demander la clôture de son compte au support ; ses données sont alors anonymisées dans les conditions
+        prévues par la politique de confidentialité, après restitution du stock éventuel.
+      </p>
+      <h2>10. Évolution et droit applicable</h2>
+      <p>
+        Les CGU peuvent évoluer ; la version en vigueur est celle publiée sur le site. Elles sont soumises au droit français. Contact : <ContactEmail ctx={ctx} />.
+      </p>
+    </>
+  );
+}
+
+export function Cgv({ ctx }: { ctx: LegalContext }) {
+  const monthly =
+    ctx.credits.monthly.mode === "EXPIRE"
+      ? "Les crédits mensuels non utilisés expirent au renouvellement suivant."
+      : `Les crédits mensuels non utilisés sont reportés pendant ${ctx.credits.monthly.rolloverMonths} mois, dans la limite de ${ctx.credits.monthly.rolloverCapPercent} % de l'allocation mensuelle de l'offre.`;
+  const purchased =
+    ctx.credits.purchased.mode === "NEVER"
+      ? "Les crédits achetés en recharge n'expirent pas tant que le compte est actif."
+      : `Les crédits achetés en recharge sont valables ${ctx.credits.purchased.days} jours à compter de leur achat.`;
+  return (
+    <>
+      <h2>1. Champ d&apos;application</h2>
+      <p>
+        Les présentes conditions générales de vente (CGV) s&apos;appliquent aux abonnements et recharges de crédits souscrits sur Packio auprès de <Company ctx={ctx} />.
+        Le service s&apos;adresse principalement à des vendeurs professionnels ou semi-professionnels.
+      </p>
+      <h2>2. Offres et prix</h2>
+      <p>
+        Les offres (abonnements mensuels incluant un nombre de crédits de préparation) et les recharges ponctuelles sont présentées sur la page Tarifs, avec leurs prix
+        TTC en vigueur au jour de la souscription. Chaque offre inclut un préparateur attitré, le tableau de bord, le suivi du stock et la messagerie. Packio peut faire
+        évoluer ses tarifs ; les nouveaux prix s&apos;appliquent aux nouvelles souscriptions, et aux abonnements en cours après information préalable du Client.
+      </p>
+      <h2>3. Paiement</h2>
+      <p>
+        Le paiement est réalisé par carte bancaire (ou tout moyen proposé) via Stripe, prestataire de paiement sécurisé. Packio ne stocke aucune donnée de carte.
+        L&apos;abonnement est prélevé mensuellement et renouvelé automatiquement. Des codes promotionnels peuvent être appliqués lors du paiement, selon leurs conditions
+        propres. Les factures sont disponibles dans l&apos;espace Facturation.
+      </p>
+      <h2>4. Échec de paiement</h2>
+      <p>
+        En cas d&apos;échec de paiement, le Client est notifié et invité à mettre à jour son moyen de paiement. Tant que la situation n&apos;est pas régularisée, les nouvelles
+        commandes et expéditions peuvent être suspendues ; le stock reste conservé.
+      </p>
+      <h2>5. Crédits</h2>
+      <ul>
+        <li>Un crédit rémunère la réception, le stockage et la préparation des colis ; il n&apos;a pas de valeur monétaire et n&apos;est ni cessible ni remboursable.</li>
+        <li>
+          Coût par colis selon la catégorie déterminée par le préparateur : {ctx.sizes.map((s) => `${s.label.toLowerCase()} ${s.creditCost} crédit${s.creditCost > 1 ? "s" : ""}`).join(", ")}.
+        </li>
+        <li>Les crédits sont réservés à la classification, débités au dépôt du colis, et libérés en cas d&apos;annulation avant le début de la préparation.</li>
+        <li>
+          {monthly} {purchased}
+        </li>
+        <li>Si le solde est insuffisant, l&apos;expédition reste en attente et reprend automatiquement après recharge.</li>
+      </ul>
+      <h2>6. Frais de transport</h2>
+      <p>
+        Les frais d&apos;affranchissement ne sont pas inclus dans les crédits. Le Client fournit son étiquette d&apos;expédition, ou les frais de transport lui sont indiqués et
+        facturés séparément.
+      </p>
+      <h2>7. Changement d&apos;offre et résiliation</h2>
+      <p>
+        Le passage à une offre supérieure est immédiat : la différence de prix est facturée au prorata et la différence de crédits mensuels est accordée pour la
+        période en cours. Le passage à une offre inférieure prend effet au renouvellement suivant. L&apos;abonnement est sans engagement : la résiliation prend effet à la
+        fin de la période payée, sans remboursement de la période en cours ni des crédits consommés. Le stock est alors restitué au Client selon des modalités
+        convenues avec le support (frais de transport à sa charge).
+      </p>
+      <h2>8. Droit de rétractation</h2>
+      <p>
+        Pour les Clients consommateurs, le droit de rétractation de 14 jours s&apos;applique ; en demandant l&apos;exécution du service avant la fin de ce délai, le Client
+        reconnaît que les prestations déjà exécutées (crédits consommés) restent dues. Les Clients professionnels ne bénéficient pas de ce droit.
+      </p>
+      <h2>9. Responsabilité</h2>
+      <p>
+        Packio s&apos;engage à mettre en œuvre les moyens nécessaires à la bonne exécution du service. Sa responsabilité ne saurait être engagée pour les retards,
+        pertes ou avaries imputables aux fournisseurs ou aux transporteurs, ni pour le contenu des articles achetés par le Client. Les incidents survenus pendant la garde
+        du préparateur sont traités au cas par cas, sur la base des photos et de l&apos;historique des mouvements. La responsabilité de Packio est limitée au montant
+        payé par le Client au cours des trois derniers mois, sauf faute lourde ou dolosive.
+      </p>
+      <h2>10. Réclamations et médiation</h2>
+      <p>
+        Toute réclamation peut être adressée à <ContactEmail ctx={ctx} />. Le Client consommateur peut recourir gratuitement au médiateur de la consommation :{" "}
+        {ctx.legal.consumerMediator ? ctx.legal.consumerMediator : <Fill label="nom et coordonnées du médiateur" />}.
+      </p>
+    </>
+  );
+}
+
+export function Confidentialite({ ctx }: { ctx: LegalContext }) {
+  const dpo = ctx.legal.dpoEmail || ctx.legal.contactEmail || ctx.support.email;
+  return (
+    <>
+      <h2>1. Responsable de traitement</h2>
+      <p>
+        <Company ctx={ctx} />, <Fill value={ctx.legal.address} label="adresse" />. Contact pour vos données personnelles :{" "}
+        {dpo ? <a href={`mailto:${dpo}`}>{dpo}</a> : <Fill label="e-mail DPO / contact RGPD" />}.
+      </p>
+      <h2>2. Données traitées</h2>
+      <ul>
+        <li>Identité et contact : nom, prénom, adresse e-mail, téléphone, société.</li>
+        <li>Compte : identifiants (mot de passe chiffré par hachage), journaux de connexion, préférences de notification.</li>
+        <li>Logistique : commandes déclarées, numéros de suivi, codes de retrait, articles en stock, photos, adresses des destinataires des expéditions.</li>
+        <li>Facturation : abonnement, paiements, factures (les données de carte sont traitées exclusivement par Stripe).</li>
+        <li>Communications : messages échangés, pièces jointes, demandes de support et de contact, incidents.</li>
+        <li>Préparateurs : informations professionnelles, adresses de réception, disponibilités, capacité.</li>
+      </ul>
+      <h2>3. Finalités et bases légales</h2>
+      <ul>
+        <li>Fourniture du service (compte, attribution, commandes, stock, expéditions, messagerie) — exécution du contrat.</li>
+        <li>Facturation, comptabilité, prévention de la fraude — obligation légale et intérêt légitime.</li>
+        <li>Sécurité (journal d&apos;audit, limitation des tentatives de connexion) — intérêt légitime.</li>
+        <li>Notifications de service par e-mail et dans l&apos;application — exécution du contrat (préférences modifiables).</li>
+        <li>Réponse aux demandes de contact — intérêt légitime / mesures précontractuelles.</li>
+      </ul>
+      <h2>4. Destinataires et sous-traitants</h2>
+      <ul>
+        <li>Votre préparateur attitré, uniquement pour les données nécessaires à l&apos;exécution du service.</li>
+        <li>L&apos;équipe Packio habilitée, selon des permissions par rôle.</li>
+        <li>Stripe — traitement des paiements et de la facturation.</li>
+        <li>
+          <Fill value={ctx.legal.hostName} label="hébergeur" /> — hébergement de l&apos;application et de la base de données.
+        </li>
+        <li>Resend — envoi des e-mails transactionnels.</li>
+        <li>Prestataire de stockage compatible S3 — conservation privée des photos et documents.</li>
+        <li>Transporteurs — données du destinataire figurant sur l&apos;étiquette d&apos;expédition.</li>
+      </ul>
+      <p>Lorsque des données sont transférées hors de l&apos;Union européenne, ces transferts sont encadrés par des garanties appropriées (clauses contractuelles types).</p>
+      <h2>5. Confidentialité des conversations</h2>
+      <p>
+        La conversation entre un Client et son Préparateur est privée. Un membre habilité de l&apos;équipe Packio ne peut y accéder que pour un besoin de support, en
+        indiquant un motif obligatoire, pour une durée limitée à {ctx.supervisionMinutes} minutes, en lecture seule. Chaque accès est enregistré dans le journal
+        d&apos;audit et signalé aux participants par un message visible dans la conversation. Lors d&apos;une réattribution, l&apos;ancien préparateur perd l&apos;accès à la
+        conversation.
+      </p>
+      <h2>6. Durées de conservation</h2>
+      <ul>
+        <li>Données de compte et logistiques : durée de la relation contractuelle, puis 3 ans à des fins de preuve, sauf obligation légale contraire.</li>
+        <li>Factures et pièces comptables : 10 ans.</li>
+        <li>Journal d&apos;audit et registres de crédits et de stock : durée nécessaire à la preuve des opérations, au plus 5 ans après la clôture du compte.</li>
+        <li>Demandes de contact sans suite : 3 ans.</li>
+        <li>Tentatives de connexion : 30 jours.</li>
+      </ul>
+      <p>À la clôture d&apos;un compte, les données d&apos;identification sont anonymisées ; les registres comptables et d&apos;audit sont conservés sans données directement identifiantes lorsque c&apos;est possible.</p>
+      <h2>7. Sécurité</h2>
+      <p>
+        Mots de passe hachés, sessions sécurisées (cookie httpOnly), contrôle d&apos;accès côté serveur sur chaque action, fichiers stockés de manière privée et servis
+        uniquement aux personnes autorisées, journalisation des actions sensibles.
+      </p>
+      <h2>8. Vos droits</h2>
+      <p>
+        Vous disposez des droits d&apos;accès, de rectification, d&apos;effacement, de limitation, d&apos;opposition et de portabilité de vos données, ainsi que du droit de
+        définir des directives post-mortem. Pour les exercer : {dpo ? <a href={`mailto:${dpo}`}>{dpo}</a> : <Fill label="e-mail DPO" />}. Vous pouvez introduire une
+        réclamation auprès de la CNIL (www.cnil.fr).
+      </p>
+    </>
+  );
+}
+
+export function Cookies({ ctx }: { ctx: LegalContext }) {
+  return (
+    <>
+      <h2>Ce que nous utilisons</h2>
+      <p>Packio n&apos;utilise que des traceurs strictement nécessaires au fonctionnement du service. Ils sont exemptés de consentement.</p>
+      <div className="not-prose overflow-x-auto rounded-xl border">
+        <table className="w-full min-w-[32rem] text-sm">
+          <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+            <tr>
+              <th className="px-4 py-2.5 font-medium">Nom</th>
+              <th className="px-4 py-2.5 font-medium">Type</th>
+              <th className="px-4 py-2.5 font-medium">Finalité</th>
+              <th className="px-4 py-2.5 font-medium">Durée</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            <tr>
+              <td className="px-4 py-2.5 font-mono text-xs">packio_session</td>
+              <td className="px-4 py-2.5">Cookie (httpOnly, sécurisé)</td>
+              <td className="px-4 py-2.5">Maintenir votre connexion à votre espace</td>
+              <td className="px-4 py-2.5">30 jours</td>
+            </tr>
+            <tr>
+              <td className="px-4 py-2.5 font-mono text-xs">theme</td>
+              <td className="px-4 py-2.5">Stockage local du navigateur</td>
+              <td className="px-4 py-2.5">Mémoriser le thème clair / sombre choisi</td>
+              <td className="px-4 py-2.5">Jusqu&apos;à suppression</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h2>Ce que nous n&apos;utilisons pas</h2>
+      <p>
+        Aucun cookie publicitaire, de mesure d&apos;audience ou de réseau social n&apos;est déposé. C&apos;est pourquoi aucun bandeau de consentement ne vous est présenté. Si
+        Packio venait à en utiliser, votre consentement préalable serait recueilli.
+      </p>
+      <h2>Paiement</h2>
+      <p>
+        Lors du paiement, vous êtes redirigé vers la page sécurisée de Stripe, qui peut déposer ses propres cookies nécessaires à la sécurité des transactions et à la
+        prévention de la fraude, selon sa propre politique.
+      </p>
+      <h2>Gérer les cookies</h2>
+      <p>
+        Vous pouvez supprimer ces données à tout moment depuis les réglages de votre navigateur ; la suppression du cookie de session vous déconnecte. Questions :{" "}
+        <ContactEmail ctx={ctx} />.
+      </p>
+    </>
+  );
+}
+
+export const LEGAL_DOCS = {
+  "mentions-legales": { title: "Mentions légales", description: "Informations sur l'éditeur et l'hébergeur de Packio.", Component: MentionsLegales },
+  cgu: { title: "Conditions générales d'utilisation", description: "Règles d'utilisation de la plateforme Packio.", Component: Cgu },
+  cgv: { title: "Conditions générales de vente", description: "Abonnements, crédits, paiement et résiliation.", Component: Cgv },
+  confidentialite: { title: "Politique de confidentialité", description: "Comment Packio traite et protège vos données personnelles.", Component: Confidentialite },
+  cookies: { title: "Politique relative aux cookies", description: "Les traceurs utilisés par Packio.", Component: Cookies },
+} as const;
+
+export type LegalSlug = keyof typeof LEGAL_DOCS;
