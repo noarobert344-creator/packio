@@ -23,15 +23,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#121318" },
-  ],
+  themeColor: "#121318",
+  colorScheme: "dark light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="fr" suppressHydrationWarning className={`dark ${GeistSans.variable} ${GeistMono.variable}`} style={{ colorScheme: "dark" }}>
       <body className="min-h-dvh">
         <Providers>{children}</Providers>
       </body>

@@ -40,7 +40,7 @@ export async function AppShell({ actor, badges = {}, children }: { actor: Actor;
       <div className="flex min-h-dvh flex-col lg:pl-64">
         <OfflineBanner />
         {showDemoBanner && (
-          <div className="flex items-center justify-center gap-2 bg-foreground px-4 py-1.5 text-center text-xs text-background">
+          <div className="flex items-center justify-center gap-2 border-b border-warning/25 bg-warning-soft px-4 py-1.5 text-center text-xs text-warning">
             <FlaskConical className="size-3.5 shrink-0" />
             <span>
               Environnement de démonstration — données fictives{env.billingMode === "dev" ? ", paiements simulés (aucun encaissement)" : ""}.
