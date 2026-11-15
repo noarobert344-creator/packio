@@ -46,14 +46,12 @@ function dayLabel(d: Date) {
 export function MessagingView(props: Props) {
   const { conversations, selected, basePath } = props;
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<Awaited<ReturnType<typeof searchMessagesAction>> | null>(null);
+  const [rawResults, setResults] = useState<Awaited<ReturnType<typeof searchMessagesAction>> | null>(null);
+  const results = query.trim().length >= 2 ? rawResults : null;
   const [searching, startSearch] = useTransition();
 
   useEffect(() => {
-    if (query.trim().length < 2) {
-      setResults(null);
-      return;
-    }
+    if (query.trim().length < 2) return;
     const t = setTimeout(() => startSearch(async () => setResults(await searchMessagesAction(query))), 300);
     return () => clearTimeout(t);
   }, [query]);
@@ -175,8 +173,8 @@ function Thread({ selected, me, basePath, orderHref, shipmentHref, adminControls
 
   const refresh = useCallback(async () => {
     const url = `/api/conversations/${selected.id}/messages${lastAt ? `?after=${encodeURIComponent(lastAt)}` : ""}`;
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return;
+    const res = await fetch(url, { cache: "no-store" }).catch(() => null);
+    if (!res?.ok) return;
     const json = (await res.json()) as { messages: ApiMessage[]; readAt: string | null };
     setReadAt(json.readAt);
     if (json.messages.length) {
@@ -225,14 +223,20 @@ function Thread({ selected, me, basePath, orderHref, shipmentHref, adminControls
   async function send() {
     if (sending || uploading || (!body.trim() && !attachments.length)) return;
     setSending(true);
-    const res = await sendMessageAction({
-      conversationId: selected.id,
-      body,
-      attachmentIds: attachments.map((a) => a.id),
-      supplierOrderId: link?.type === "order" ? link.id : null,
-      shipmentId: link?.type === "shipment" ? link.id : null,
-    });
-    setSending(false);
+    let res: Awaited<ReturnType<typeof sendMessageAction>>;
+    try {
+      res = await sendMessageAction({
+        conversationId: selected.id,
+        body,
+        attachmentIds: attachments.map((a) => a.id),
+        supplierOrderId: link?.type === "order" ? link.id : null,
+        shipmentId: link?.type === "shipment" ? link.id : null,
+      });
+    } catch {
+      res = { ok: false, error: "Message non envoyé : vérifiez votre connexion puis réessayez." };
+    } finally {
+      setSending(false);
+    }
     if (!res.ok) {
       toast.error(res.error);
       return;

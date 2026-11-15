@@ -15,7 +15,8 @@ export function formToObject(formData: FormData): Record<string, unknown> {
     if (typeof value !== "string") continue;
     if (key.endsWith("[]")) {
       const k = key.slice(0, -2);
-      (out[k] as unknown[] | undefined) ? (out[k] as unknown[]).push(value) : (out[k] = [value]);
+      if (Array.isArray(out[k])) (out[k] as unknown[]).push(value);
+      else out[k] = [value];
     } else {
       out[key] = value;
     }

@@ -1,3 +1,4 @@
+import { nowMs } from "@/server/lib/clock";
 import type { Metadata } from "next";
 import { ExternalLink, KeyRound, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
       <div className="space-y-6">
         <PageHeader title="Commander des articles" description="Les coordonnées de réception apparaîtront dès l'attribution de votre préparateur." />
         {customer.assignmentState !== "ASSIGNED" && customer.assignmentState !== "NOT_REQUESTED" ? (
-          <AssignmentWaiting serverNow={Date.now()} requestedAt={customer.assignmentRequestedAt?.toISOString() ?? null} dueAt={customer.assignmentDueAt?.toISOString() ?? null} state={customer.assignmentState} />
+          <AssignmentWaiting serverNow={nowMs()} requestedAt={customer.assignmentRequestedAt?.toISOString() ?? null} dueAt={customer.assignmentDueAt?.toISOString() ?? null} state={customer.assignmentState} />
         ) : (
           <EmptyState icon={MapPin} title="Préparateur non attribué" />
         )}

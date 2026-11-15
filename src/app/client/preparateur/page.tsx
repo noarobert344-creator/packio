@@ -1,3 +1,4 @@
+import { nowMs } from "@/server/lib/clock";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarClock, MapPin, MessagesSquare, Package, Truck } from "lucide-react";
@@ -33,7 +34,7 @@ export default async function MyPreparerPage() {
       <div className="space-y-6">
         <PageHeader title="Mon préparateur" description="Votre préparateur attitré apparaîtra ici dès son attribution." />
         {customer.assignmentState !== "NOT_REQUESTED" && customer.assignmentState !== "ASSIGNED" ? (
-          <AssignmentWaiting serverNow={Date.now()} requestedAt={customer.assignmentRequestedAt?.toISOString() ?? null} dueAt={customer.assignmentDueAt?.toISOString() ?? null} state={customer.assignmentState} />
+          <AssignmentWaiting serverNow={nowMs()} requestedAt={customer.assignmentRequestedAt?.toISOString() ?? null} dueAt={customer.assignmentDueAt?.toISOString() ?? null} state={customer.assignmentState} />
         ) : (
           <EmptyState icon={Truck} title="Aucun préparateur attribué" description="Contactez le support Packio si votre abonnement est actif." />
         )}

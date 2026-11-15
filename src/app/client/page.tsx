@@ -1,3 +1,4 @@
+import { nowMs } from "@/server/lib/clock";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Boxes, CheckCircle2, Coins, CreditCard, PackageCheck, PackageOpen, ShoppingBag, Truck, TriangleAlert } from "lucide-react";
@@ -72,7 +73,7 @@ export default async function ClientOverview({ searchParams }: { searchParams: S
       )}
 
       {waiting && (
-        <AssignmentWaiting serverNow={Date.now()}
+        <AssignmentWaiting serverNow={nowMs()}
           requestedAt={customer.assignmentRequestedAt?.toISOString() ?? null}
           dueAt={customer.assignmentDueAt?.toISOString() ?? null}
           state={dash.sla.state as "PENDING" | "LATE" | "REASSIGNING"}

@@ -44,7 +44,7 @@ export function ActionForm<T = undefined>({
   silent?: boolean;
   id?: string;
 }) {
-  const [state, formAction, pending] = useActionState(action, null);
+  const [state, formAction, pending] = useActionState(withNetworkGuard(action), null);
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
   const onSuccessRef = useRef(onSuccess);
@@ -74,6 +74,28 @@ export function ActionForm<T = undefined>({
       </form>
     </FormStateContext>
   );
+}
+
+const NETWORK_ERROR = "Connexion au serveur impossible. Vérifiez votre connexion internet puis réessayez.";
+
+/**
+ * Transforme une erreur réseau (hors ligne, coupure, délai dépassé) en message
+ * d'erreur affichable. Les redirections et erreurs de navigation de Next sont
+ * relancées telles quelles.
+ */
+function withNetworkGuard<T>(action: FormAction<T>): FormAction<T> {
+  return async (prev, formData) => {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return { ok: false, error: "Vous semblez hors ligne. Vos informations n'ont pas été envoyées." };
+    }
+    try {
+      return await action(prev, formData);
+    } catch (err) {
+      const digest = typeof err === "object" && err !== null && "digest" in err ? String((err as { digest?: unknown }).digest) : "";
+      if (digest.startsWith("NEXT_")) throw err;
+      return { ok: false, error: NETWORK_ERROR };
+    }
+  };
 }
 
 export function SubmitButton({

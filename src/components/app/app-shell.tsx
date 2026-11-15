@@ -12,6 +12,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
 import { GlobalSearch } from "./global-search";
 import { Logo } from "@/components/brand/logo";
+import { OfflineBanner } from "./offline-banner";
 
 const ROLE_LABEL = { CUSTOMER: "Client", PREPARER: "Préparateur", ADMIN: "Administration Packio" } as const;
 const SETTINGS = { CUSTOMER: "/client/parametres", PREPARER: "/preparateur/parametres", ADMIN: "/admin/parametres" } as const;
@@ -37,6 +38,7 @@ export async function AppShell({ actor, badges = {}, children }: { actor: Actor;
     <RealtimeProvider initialUnread={unread}>
       <Sidebar role={actor.role} badges={badges} footer={footer} />
       <div className="flex min-h-dvh flex-col lg:pl-64">
+        <OfflineBanner />
         {showDemoBanner && (
           <div className="flex items-center justify-center gap-2 bg-foreground px-4 py-1.5 text-center text-xs text-background">
             <FlaskConical className="size-3.5 shrink-0" />

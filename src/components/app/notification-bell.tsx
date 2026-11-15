@@ -30,6 +30,8 @@ export function NotificationBell({ settingsHref }: { settingsHref: string }) {
         setItems(json.items);
         setLocalUnread(null);
       }
+    } catch {
+      // réseau indisponible : la liste précédente reste affichée
     } finally {
       setLoading(false);
     }
