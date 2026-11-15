@@ -31,7 +31,7 @@ Trois espaces, une seule application :
 ## Stack technique
 
 - **Next.js 16** (App Router, Server Components, Server Actions, `proxy.ts`), **React 19**, **TypeScript strict**
-- **Tailwind CSS 4**, **shadcn/ui** (Radix), icônes **Lucide**, police **Geist**, mode sombre
+- **Tailwind CSS 4**, **shadcn/ui** (Radix), icônes **Lucide**, police **Geist**, **thème sombre par défaut** (bascule clair / sombre mémorisée)
 - **PostgreSQL 16** + **Prisma ORM 7** (adaptateur `pg`, migrations versionnées)
 - **Stripe Billing** (Checkout, portail client, webhooks signés)
 - **Resend** pour les e-mails transactionnels (journalisation en développement)
@@ -263,7 +263,7 @@ npm test
 - **webhooks Stripe** : signature, activation, rejeu et doublons, renouvellement, changement d'offre, impayé, recharge, remboursement, retraitement après échec ;
 - **permissions** : isolation entre clients, entre préparateurs, permissions administrateur, messagerie, fichiers.
 
-Parcours de bout en bout (Playwright, sur l'application lancée en mode démonstration) :
+Parcours de bout en bout (Playwright) — reproduit le parcours du cahier des charges : souscription Starter et paiement, message d'attente 24 h, attribution manuelle par l'administrateur, commande AliExpress, réception et mise en stock par le préparateur, demande d'expédition, classification (crédits réservés), préparation, étiquette, dépôt (crédits débités) avec suivi transporteur, messagerie client ↔ préparateur et supervision dans le back-office. Prérequis : base de développement initialisée (`npm run db:seed`) et `BILLING_MODE="dev"` ; le serveur de développement est démarré automatiquement s'il ne tourne pas.
 
 ```bash
 npm run test:e2e
