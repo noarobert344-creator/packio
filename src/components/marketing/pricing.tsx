@@ -23,7 +23,7 @@ export function Pricing({ plans, sizeRules, packs }: { plans: Plan[]; sizeRules:
         <SectionHeading
           eyebrow="Tarifs"
           title="Un abonnement simple, des crédits pour chaque colis"
-          description="Chaque offre inclut un préparateur attitré, le tableau de bord, le suivi du stock et la messagerie. Sans engagement : résiliable à tout moment, effectif à la fin du mois en cours."
+          description="Chaque offre inclut un préparateur attitré, le tableau de bord, le suivi du stock et la messagerie. Sans engagement : résiliable à tout moment, effectif à la fin de la période de 30 jours en cours."
         />
         <div className={cn("grid gap-5", plans.length >= 3 ? "lg:grid-cols-3" : "md:grid-cols-2")}>
           {plans.map((p) => (
