@@ -9,6 +9,7 @@ import { audit } from "@/server/services/audit";
 import { withEffects } from "@/server/services/notifications";
 import { debitCredits } from "@/server/services/credits";
 import { getActiveSubscription } from "@/server/services/customers";
+import { getSetting } from "@/server/services/settings";
 import { onCreditPackPaid, onInvoicePaid, onInvoicePaymentFailed, onPaymentRefunded, syncSubscription } from "@/server/services/billing";
 import { asObj, getStripe, idOf, isStripeConfigured, mapSubscriptionStatus, subscriptionPeriod, toDate } from "./stripe";
 
@@ -140,6 +141,59 @@ export async function startCreditPackCheckout(actor: Actor, packId: string): Pro
           unit_amount: pack.priceCents,
           tax_behavior: "inclusive",
           product_data: { name: `Packio — ${pack.name} (${pack.credits} crédits)` },
+        },
+      },
+    ],
+    allow_promotion_codes: true,
+    invoice_creation: { enabled: true },
+    locale: "fr",
+    metadata,
+    payment_intent_data: { metadata },
+    ...(env.stripeTaxEnabled ? { automatic_tax: { enabled: true } } : {}),
+    success_url: `${env.appUrl}/client/credits?recharge=confirmee`,
+    cancel_url: `${env.appUrl}/client/credits?recharge=annulee`,
+  });
+  if (!session.url) throw new Error("Session Checkout sans URL");
+  return { url: session.url };
+}
+
+/**
+ * Devis d'un achat de crédits en quantité libre. Le prix unitaire et les
+ * bornes viennent des paramètres administrateur, jamais du navigateur.
+ */
+export async function quoteCustomCredits(credits: number) {
+  const cfg = await getSetting("creditPurchase");
+  if (!cfg.customEnabled) throw new DomainError("DISABLED", "L'achat de crédits en quantité libre n'est pas disponible actuellement.");
+  if (!Number.isInteger(credits) || credits < cfg.minCredits || credits > cfg.maxCredits) {
+    const message = `Choisissez entre ${cfg.minCredits} et ${cfg.maxCredits} crédits.`;
+    throw new DomainError("QUANTITY", message, { fieldErrors: { credits: message } });
+  }
+  return { credits, unitPriceCents: cfg.unitPriceCents, totalCents: credits * cfg.unitPriceCents, currency: "eur" };
+}
+
+export async function startCustomCreditCheckout(actor: Actor, credits: number): Promise<{ url: string }> {
+  const customerId = assertCustomer(actor);
+  const quote = await quoteCustomCredits(credits);
+  const sub = await getActiveSubscription(customerId);
+  if (!sub) throw new DomainError("NO_SUBSCRIPTION", "Un abonnement actif est nécessaire pour acheter des crédits.");
+
+  if (env.billingMode === "dev") return { url: `/paiement-demo?type=credits&quantite=${quote.credits}` };
+
+  const stripe = assertStripe();
+  const stripeCustomer = await ensureStripeCustomer(customerId);
+  const metadata = { kind: "credit_pack", pack_id: "", credits: String(quote.credits), packio_customer_id: customerId };
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    customer: stripeCustomer,
+    client_reference_id: customerId,
+    line_items: [
+      {
+        quantity: quote.credits,
+        price_data: {
+          currency: quote.currency,
+          unit_amount: quote.unitPriceCents,
+          tax_behavior: "inclusive",
+          product_data: { name: "Packio — Crédits de préparation supplémentaires" },
         },
       },
     ],
@@ -407,6 +461,26 @@ export async function devCompleteCreditPack(actor: Actor, packId: string) {
       paymentIntentId: null,
       provider: "dev",
       description: `Recharge ${pack.name} (${pack.credits} crédits)`,
+    }),
+  );
+}
+
+export async function devCompleteCustomCredits(actor: Actor, credits: number) {
+  assertDevBilling();
+  const customerId = assertCustomer(actor);
+  const quote = await quoteCustomCredits(credits);
+  if (!(await getActiveSubscription(customerId))) throw new DomainError("NO_SUBSCRIPTION", "Un abonnement actif est nécessaire pour acheter des crédits.");
+  await withEffects((tx, fx) =>
+    onCreditPackPaid(tx, fx, {
+      customerId,
+      packId: null,
+      credits: quote.credits,
+      amountCents: quote.totalCents,
+      currency: quote.currency,
+      externalId: `dev_cs_${randomCode(14)}`,
+      paymentIntentId: null,
+      provider: "dev",
+      description: `Achat de ${quote.credits} crédits supplémentaires`,
     }),
   );
 }

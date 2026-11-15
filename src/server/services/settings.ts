@@ -20,6 +20,15 @@ export const SETTINGS_SCHEMAS = {
       days: z.number().int().min(1).max(3650),
     }),
   }),
+  /** Achat de crédits en quantité libre (en plus des recharges par lots). */
+  creditPurchase: z
+    .object({
+      customEnabled: z.boolean(),
+      unitPriceCents: z.number().int().min(1).max(100_000),
+      minCredits: z.number().int().min(1).max(10_000),
+      maxCredits: z.number().int().min(1).max(10_000),
+    })
+    .refine((v) => v.maxCredits >= v.minCredits, { error: "Le maximum doit être supérieur ou égal au minimum", path: ["maxCredits"] }),
   notifications: z.object({
     /** Adresses e-mail supplémentaires recevant les alertes administrateur. */
     adminEmails: z.array(z.email()).max(10),
@@ -58,6 +67,7 @@ export const SETTINGS_DEFAULTS: Settings = {
     monthly: { mode: "EXPIRE", rolloverMonths: 1, rolloverCapPercent: 100 },
     purchased: { mode: "NEVER", days: 365 },
   },
+  creditPurchase: { customEnabled: true, unitPriceCents: 199, minCredits: 5, maxCredits: 500 },
   notifications: { adminEmails: [] },
   support: { email: "support@packio.fr", phone: "", hours: "Du lundi au vendredi, de 9 h à 18 h" },
   legal: {

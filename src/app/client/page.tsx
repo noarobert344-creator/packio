@@ -37,6 +37,11 @@ export default async function ClientOverview({ searchParams }: { searchParams: S
           !waiting && customer.currentPreparerId ? (
             <>
               <Button asChild variant="outline">
+                <Link href="/client/credits#recharger">
+                  <Coins /> Acheter des crédits
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
                 <Link href="/client/expeditions/nouvelle">
                   <Truck /> Demander une expédition
                 </Link>

@@ -7,12 +7,12 @@ import { requireAdmin } from "@/server/auth/current";
 import { can } from "@/server/auth/actor";
 import { getSetting } from "@/server/services/settings";
 import { PAGE_SIZE, creditTotals, listCreditTransactions, searchCustomersForAdjust } from "@/server/queries/admin-ops";
-import { adjustCreditsAction, saveCreditPolicyAction } from "@/server/actions/admin/ops";
+import { adjustCreditsAction, saveCreditPolicyAction, saveCustomCreditPurchaseAction } from "@/server/actions/admin/ops";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
 import { ActionDialog } from "@/components/shared/action-dialog";
-import { RequestIdInput, SelectField, TextAreaField, TextField } from "@/components/shared/form-field";
+import { CheckboxField, RequestIdInput, SelectField, TextAreaField, TextField } from "@/components/shared/form-field";
 import { FilterSelect, Pagination, SearchInput } from "@/components/shared/list-controls";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -34,11 +34,13 @@ export default async function AdminCreditsPage({ searchParams }: { searchParams:
   const type = oneOf(sp.type, TX_TYPES);
   const customer = one(sp.client);
   const adjustQuery = one(sp.ajuster);
-  const [totals, policy, ledger, candidates] = await Promise.all([
+  const canBilling = can(actor, "billing.manage");
+  const [totals, policy, ledger, candidates, purchase] = await Promise.all([
     creditTotals(),
     getSetting("credits"),
     listCreditTransactions({ type, customer, page }),
     canManage && adjustQuery ? searchCustomersForAdjust(adjustQuery) : Promise.resolve([]),
+    getSetting("creditPurchase"),
   ]);
 
   return (
@@ -154,6 +156,28 @@ export default async function AdminCreditsPage({ searchParams }: { searchParams:
           )}
         </Section>
       </div>
+
+      <Section
+        title="Achat de crédits en quantité libre"
+        description="Permet aux clients d'acheter le nombre exact de crédits dont ils ont besoin, en plus des recharges par lots (gérées dans Abonnements). Le prix est appliqué côté serveur au moment du paiement."
+        className="mb-6"
+      >
+        <ActionForm action={saveCustomCreditPurchaseAction} className="grid gap-4">
+          <fieldset disabled={!canBilling} className="grid gap-4">
+            <CheckboxField name="customEnabled" label="Proposer l'achat en quantité libre aux clients" defaultChecked={purchase.customEnabled} />
+            <div className="grid gap-3 sm:grid-cols-3">
+              <TextField name="unitPrice" label="Prix TTC par crédit (€)" inputMode="decimal" defaultValue={(purchase.unitPriceCents / 100).toFixed(2).replace(".", ",")} required />
+              <TextField name="minCredits" label="Minimum par achat" type="number" min={1} max={10000} defaultValue={purchase.minCredits} required />
+              <TextField name="maxCredits" label="Maximum par achat" type="number" min={1} max={10000} defaultValue={purchase.maxCredits} required />
+            </div>
+          </fieldset>
+          {canBilling && (
+            <div>
+              <SubmitButton pendingLabel="Enregistrement…">Enregistrer</SubmitButton>
+            </div>
+          )}
+        </ActionForm>
+      </Section>
 
       <Section
         title="Registre des opérations"

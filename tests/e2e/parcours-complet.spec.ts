@@ -4,7 +4,8 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
  * Parcours utilisateur complet (cahier des charges, section 19) sur
  * l'application en mode démonstration :
  *  1. un visiteur choisit Starter, s'inscrit, paie, voit le message d'attente ;
- *  2. l'administrateur attribue manuellement un préparateur ;
+ *  2. l'administrateur attribue manuellement un préparateur (Camille ou Yanis,
+ *     selon la capacité restante) ;
  *  3. le client voit son préparateur et enregistre une commande AliExpress ;
  *  4. le préparateur réceptionne le colis et le met en stock ;
  *  5. le client demande une expédition ;
@@ -53,19 +54,33 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   await expect(page.getByText("Un préparateur de commandes personnel vous sera attribué sous 24 heures.", { exact: false })).toBeVisible();
   await expect(page.getByText("Échéance des 24 h")).toBeVisible();
 
-  // 2. L'administrateur attribue manuellement la préparatrice Camille Martin
+  // 2. L'administrateur attribue manuellement un préparateur
   const admin = await login(browser, "admin@demo.packio.local");
   await admin.goto(`/admin/clients?q=${encodeURIComponent(client.email)}`);
   await admin.getByRole("link", { name: new RegExp(client.last) }).first().click();
   await admin.getByRole("button", { name: "Attribuer un préparateur" }).first().click();
-  await admin.getByRole("radio", { name: /Camille Martin/ }).click();
+  // Préparateur de démonstration disposant encore de capacité (la capacité maximale est appliquée).
+  const candidates = [
+    { name: "Camille Martin", email: "camille.martin@demo.packio.local" },
+    { name: "Yanis Benali", email: "yanis.benali@demo.packio.local" },
+  ];
+  let preparer: (typeof candidates)[number] | undefined;
+  for (const c of candidates) {
+    const radio = admin.getByRole("radio", { name: new RegExp(c.name) });
+    if ((await radio.count()) && (await radio.isEnabled())) {
+      await radio.click();
+      preparer = c;
+      break;
+    }
+  }
+  if (!preparer) throw new Error("Aucun préparateur de démonstration n'a de capacité disponible : réinitialisez la base de développement.");
   await admin.getByRole("button", { name: "Confirmer l'attribution" }).click();
   await expect(admin.getByText("est désormais le préparateur attitré", { exact: false })).toBeVisible();
 
   // 3. Le client voit son préparateur et son point de réception, puis commande sur AliExpress
   await expect(async () => {
     await page.goto("/client/preparateur");
-    await expect(page.getByRole("heading", { name: "Camille Martin" })).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByRole("heading", { name: preparer!.name })).toBeVisible({ timeout: 3_000 });
   }).toPass({ timeout: 30_000 });
   await expect(page.getByText("Adresses de réception validées")).toBeVisible();
   await page.goto("/client/commander");
@@ -82,7 +97,7 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   await expect(page.getByText("Numéro de suivi fourni à l'enregistrement")).toBeVisible();
 
   // 4. Le préparateur récupère, réceptionne et met en stock
-  const prep = await login(browser, "camille.martin@demo.packio.local");
+  const prep = await login(browser, preparer.email);
   await prep.goto(`/preparateur/receptions/${orderId}`);
   // Livraison à l'adresse professionnelle : réception directe (pas de retrait au locker).
   await expect(prep.getByText("En cours d'acheminement").first()).toBeVisible();

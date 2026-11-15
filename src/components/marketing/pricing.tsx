@@ -16,7 +16,17 @@ function dims(r: SizeRule) {
   return parts.join(" · ") || "Selon appréciation du préparateur";
 }
 
-export function Pricing({ plans, sizeRules, packs }: { plans: Plan[]; sizeRules: SizeRule[]; packs: Pack[] }) {
+export function Pricing({
+  plans,
+  sizeRules,
+  packs,
+  customPurchase,
+}: {
+  plans: Plan[];
+  sizeRules: SizeRule[];
+  packs: Pack[];
+  customPurchase?: { customEnabled: boolean; unitPriceCents: number; minCredits: number; maxCredits: number };
+}) {
   return (
     <section id="tarifs" className="scroll-mt-20 py-24 sm:py-28">
       <Container className="space-y-14">
@@ -98,6 +108,12 @@ export function Pricing({ plans, sizeRules, packs }: { plans: Plan[]; sizeRules:
                 </li>
               ))}
             </ul>
+            {customPurchase?.customEnabled && (
+              <p className="mt-4 text-sm text-muted-foreground">
+                Ou en <span className="font-medium text-foreground">quantité libre</span> : {formatMoney(customPurchase.unitPriceCents)} le crédit, de {customPurchase.minCredits} à{" "}
+                {customPurchase.maxCredits} crédits par achat.
+              </p>
+            )}
           </div>
         </div>
         <div className="flex gap-3 rounded-2xl border bg-muted/40 p-5 text-sm">

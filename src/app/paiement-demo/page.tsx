@@ -5,7 +5,7 @@ import { FlaskConical, Lock } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
 import { requireCustomer } from "@/server/auth/current";
-import { billingMode } from "@/server/billing";
+import { billingMode, quoteCustomCredits } from "@/server/billing";
 import { db } from "@/server/db";
 import { devCheckoutAction } from "@/server/actions/customer";
 import { formatMoney } from "@/lib/format";
@@ -19,10 +19,15 @@ export default async function DemoCheckoutPage({ searchParams }: { searchParams:
   if (billingMode() !== "dev") notFound();
   const actor = await requireCustomer();
   const sp = await searchParams;
-  const type = one(sp.type) === "credits" ? "credits" : "abonnement";
-  const id = one(type === "credits" ? sp.pack : sp.offre) ?? "";
+  const quantity = Number(one(sp.quantite));
+  const type = one(sp.type) === "credits" ? (one(sp.quantite) ? "credits-libre" : "credits") : "abonnement";
+  const id = type === "credits-libre" ? String(quantity) : (one(type === "credits" ? sp.pack : sp.offre) ?? "");
   const item =
-    type === "abonnement"
+    type === "credits-libre"
+      ? await quoteCustomCredits(quantity)
+          .then((q) => ({ title: "Crédits supplémentaires", detail: `${q.credits} crédits × ${formatMoney(q.unitPriceCents)}`, price: q.totalCents, suffix: "" }))
+          .catch(() => null)
+      : type === "abonnement"
       ? await db.plan.findUnique({ where: { id } }).then((p) => p && { title: `Abonnement Packio ${p.name}`, detail: `${p.monthlyCredits} crédits par mois · renouvellement mensuel`, price: p.priceCents, suffix: "/ mois" })
       : await db.creditPack.findUnique({ where: { id } }).then((p) => p && { title: `Recharge ${p.name}`, detail: `${p.credits} crédits ajoutés à votre portefeuille`, price: p.priceCents, suffix: "" });
   if (!item) notFound();

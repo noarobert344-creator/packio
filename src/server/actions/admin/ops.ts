@@ -6,6 +6,7 @@ import type { ActionState } from "@/lib/action-types";
 import { checkbox, emailField, euroToCents, intField, optionalInt, optionalText, requiredText, stringArray } from "@/lib/forms";
 import { formToObject, runAction } from "@/server/action";
 import { assertAdmin } from "@/server/auth/actor";
+import { DomainError } from "@/server/errors";
 import { ALL_PERMISSIONS } from "@/server/auth/permissions";
 import { createPromotionCode, refundPayment, setPromotionCodeActive, syncPlanWithStripe } from "@/server/billing";
 import { inviteAdmin, saveCreditPack, savePlan, saveRole, saveSizeRules, saveSupplier, setStaffRole, updateSettings } from "@/server/services/catalog";
@@ -203,6 +204,30 @@ export async function saveCreditPolicyAction(_prev: ActionState, formData: FormD
     });
     revalidatePath("/admin/credits");
     return { ok: true, message: "Politique de crédits enregistrée. Elle s'applique aux prochaines allocations et achats." };
+  });
+}
+
+const customPurchaseSchema = z.object({
+  customEnabled: checkbox(),
+  unitPrice: euroToCents("Prix unitaire"),
+  minCredits: intField("Minimum", { min: 1, max: 10000 }),
+  maxCredits: intField("Maximum", { min: 1, max: 10000 }),
+});
+
+export async function saveCustomCreditPurchaseAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(customPurchaseSchema, formToObject(formData), async (actor, data) => {
+    assertAdmin(actor, "billing.manage");
+    if (data.unitPrice < 1) throw new DomainError("PRICE", "Le prix unitaire doit être supérieur à 0.", { fieldErrors: { unitPrice: "Prix invalide" } });
+    if (data.maxCredits < data.minCredits) throw new DomainError("RANGE", "Le maximum doit être supérieur ou égal au minimum.", { fieldErrors: { maxCredits: "Doit être ≥ minimum" } });
+    await updateSettings(actor, "creditPurchase", {
+      customEnabled: data.customEnabled,
+      unitPriceCents: data.unitPrice,
+      minCredits: data.minCredits,
+      maxCredits: data.maxCredits,
+    });
+    revalidatePath("/admin/credits");
+    revalidatePath("/client/credits");
+    return { ok: true, message: "Achat de crédits en quantité libre mis à jour." };
   });
 }
 

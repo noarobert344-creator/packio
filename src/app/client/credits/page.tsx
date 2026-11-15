@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { CalendarClock, CheckCircle2, Coins, Lock, ShoppingCart, Wallet } from "lucide-react";
+import { CalendarClock, CheckCircle2, Coins, Lock, ShoppingCart, Wallet, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CustomCreditPurchase } from "@/components/client/custom-credit-purchase";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -22,20 +24,36 @@ export default async function CreditsPage({ searchParams }: { searchParams: Sear
   const { customer } = await requireSubscribedCustomer();
   const sp = await searchParams;
   const page = parsePage(sp.page);
-  const [overview, ledger, packs, policy, rules] = await Promise.all([
+  const [overview, ledger, packs, policy, rules, purchase] = await Promise.all([
     getWalletOverview(customer.id),
     listCreditTransactions(customer.id, { take: 25, skip: (page - 1) * 25 }),
     db.creditPack.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     getSetting("credits"),
     getSizeRules(),
+    getSetting("creditPurchase"),
   ]);
   const w = overview.wallet;
   return (
     <div className="space-y-8">
-      <PageHeader title="Mes crédits" description="Les crédits paient la préparation de vos colis. Les frais de transport éventuels sont facturés séparément." />
+      <PageHeader
+        title="Mes crédits"
+        description="Les crédits paient la préparation de vos colis. Les frais de transport éventuels sont facturés séparément."
+        actions={
+          <Button asChild>
+            <a href="#recharger">
+              <ShoppingCart /> Acheter des crédits
+            </a>
+          </Button>
+        }
+      />
       {one(sp.recharge) === "confirmee" && (
         <p className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success">
           <CheckCircle2 className="size-4" /> Recharge confirmée. Les crédits peuvent mettre quelques secondes à apparaître.
+        </p>
+      )}
+      {one(sp.recharge) === "annulee" && (
+        <p className="flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm">
+          <XCircle className="size-4" /> Achat annulé : aucun montant n&apos;a été débité.
         </p>
       )}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
@@ -46,7 +64,17 @@ export default async function CreditsPage({ searchParams }: { searchParams: Sear
         <StatCard label="Crédits consommés" value={w.consumedTotal} icon={Coins} />
       </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <Section title="Recharger mes crédits" description="Crédits ajoutés immédiatement après paiement ; les expéditions en attente reprennent automatiquement.">
+        <Section
+          title="Acheter des crédits supplémentaires"
+          description="En plus des crédits mensuels de votre abonnement. Ajoutés dès le paiement confirmé ; les expéditions en attente de crédits reprennent automatiquement."
+          className="scroll-mt-24"
+          contentClassName="space-y-4"
+        >
+          <span id="recharger" className="block scroll-mt-28" aria-hidden />
+          {purchase.customEnabled && (
+            <CustomCreditPurchase unitPriceCents={purchase.unitPriceCents} min={purchase.minCredits} max={purchase.maxCredits} suggested={Number(one(sp.quantite)) || undefined} />
+          )}
+          {packs.length > 0 && <p className="pt-1 text-sm font-medium">Recharges prêtes à l&apos;emploi</p>}
           <div className="grid gap-3 sm:grid-cols-3">
             {packs.map((p) => (
               <div key={p.id} className="flex flex-col gap-3 rounded-xl border p-4">

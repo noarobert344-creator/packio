@@ -124,7 +124,8 @@ export async function saveSupplier(
 // ----------------------------------------------------------------------------- Paramètres
 
 export async function updateSettings<K extends SettingKey>(actor: Actor, key: K, value: Settings[K]) {
-  assertAdmin(actor, key === "notifications" ? "notifications.manage" : "settings.manage");
+  const permission = key === "notifications" ? "notifications.manage" : key === "creditPurchase" ? "billing.manage" : key === "credits" ? "credits.manage" : "settings.manage";
+  assertAdmin(actor, permission);
   const saved = await saveSetting(key, value, actor.userId);
   await audit({ actor, action: "settings.updated", entityType: "setting", entityId: key, metadata: saved as object });
   return saved;

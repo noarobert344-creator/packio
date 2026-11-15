@@ -170,6 +170,13 @@ Seuls les lieux **validés par un administrateur** sont communiqués aux clients
 
 Les limites de stockage et les recharges (10, 30, 60 crédits) sont des valeurs par défaut à ajuster.
 
+**Crédits supplémentaires** : en plus des crédits mensuels, le client peut acheter à tout moment (`Mes crédits → Acheter des crédits`, ou depuis le tableau de bord et les écrans d'expédition) :
+
+- des **recharges prêtes à l'emploi** (lots dégressifs, gérés dans `Admin → Abonnements`) ;
+- une **quantité libre** au prix unitaire configuré dans `Admin → Crédits` (par défaut 1,99 € le crédit, de 5 à 500 crédits par achat, désactivable).
+
+Le prix est toujours recalculé côté serveur ; le paiement passe par Stripe Checkout (codes promo acceptés, facture émise) et les crédits achetés suivent leur propre politique d'expiration.
+
 ## Sécurité et RGPD
 
 - Sessions en base : jeton aléatoire de 256 bits dans un cookie `httpOnly`, `SameSite=Lax`, `Secure` en HTTPS ; seul le **hash SHA-256** est stocké. Mots de passe hachés avec **scrypt**.

@@ -178,6 +178,11 @@ export function ShipmentRequestForm({ items, preselect, sizes, available }: { it
           <p className="text-muted-foreground">
             Solde disponible : <span className="font-medium text-foreground">{available} crédit(s)</span>. Les crédits sont réservés à la classification et débités au dépôt chez le transporteur.
           </p>
+          {available < 3 && (
+            <a href="/client/credits#recharger" className="inline-flex font-medium text-brand underline-offset-2 hover:underline">
+              Acheter des crédits supplémentaires
+            </a>
+          )}
         </div>
         <SubmitButton className="h-10 w-full" disabled={count === 0} pendingLabel="Envoi de la demande…">
           Demander l&apos;expédition

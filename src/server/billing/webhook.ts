@@ -191,7 +191,7 @@ async function dispatch(event: WebhookEvent, deps: WebhookDeps): Promise<boolean
             externalId: String(session.id),
             paymentIntentId: idOf(session.payment_intent),
             provider: "stripe",
-            description: `Recharge de ${credits} crédits`,
+            description: meta.pack_id ? `Recharge de ${credits} crédits` : `Achat de ${credits} crédits supplémentaires`,
           }),
         );
         return true;
