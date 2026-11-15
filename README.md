@@ -4,7 +4,7 @@ Packio relie une boutique à un préparateur attitré. L’administrateur attrib
 
 ## Essayer les trois espaces
 
-[Ouvrir la branche dans GitHub Codespaces](https://codespaces.new/noarobert344-creator/packio?ref=feat%2Fplateforme-packio). Créer l’espace puis ouvrir l’aperçu du port **3010**. Le conteneur démarre la démonstration avec une base dédiée. Conserver le port privé. Codespaces utilise les quotas du compte GitHub.
+[Ouvrir la branche dans GitHub Codespaces](https://codespaces.new/noarobert344-creator/packio/tree/feat/plateforme-packio). Créer l’espace puis ouvrir l’aperçu du port **3010**. Le conteneur démarre la démonstration avec une base dédiée. Conserver le port privé. Codespaces utilise les quotas du compte GitHub.
 
 Sur ordinateur, avec Node.js 24 installé, ouvrir un terminal à la racine du projet et exécuter `npm run demo`. Ouvrir http://localhost:3010. Le serveur local et SQLite fonctionnent sans installation npm. Dans les deux cas, les adresses et les paiements de la démonstration sont fictifs.
 

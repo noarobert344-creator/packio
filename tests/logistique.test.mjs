@@ -79,4 +79,19 @@ test('souscription, attribution manuelle, réception, réservations et débit un
  await call('credit',{id:uid,amount:2,reason:'Compensation test'},admin);await call('classify',{id:third,size:'Grand'},prep);
  s=(await call('state',undefined,client)).data;assert.equal(s.clients[0].held_extra,2);await call('cancel',{id:third},client);
  });
+
+ await t.test('une réservation expirée est consommable mais sa libération ne reporte pas les crédits',async()=>{
+ const last=(await ship(1)).data.id;await call('classify',{id:last,size:'Moyen'},prep);
+ await hook('invoice.paid',{id:'in_renew_'+suffix,customer:stripeCustomer,subscription:sub,billing_reason:'subscription_cycle',amount_paid:2990,lines:{data:[{type:'subscription',price:{id:price},period:{start:1794000000}}]}});
+ await call('cancel',{id:last},client);const fresh=(await call('state',undefined,client)).data.clients[0];assert.equal(fresh.monthly,20);assert.equal(fresh.held_month,0);
+ });
+ await t.test('un remboursement partiel répété conserve son montant exact',async()=>{
+ const charge={id:'ch_'+suffix,customer:stripeCustomer,amount_refunded:500};await hook('charge.refunded',charge);await hook('charge.refunded',charge);await hook('charge.refunded',{...charge,amount_refunded:900});
+ const payments=(await call('state',undefined,client)).data.payments.filter(x=>x.kind==='Remboursement');assert.equal(payments.reduce((n,x)=>n+x.amount,0),-900);
+ });
+ await t.test('une ancienne facture ne réactive pas un abonnement résilié',async()=>{
+ await hook('customer.subscription.deleted',{id:sub,customer:stripeCustomer});
+ await hook('invoice.paid',{id:'in_old_'+suffix,customer:stripeCustomer,subscription:sub,billing_reason:'subscription_cycle',amount_paid:2990,lines:{data:[{type:'subscription',price:{id:price},period:{start:1790000000}}]}});
+ assert.equal((await call('state',undefined,client)).data.clients[0].status,'résilié');
+ });
 });

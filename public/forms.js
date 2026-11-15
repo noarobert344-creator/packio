@@ -2,7 +2,7 @@ import {esc,request} from './ui.js';
 const input=(k,l,t='text',v='',req=false)=>'<label>'+esc(l)+'<input type="'+t+'" name="'+k+'" value="'+esc(v)+'" '+(req?'required':'')+'></label>';
 const area=(k,l,v='')=>'<label>'+esc(l)+'<textarea name="'+k+'">'+esc(v)+'</textarea></label>';
 const check=(k,l,v=false)=>'<label><input type="checkbox" name="'+k+'" '+(v?'checked':'')+'>'+esc(l)+'</label>';
-const sel=(k,l,options,v='')=>'<label>'+esc(l)+'<select name="'+k+'" required>'+options.map(x=>{const [key,title]=Array.isArray(x)?x:[x,x];return '<option value="'+esc(key)+'" '+(v===key?'selected':'')+'>'+esc(title)+'</option>';}).join('')+'</select></label>';
+const sel=(k,l,options,v='')=>'<label>'+esc(l)+'<select aria-label="'+esc(l)+'" name="'+k+'" required>'+options.map(x=>{const [key,title]=Array.isArray(x)?x:[x,x];return '<option value="'+esc(key)+'" '+(v===key?'selected':'')+'>'+esc(title)+'</option>';}).join('')+'</select></label>';
 const file=(k,l)=>'<label>'+esc(l)+'<input type="file" name="'+k+'" accept="image/png,image/jpeg,application/pdf"></label>';
 const steps=['Commande enregistrée','Commande fournisseur confirmée','En cours d’acheminement','Disponible au locker','Récupérée par le préparateur','Réceptionnée','Contrôle qualité en cours','En stock'];
 export const shipSteps=['Classification confirmée','Préparation en cours','Colis prêt','Étiquette créée ou fournie','Déposé au transporteur','En transit','Livré'];
