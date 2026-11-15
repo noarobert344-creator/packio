@@ -1,0 +1,1416 @@
+// =============================================================================
+// PACKIO — Schéma de base de données (PostgreSQL / Prisma ORM 7)
+// -----------------------------------------------------------------------------
+// Conventions :
+//   - Tables en snake_case pluriel (@@map), colonnes en camelCase.
+//   - Montants monétaires en centimes (Int), devises ISO en minuscules.
+//   - Les registres (credit_transactions, inventory_movements, audit_logs,
+//     shipment_events, supplier_order_events) sont en ajout seul : un trigger
+//     SQL (voir migrations) interdit UPDATE / DELETE.
+//   - Contraintes complémentaires (index partiels, CHECK) dans les migrations.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -----------------------------------------------------------------------------
+// Utilisateurs, rôles, authentification
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  CUSTOMER
+  PREPARER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+/// Rôles d'administration et permissions granulaires (back-office).
+model Role {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  permissions String[]
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+
+  @@map("roles")
+}
+
+model User {
+  id              String     @id @default(cuid())
+  email           String     @unique
+  passwordHash    String?
+  role            UserRole
+  status          UserStatus @default(ACTIVE)
+  staffRoleId     String?
+  firstName       String
+  lastName        String
+  phone           String?
+  avatarFileId    String?    @unique
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  /// Données de démonstration (environnements de développement uniquement).
+  isDemo          Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  staffRole               Role?                     @relation(fields: [staffRoleId], references: [id])
+  avatar                  File?                     @relation("UserAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
+  sessions                Session[]
+  authTokens              AuthToken[]
+  customerProfile         CustomerProfile?
+  preparerProfile         PreparerProfile?
+  uploadedFiles           File[]                    @relation("FileUploader")
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  conversationParticipants ConversationParticipant[]
+  messages                Message[]
+  auditLogs               AuditLog[]
+  assignmentsMade         PreparerAssignment[]      @relation("AssignmentAssignedBy")
+  assignmentsEnded        PreparerAssignment[]      @relation("AssignmentEndedBy")
+  locationsValidated      PreparerLocation[]        @relation("LocationValidatedBy")
+  incidentsReported       Incident[]                @relation("IncidentReporter")
+  incidentsAssigned       Incident[]                @relation("IncidentAssignee")
+  incidentUpdates         IncidentUpdate[]
+  creditTransactions      CreditTransaction[]
+  inventoryMovements      InventoryMovement[]
+  shipmentEvents          ShipmentEvent[]
+  shipmentClassifications ShipmentClassification[]
+  supplierOrderEvents     SupplierOrderEvent[]
+  accessGrants            ConversationAccessGrant[]
+  absencesCreated         PreparerAbsence[]
+  inventoryCounts         InventoryCount[]
+  contactRequestsHandled  ContactRequest[]
+  settingsUpdated         AppSetting[]
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  /// SHA-256 du jeton envoyé dans le cookie (le jeton brut n'est jamais stocké).
+  tokenHash  String   @unique
+  userId     String
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+enum AuthTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+  INVITATION
+}
+
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String
+  type      AuthTokenType
+  tokenHash String        @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("auth_tokens")
+}
+
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String
+  ip        String?
+  success   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+  @@map("login_attempts")
+}
+
+// -----------------------------------------------------------------------------
+// Clients
+// -----------------------------------------------------------------------------
+
+enum CustomerStatus {
+  PENDING_PAYMENT
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+}
+
+/// Suivi du délai d'attribution du préparateur (attribution exclusivement manuelle).
+enum AssignmentState {
+  NOT_REQUESTED
+  PENDING
+  ASSIGNED
+  LATE
+  REASSIGNING
+}
+
+model CustomerProfile {
+  id                       String          @id @default(cuid())
+  userId                   String          @unique
+  /// Code client imprimé sur les colis pour identification par le préparateur.
+  referenceCode            String          @unique
+  companyName              String?
+  status                   CustomerStatus  @default(PENDING_PAYMENT)
+  assignmentState          AssignmentState @default(NOT_REQUESTED)
+  assignmentRequestedAt    DateTime?
+  assignmentDueAt          DateTime?
+  assignmentAdminAlertedAt DateTime?
+  assignmentDelayNotifiedAt DateTime?
+  currentPreparerId        String?
+  stripeCustomerId         String?         @unique
+  adminNotes               String?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  currentPreparer    PreparerProfile?     @relation("CurrentPreparer", fields: [currentPreparerId], references: [id], onDelete: SetNull)
+  assignments        PreparerAssignment[]
+  subscriptions      Subscription[]
+  wallet             CreditWallet?
+  supplierOrders     SupplierOrder[]
+  inboundParcels     InboundParcel[]
+  inventoryItems     InventoryItem[]
+  shipments          OutboundShipment[]
+  conversations      Conversation[]
+  payments           Payment[]
+  invoices           Invoice[]
+  incidents          Incident[]
+  files              File[]
+  inventoryCounts    InventoryCount[]
+
+  @@index([assignmentState, assignmentDueAt])
+  @@index([status])
+  @@index([currentPreparerId])
+  @@map("customer_profiles")
+}
+
+// -----------------------------------------------------------------------------
+// Préparateurs
+// -----------------------------------------------------------------------------
+
+enum PreparerStatus {
+  ACTIVE
+  UNAVAILABLE
+  SUSPENDED
+}
+
+model PreparerProfile {
+  id                   String         @id @default(cuid())
+  userId               String         @unique
+  city                 String
+  country              String         @default("FR")
+  /// Adresse professionnelle de réception (confidentielle, visible admin + préparateur).
+  businessAddressLine1 String?
+  businessAddressLine2 String?
+  businessPostalCode   String?
+  businessCity         String?
+  businessCountry      String?        @default("FR")
+  compatibleCarriers   String[]
+  /// Disponibilités hebdomadaires : { mon: { open, from, to }, ... }
+  availability         Json?
+  availabilityNote     String?
+  /// Capacité de stockage exprimée en nombre d'articles.
+  storageCapacity      Int            @default(500)
+  maxClients           Int            @default(20)
+  parcelsProcessed     Int            @default(0)
+  status               PreparerStatus @default(ACTIVE)
+  adminNotes           String?
+  joinedAt             DateTime       @default(now())
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  locations        PreparerLocation[]
+  assignments      PreparerAssignment[]
+  currentCustomers CustomerProfile[]    @relation("CurrentPreparer")
+  absences         PreparerAbsence[]
+  supplierOrders   SupplierOrder[]
+  inboundParcels   InboundParcel[]
+  inventoryItems   InventoryItem[]
+  shipments        OutboundShipment[]
+  conversations    Conversation[]
+  incidents        Incident[]
+  files            File[]
+  inventoryCounts  InventoryCount[]
+
+  @@index([status])
+  @@map("preparer_profiles")
+}
+
+enum LocationType {
+  BUSINESS_ADDRESS
+  LOCKER
+  RELAY_POINT
+}
+
+/// Points de réception d'un préparateur (adresse pro, lockers, points relais).
+/// Seuls les lieux validés par un administrateur sont communiqués aux clients.
+model PreparerLocation {
+  id              String       @id @default(cuid())
+  preparerId      String
+  type            LocationType
+  isPrimary       Boolean      @default(false)
+  label           String
+  /// Réseau / transporteur (MONDIAL_RELAY, INPOST, RELAIS_COLIS, ...).
+  network         String?
+  /// Nom exact du point relais ou du locker.
+  relayName       String?
+  addressLine1    String
+  addressLine2    String?
+  postalCode      String
+  city            String
+  country         String       @default("FR")
+  /// Identifiant du point relais chez le transporteur, si disponible.
+  externalId      String?
+  /// Nom du destinataire à indiquer sur les commandes.
+  recipientName   String
+  openingHours    String?
+  instructions    String?
+  isActive        Boolean      @default(true)
+  validatedAt     DateTime?
+  validatedById   String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  preparer       PreparerProfile @relation(fields: [preparerId], references: [id], onDelete: Cascade)
+  validatedBy    User?           @relation("LocationValidatedBy", fields: [validatedById], references: [id], onDelete: SetNull)
+  supplierOrders SupplierOrder[]
+
+  @@index([preparerId, isActive])
+  @@map("preparer_locations")
+}
+
+enum AssignmentRecordStatus {
+  ACTIVE
+  ENDED
+}
+
+/// Historique des affectations client ↔ préparateur. Un index partiel unique
+/// garantit au plus une affectation ACTIVE par client.
+model PreparerAssignment {
+  id           String                 @id @default(cuid())
+  customerId   String
+  preparerId   String
+  status       AssignmentRecordStatus @default(ACTIVE)
+  assignedById String
+  assignedAt   DateTime               @default(now())
+  endedAt      DateTime?
+  endedById    String?
+  endReason    String?
+  note         String?
+  /// Délai entre la demande et l'attribution (minutes), pour le suivi SLA.
+  waitMinutes  Int?
+  createdAt    DateTime               @default(now())
+
+  customer   CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer   PreparerProfile @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  assignedBy User            @relation("AssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  endedBy    User?           @relation("AssignmentEndedBy", fields: [endedById], references: [id], onDelete: SetNull)
+
+  @@index([customerId, status])
+  @@index([preparerId, status])
+  @@map("preparer_assignments")
+}
+
+model PreparerAbsence {
+  id          String    @id @default(cuid())
+  preparerId  String
+  startsAt    DateTime
+  endsAt      DateTime
+  reason      String?
+  createdById String
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  preparer  PreparerProfile @relation(fields: [preparerId], references: [id], onDelete: Cascade)
+  createdBy User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([preparerId, startsAt])
+  @@map("preparer_absences")
+}
+
+// -----------------------------------------------------------------------------
+// Fournisseurs et compatibilité
+// -----------------------------------------------------------------------------
+
+model Supplier {
+  id                    String         @id @default(cuid())
+  code                  String         @unique
+  name                  String
+  websiteUrl            String?
+  description           String?
+  /// Types de points de réception vers lesquels ce fournisseur peut livrer.
+  acceptedLocationTypes LocationType[]
+  /// Réseaux de lockers / points relais acceptés (pour LOCKER et RELAY_POINT).
+  acceptedNetworks      String[]
+  /// Le retrait au locker nécessite un code transmis au client.
+  requiresPickupCode    Boolean        @default(false)
+  compatibilityNotes    String?
+  isActive              Boolean        @default(true)
+  sortOrder             Int            @default(0)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  orders                SupplierOrder[]
+
+  @@map("suppliers")
+}
+
+// -----------------------------------------------------------------------------
+// Abonnements, offres et crédits
+// -----------------------------------------------------------------------------
+
+model Plan {
+  id              String         @id @default(cuid())
+  code            String         @unique
+  name            String
+  tagline         String?
+  priceCents      Int
+  currency        String         @default("eur")
+  monthlyCredits  Int
+  /// Nombre maximal d'articles en stock (null = illimité).
+  storageLimit    Int?
+  features        String[]
+  highlighted     Boolean        @default(false)
+  isActive        Boolean        @default(true)
+  sortOrder       Int            @default(0)
+  stripeProductId String?
+  stripePriceId   String?        @unique
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  subscriptions   Subscription[]
+
+  @@map("plans")
+}
+
+enum SubscriptionStatus {
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  PAUSED
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  customerId         String
+  planId             String
+  status             SubscriptionStatus
+  /// "stripe" en production, "dev" pour le mode de paiement de démonstration.
+  provider           String             @default("stripe")
+  externalId         String             @unique
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean            @default(false)
+  canceledAt         DateTime?
+  endedAt            DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  plan     Plan            @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoices Invoice[]
+
+  @@index([customerId, status])
+  @@map("subscriptions")
+}
+
+model CreditPack {
+  id            String    @id @default(cuid())
+  name          String
+  credits       Int
+  priceCents    Int
+  currency      String    @default("eur")
+  isActive      Boolean   @default(true)
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  payments      Payment[]
+
+  @@map("credit_packs")
+}
+
+enum CreditBucket {
+  MONTHLY
+  PURCHASED
+}
+
+/// Portefeuille de crédits. Les soldes sont des agrégats maintenus dans la même
+/// transaction que chaque écriture du registre (credit_transactions).
+model CreditWallet {
+  id               String   @id @default(cuid())
+  customerId       String   @unique
+  monthlyBalance   Int      @default(0)
+  purchasedBalance Int      @default(0)
+  reservedBalance  Int      @default(0)
+  consumedTotal    Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  customer     CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lots         CreditLot[]
+  transactions CreditTransaction[]
+  reservations CreditReservation[]
+
+  @@map("credit_wallets")
+}
+
+enum CreditLotSource {
+  SUBSCRIPTION_CYCLE
+  PLAN_CHANGE
+  PURCHASE
+  ADMIN
+  RELEASE
+}
+
+/// Lot de crédits (permet des politiques d'expiration distinctes par origine).
+model CreditLot {
+  id            String          @id @default(cuid())
+  walletId      String
+  bucket        CreditBucket
+  source        CreditLotSource
+  sourceRef     String?
+  initialAmount Int
+  remaining     Int
+  expiresAt     DateTime?
+  expiredAt     DateTime?
+  createdAt     DateTime        @default(now())
+
+  wallet CreditWallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@index([walletId, bucket, remaining])
+  @@index([expiresAt])
+  @@map("credit_lots")
+}
+
+enum CreditTransactionType {
+  MONTHLY_GRANT
+  PLAN_CHANGE_GRANT
+  PURCHASE
+  RESERVATION
+  RESERVATION_RELEASE
+  CAPTURE
+  EXPIRY
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+  REFUND_DEBIT
+}
+
+/// Registre transactionnel des crédits (ajout seul). La clé d'idempotence
+/// unique empêche toute double écriture (double clic, webhook rejoué...).
+model CreditTransaction {
+  id             String                @id @default(cuid())
+  walletId       String
+  type           CreditTransactionType
+  /// Variation du solde disponible (positif = crédit, négatif = débit).
+  amount         Int
+  /// Variation du solde réservé (réservation +, libération / débit définitif -).
+  reservedDelta  Int                   @default(0)
+  bucket         CreditBucket?
+  monthlyAfter   Int
+  purchasedAfter Int
+  reservedAfter  Int
+  description    String
+  /// Justification obligatoire pour les opérations manuelles.
+  reason         String?
+  actorId        String?
+  shipmentId     String?
+  reservationId  String?
+  paymentId      String?
+  idempotencyKey String                @unique
+  createdAt      DateTime              @default(now())
+
+  wallet   CreditWallet      @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  actor    User?             @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  shipment OutboundShipment? @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+
+  @@index([walletId, createdAt])
+  @@index([shipmentId])
+  @@map("credit_transactions")
+}
+
+enum CreditReservationStatus {
+  HELD
+  CAPTURED
+  RELEASED
+}
+
+model CreditReservation {
+  id          String                  @id @default(cuid())
+  walletId    String
+  shipmentId  String
+  amount      Int
+  status      CreditReservationStatus @default(HELD)
+  /// Répartition par lot : [{ lotId, bucket, amount }]
+  allocations Json
+  capturedAt  DateTime?
+  releasedAt  DateTime?
+  createdAt   DateTime                @default(now())
+
+  wallet   CreditWallet     @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  shipment OutboundShipment @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+
+  @@index([shipmentId, status])
+  @@map("credit_reservations")
+}
+
+// -----------------------------------------------------------------------------
+// Commandes fournisseurs et colis entrants
+// -----------------------------------------------------------------------------
+
+enum SupplierOrderStatus {
+  REGISTERED
+  SUPPLIER_CONFIRMED
+  IN_TRANSIT
+  AT_LOCKER
+  PICKED_UP
+  RECEIVED
+  QUALITY_CHECK
+  IN_STOCK
+  INCIDENT
+  RETURNED_TO_SUPPLIER
+  CANCELLED
+}
+
+model SupplierOrder {
+  id                     String              @id @default(cuid())
+  reference              String              @unique
+  customerId             String
+  preparerId             String
+  supplierId             String
+  supplierLabel          String?
+  locationId             String
+  articleUrl             String?
+  supplierOrderNumber    String?
+  trackingNumber         String?
+  carrier                String?
+  /// Code de retrait locker (visible uniquement par le client et son préparateur).
+  pickupCode             String?
+  description            String
+  quantity               Int                 @default(1)
+  expectedArrivalAt      DateTime?
+  instructions           String?
+  status                 SupplierOrderStatus @default(REGISTERED)
+  statusChangedAt        DateTime            @default(now())
+  compatibilityConfirmed Boolean             @default(false)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  customer       CustomerProfile      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer       PreparerProfile      @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  supplier       Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location       PreparerLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  parcels        InboundParcel[]
+  events         SupplierOrderEvent[]
+  inventoryItems InventoryItem[]
+  files          File[]
+  messages       Message[]
+  incidents      Incident[]
+
+  @@index([customerId, status])
+  @@index([preparerId, status])
+  @@index([createdAt])
+  @@map("supplier_orders")
+}
+
+model SupplierOrderEvent {
+  id              String              @id @default(cuid())
+  supplierOrderId String
+  status          SupplierOrderStatus
+  actorId         String?
+  note            String?
+  createdAt       DateTime            @default(now())
+
+  supplierOrder SupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Restrict)
+  actor         User?         @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([supplierOrderId, createdAt])
+  @@map("supplier_order_events")
+}
+
+enum InboundParcelStatus {
+  EXPECTED
+  AT_LOCKER
+  PICKED_UP
+  RECEIVED
+  ISSUE
+}
+
+/// Colis physique rattaché à une commande fournisseur (une commande peut
+/// arriver en plusieurs colis).
+model InboundParcel {
+  id               String              @id @default(cuid())
+  supplierOrderId  String
+  customerId       String
+  preparerId       String
+  trackingNumber   String?
+  carrier          String?
+  status           InboundParcelStatus @default(EXPECTED)
+  pickedUpAt       DateTime?
+  pickedUpById     String?
+  receivedAt       DateTime?
+  receivedById     String?
+  quantityReceived Int?
+  conditionOk      Boolean?
+  conditionNotes   String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  supplierOrder SupplierOrder   @relation(fields: [supplierOrderId], references: [id], onDelete: Restrict)
+  customer      CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer      PreparerProfile @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  files         File[]
+
+  @@index([supplierOrderId])
+  @@index([preparerId, status])
+  @@map("inbound_parcels")
+}
+
+// -----------------------------------------------------------------------------
+// Stock
+// -----------------------------------------------------------------------------
+
+enum InventoryStatus {
+  IN_STOCK
+  RESERVED
+  DEPLETED
+  DAMAGED
+  ARCHIVED
+}
+
+model InventoryItem {
+  id                String          @id @default(cuid())
+  sku               String          @unique
+  customerId        String
+  preparerId        String
+  supplierOrderId   String?
+  name              String
+  description       String?
+  supplierName      String?
+  quantityReceived  Int             @default(0)
+  quantityAvailable Int             @default(0)
+  quantityReserved  Int             @default(0)
+  quantityShipped   Int             @default(0)
+  quantityDamaged   Int             @default(0)
+  quantityMissing   Int             @default(0)
+  storageLocation   String?
+  receivedAt        DateTime        @default(now())
+  status            InventoryStatus @default(IN_STOCK)
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  customer      CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer      PreparerProfile     @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  supplierOrder SupplierOrder?      @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+  movements     InventoryMovement[]
+  shipmentItems ShipmentItem[]
+  files         File[]
+  incidents     Incident[]
+
+  @@index([customerId, status])
+  @@index([preparerId, status])
+  @@map("inventory_items")
+}
+
+enum InventoryMovementType {
+  RECEIPT
+  ADJUSTMENT
+  RESERVATION
+  RESERVATION_RELEASE
+  SHIPMENT
+  DAMAGE
+  MISSING
+  FOUND
+  INVENTORY_COUNT
+  TRANSFER_OUT
+  TRANSFER_IN
+}
+
+/// Historique complet et inaltérable des mouvements de stock.
+model InventoryMovement {
+  id             String                @id @default(cuid())
+  itemId         String
+  type           InventoryMovementType
+  /// Variation de la quantité disponible.
+  quantity       Int
+  availableAfter Int
+  reservedAfter  Int
+  reason         String?
+  actorId        String?
+  shipmentId     String?
+  countId        String?
+  createdAt      DateTime              @default(now())
+
+  item  InventoryItem   @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  actor User?           @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  count InventoryCount? @relation(fields: [countId], references: [id], onDelete: Restrict)
+
+  @@index([itemId, createdAt])
+  @@index([shipmentId])
+  @@map("inventory_movements")
+}
+
+model InventoryCount {
+  id          String    @id @default(cuid())
+  preparerId  String
+  customerId  String
+  performedById String
+  notes       String?
+  discrepancies Int     @default(0)
+  completedAt DateTime  @default(now())
+
+  preparer    PreparerProfile     @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  customer    CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  performedBy User                @relation(fields: [performedById], references: [id], onDelete: Restrict)
+  movements   InventoryMovement[]
+
+  @@index([customerId, completedAt])
+  @@map("inventory_counts")
+}
+
+// -----------------------------------------------------------------------------
+// Expéditions
+// -----------------------------------------------------------------------------
+
+enum ShipmentStatus {
+  REQUESTED
+  AWAITING_CLASSIFICATION
+  CLASSIFIED
+  AWAITING_CREDITS
+  PREPARING
+  READY
+  LABEL_READY
+  DROPPED_OFF
+  IN_TRANSIT
+  DELIVERED
+  INCIDENT
+  CANCELLED
+}
+
+enum ParcelSize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum ShipmentCreditState {
+  NONE
+  RESERVED
+  INSUFFICIENT
+  CAPTURED
+  RELEASED
+}
+
+enum LabelMode {
+  CUSTOMER_PROVIDED
+  PREPARER_PROVIDED
+}
+
+model OutboundShipment {
+  id                String              @id @default(cuid())
+  reference         String              @unique
+  customerId        String
+  preparerId        String
+  status            ShipmentStatus      @default(REQUESTED)
+  recipientName     String
+  recipientCompany  String?
+  recipientPhone    String?
+  recipientEmail    String?
+  addressLine1      String
+  addressLine2      String?
+  postalCode        String
+  city              String
+  country           String              @default("FR")
+  requestedCarrier  String?
+  labelMode         LabelMode           @default(CUSTOMER_PROVIDED)
+  instructions      String?
+  options           String[]
+  sizeCategory      ParcelSize?
+  weightGrams       Int?
+  lengthCm          Int?
+  widthCm           Int?
+  heightCm          Int?
+  classifiedAt      DateTime?
+  classifiedById    String?
+  classificationVersion Int             @default(0)
+  /// Coût de préparation en crédits (distinct des frais de transport).
+  creditCost        Int?
+  creditState       ShipmentCreditState @default(NONE)
+  carrier           String?
+  trackingNumber    String?
+  trackingUrl       String?
+  /// Frais de transport éventuels, facturés séparément des crédits.
+  shippingFeeCents  Int?
+  shippingFeeNote   String?
+  droppedOffAt      DateTime?
+  deliveredAt       DateTime?
+  cancelledAt       DateTime?
+  cancelReason      String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  customer        CustomerProfile          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer        PreparerProfile          @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  items           ShipmentItem[]
+  events          ShipmentEvent[]
+  classifications ShipmentClassification[]
+  reservations    CreditReservation[]
+  creditTransactions CreditTransaction[]
+  files           File[]
+  messages        Message[]
+  incidents       Incident[]
+
+  @@index([customerId, status])
+  @@index([preparerId, status])
+  @@index([createdAt])
+  @@map("outbound_shipments")
+}
+
+model ShipmentItem {
+  id              String @id @default(cuid())
+  shipmentId      String
+  inventoryItemId String
+  quantity        Int
+
+  shipment      OutboundShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem    @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@unique([shipmentId, inventoryItemId])
+  @@map("shipment_items")
+}
+
+model ShipmentEvent {
+  id         String         @id @default(cuid())
+  shipmentId String
+  status     ShipmentStatus
+  actorId    String?
+  note       String?
+  data       Json?
+  createdAt  DateTime       @default(now())
+
+  shipment OutboundShipment @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+  actor    User?            @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([shipmentId, createdAt])
+  @@map("shipment_events")
+}
+
+/// Historique des classifications (taille déterminée exclusivement par le préparateur).
+model ShipmentClassification {
+  id             String     @id @default(cuid())
+  shipmentId     String
+  size           ParcelSize
+  weightGrams    Int?
+  lengthCm       Int?
+  widthCm        Int?
+  heightCm       Int?
+  creditCost     Int
+  classifiedById String
+  note           String?
+  supersededAt   DateTime?
+  createdAt      DateTime   @default(now())
+
+  shipment     OutboundShipment @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
+  classifiedBy User             @relation(fields: [classifiedById], references: [id], onDelete: Restrict)
+
+  @@index([shipmentId, createdAt])
+  @@map("shipment_classifications")
+}
+
+/// Règles de classification et coût en crédits, définies par l'administrateur.
+model ParcelSizeRule {
+  id             String     @id @default(cuid())
+  size           ParcelSize @unique
+  label          String
+  description    String?
+  maxLengthCm    Int?
+  maxWidthCm     Int?
+  maxHeightCm    Int?
+  maxWeightGrams Int?
+  creditCost     Int
+  sortOrder      Int        @default(0)
+  updatedAt      DateTime   @updatedAt
+
+  @@map("parcel_size_rules")
+}
+
+// -----------------------------------------------------------------------------
+// Messagerie
+// -----------------------------------------------------------------------------
+
+enum ConversationType {
+  CUSTOMER_PREPARER
+  SUPPORT
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+model Conversation {
+  id            String             @id @default(cuid())
+  type          ConversationType
+  status        ConversationStatus @default(OPEN)
+  subject       String?
+  customerId    String?
+  preparerId    String?
+  lastMessageAt DateTime           @default(now())
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  customer     CustomerProfile?          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer     PreparerProfile?          @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  participants ConversationParticipant[]
+  messages     Message[]
+  files        File[]
+  accessGrants ConversationAccessGrant[]
+
+  @@index([customerId, type])
+  @@index([preparerId, type])
+  @@index([type, status, lastMessageAt])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  joinedAt       DateTime  @default(now())
+  leftAt         DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+enum MessageKind {
+  TEXT
+  SYSTEM
+}
+
+model Message {
+  id              String      @id @default(cuid())
+  conversationId  String
+  senderId        String?
+  kind            MessageKind @default(TEXT)
+  body            String
+  supplierOrderId String?
+  shipmentId      String?
+  createdAt       DateTime    @default(now())
+
+  conversation  Conversation      @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  sender        User?             @relation(fields: [senderId], references: [id], onDelete: Restrict)
+  supplierOrder SupplierOrder?    @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+  shipment      OutboundShipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  attachments   File[]
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+/// Accès de supervision encadré d'un administrateur à une conversation
+/// client/préparateur (motif obligatoire, durée limitée, journalisé).
+model ConversationAccessGrant {
+  id             String   @id @default(cuid())
+  conversationId String
+  adminId        String
+  reason         String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  admin        User         @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([conversationId, adminId, expiresAt])
+  @@map("conversation_access_grants")
+}
+
+// -----------------------------------------------------------------------------
+// Notifications et e-mails
+// -----------------------------------------------------------------------------
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  link      String?
+  data      Json?
+  readAt    DateTime?
+  emailedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id     String  @id @default(cuid())
+  userId String
+  type   String
+  inApp  Boolean @default(true)
+  email  Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@map("notification_preferences")
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+  SKIPPED
+  LOGGED
+}
+
+model EmailLog {
+  id                String      @id @default(cuid())
+  toEmail           String
+  subject           String
+  template          String
+  status            EmailStatus
+  provider          String
+  providerMessageId String?
+  error             String?
+  userId            String?
+  createdAt         DateTime    @default(now())
+
+  @@index([createdAt])
+  @@map("email_logs")
+}
+
+// -----------------------------------------------------------------------------
+// Paiements et factures
+// -----------------------------------------------------------------------------
+
+enum PaymentKind {
+  SUBSCRIPTION
+  CREDIT_PACK
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  customerId     String
+  kind           PaymentKind
+  status         PaymentStatus
+  amountCents    Int
+  refundedCents  Int           @default(0)
+  currency       String        @default("eur")
+  description    String
+  provider       String        @default("stripe")
+  /// Identifiant externe (PaymentIntent, session Checkout, facture...).
+  externalId     String        @unique
+  paymentIntentId String?      @unique
+  invoiceId      String?
+  creditPackId   String?
+  creditsGranted Int?
+  failureMessage String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  customer   CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  invoice    Invoice?        @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  creditPack CreditPack?     @relation(fields: [creditPackId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, createdAt])
+  @@index([status])
+  @@map("payments")
+}
+
+model Invoice {
+  id              String    @id @default(cuid())
+  customerId      String
+  subscriptionId  String?
+  externalId      String    @unique
+  number          String?
+  status          String
+  billingReason   String?
+  amountDueCents  Int
+  amountPaidCents Int
+  currency        String    @default("eur")
+  hostedUrl       String?
+  pdfUrl          String?
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  issuedAt        DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer     CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  subscription Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  payments     Payment[]
+
+  @@index([customerId, issuedAt])
+  @@map("invoices")
+}
+
+enum WebhookEventStatus {
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+/// Journal des webhooks Stripe reçus (idempotence du traitement).
+model StripeEvent {
+  id          String             @id
+  type        String
+  status      WebhookEventStatus
+  error       String?
+  attempts    Int                @default(1)
+  receivedAt  DateTime           @default(now())
+  processedAt DateTime?
+
+  @@index([type, receivedAt])
+  @@map("stripe_events")
+}
+
+// -----------------------------------------------------------------------------
+// Incidents
+// -----------------------------------------------------------------------------
+
+enum IncidentType {
+  INBOUND_DAMAGED
+  INBOUND_MISSING
+  WRONG_ITEM
+  LOCKER_ISSUE
+  SHIPMENT_ISSUE
+  CLASSIFICATION_DISPUTE
+  STOCK_DISCREPANCY
+  PAYMENT
+  ASSIGNMENT_DELAY
+  PREPARER_ABSENCE
+  OTHER
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum IncidentPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Incident {
+  id              String           @id @default(cuid())
+  reference       String           @unique
+  type            IncidentType
+  status          IncidentStatus   @default(OPEN)
+  priority        IncidentPriority @default(NORMAL)
+  title           String
+  description     String
+  customerId      String?
+  preparerId      String?
+  supplierOrderId String?
+  shipmentId      String?
+  inventoryItemId String?
+  reportedById    String
+  assignedToId    String?
+  resolution      String?
+  resolvedAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  customer      CustomerProfile?  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer      PreparerProfile?  @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  supplierOrder SupplierOrder?    @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+  shipment      OutboundShipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  inventoryItem InventoryItem?    @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  reportedBy    User              @relation("IncidentReporter", fields: [reportedById], references: [id], onDelete: Restrict)
+  assignedTo    User?             @relation("IncidentAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  updates       IncidentUpdate[]
+  files         File[]
+
+  @@index([status, priority, createdAt])
+  @@index([customerId])
+  @@index([preparerId])
+  @@map("incidents")
+}
+
+model IncidentUpdate {
+  id         String          @id @default(cuid())
+  incidentId String
+  authorId   String
+  body       String
+  statusFrom IncidentStatus?
+  statusTo   IncidentStatus?
+  /// Note interne visible uniquement par l'administration.
+  internal   Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([incidentId, createdAt])
+  @@map("incident_updates")
+}
+
+// -----------------------------------------------------------------------------
+// Fichiers (stockage privé, accès contrôlé côté serveur)
+// -----------------------------------------------------------------------------
+
+enum FilePurpose {
+  AVATAR
+  PRODUCT_PHOTO
+  ORDER_PHOTO
+  RECEPTION_PHOTO
+  PREPARATION_PHOTO
+  SHIPPING_LABEL
+  MESSAGE_ATTACHMENT
+  INCIDENT_ATTACHMENT
+}
+
+model File {
+  id              String      @id @default(cuid())
+  storageKey      String      @unique
+  filename        String
+  mimeType        String
+  sizeBytes       Int
+  sha256          String
+  purpose         FilePurpose
+  uploadedById    String
+  customerId      String?
+  preparerId      String?
+  conversationId  String?
+  messageId       String?
+  supplierOrderId String?
+  inboundParcelId String?
+  inventoryItemId String?
+  shipmentId      String?
+  incidentId      String?
+  deletedAt       DateTime?
+  createdAt       DateTime    @default(now())
+
+  uploadedBy    User              @relation("FileUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  avatarOf      User?             @relation("UserAvatar")
+  customer      CustomerProfile?  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer      PreparerProfile?  @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  conversation  Conversation?     @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  message       Message?          @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  supplierOrder SupplierOrder?    @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+  inboundParcel InboundParcel?    @relation(fields: [inboundParcelId], references: [id], onDelete: SetNull)
+  inventoryItem InventoryItem?    @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  shipment      OutboundShipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  incident      Incident?         @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([messageId])
+  @@index([inventoryItemId])
+  @@index([shipmentId])
+  @@index([supplierOrderId])
+  @@map("files")
+}
+
+// -----------------------------------------------------------------------------
+// Audit, paramètres, contact
+// -----------------------------------------------------------------------------
+
+/// Journal d'audit inaltérable des actions sensibles.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  String?
+  action     String
+  entityType String
+  entityId   String?
+  summary    String?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model AppSetting {
+  key         String   @id
+  value       Json
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("app_settings")
+}
+
+enum ContactStatus {
+  NEW
+  HANDLED
+}
+
+model ContactRequest {
+  id          String        @id @default(cuid())
+  name        String
+  email       String
+  subject     String
+  message     String
+  status      ContactStatus @default(NEW)
+  handledById String?
+  handledAt   DateTime?
+  createdAt   DateTime      @default(now())
+
+  handledBy User? @relation(fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("contact_requests")
+}
