@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test';
+export default defineConfig({testDir:'./browser',workers:1,use:{baseURL:'http://127.0.0.1:3210'},webServer:{command:'npm run start -- --hostname 127.0.0.1 --port 3210',url:'http://127.0.0.1:3210',env:{APP_URL:'http://127.0.0.1:3210'},reuseExistingServer:false}});

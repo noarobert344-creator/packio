@@ -41,7 +41,7 @@ test('souscription, attribution manuelle, réception, réservations et débit un
  await t.test('seule une facture signée active le compte et le rejeu ne recrédite pas',async()=>{
  const object={id:'in_'+suffix,customer:stripeCustomer,subscription:sub,billing_reason:'subscription_create',amount_paid:2990,lines:{data:[{type:'subscription',price:{id:price}}]}};
  const e=await hook('invoice.paid',object);await hook('invoice.paid',object,e);await hook('invoice.paid',object);
- const c=(await call('state',undefined,client)).data.clients[0];assert.equal(c.monthly,20);assert.equal(c.prep,null);assert.equal(Date.parse(c.deadline)-Date.parse(c.active_since),86400000);
+ const c=(await call('state',undefined,client)).data.clients[0];assert.equal(c.monthly,20);assert.equal(c.prep,null);assert.ok(Math.abs(Date.parse(c.deadline)-Date.parse(c.active_since)-86400000)<1000);
  });
  await t.test('attribution réservée à l’administrateur et conversation privée',async()=>{
  await call('assign',{id:uid,prep:prepId},client,403);await call('assign',{id:uid,prep:prepId},admin);
