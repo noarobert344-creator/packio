@@ -14,6 +14,8 @@ Sur ordinateur, avec Node.js 24 installé, ouvrir un terminal à la racine du pr
 | Préparation | prep@packio.example |
 | Client | client@packio.example |
 
+Sur la page **Connexion**, les boutons **Client**, **Préparateur** et **Administrateur** ouvrent directement le rôle choisi. Ils apparaissent uniquement dans la démonstration dédiée.
+
 Mot de passe de ces comptes de démonstration uniquement : `Packio-Demo-Local!`. La commande dédiée utilise `var/demo.sqlite`. La base normale reste séparée. Pour tester l’attente sous 24 heures, créer un second client et choisir Starter. Avec le compte administrateur, ouvrir **Attributions**, puis **Attribuer**. Utiliser deux profils de navigateur pour tester les rôles simultanément.
 
 ## Parcours opérationnel
