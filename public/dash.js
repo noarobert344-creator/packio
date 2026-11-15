@@ -91,10 +91,10 @@ async function action(a,id,title){
  if(a==='thread'){supervision='';await openChat(id);return;}
  if(a==='readAlerts'){await request(a,{});await refresh();return;}
  if(['pay','portal','topup'].includes(a)){const result=await request('checkout',{kind:a==='pay'?'subscription':a,plan:id||'starter'});location.assign(result.url);return;}
- const d=dialog(title,'<form>'+fields(a,id,s,draft)+'<p role="alert" class="error"></p><div class="row"><button class="btn blue">Confirmer</button>'+btn('close','Fermer')+'</div></form>');const f=d.querySelector('form');
+ const d=dialog(title,'<form>'+fields(a,id,s,draft)+'<p role="alert" class="error"></p><div class="row"><button class="btn blue">Confirmer</button>'+btn('close','Fermer')+'</div></form>');const f=d.querySelector('form');const requestId=crypto.randomUUID();
  f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector('[type=submit]')||f.querySelector('.blue');b.disabled=true;try{
  const record=[...s.orders,...s.shipments,...s.items].find(x=>x.id===id);
- const o={...await values(f,record?.client||s.user.id),id};if(a==='send')o.status=shipSteps[shipSteps.indexOf(record.status)+1];const r=await request(a,o);d.close();draft={};
+ const o={...await values(f,record?.client||s.user.id),id,requestId};if(a==='send')o.status=shipSteps[shipSteps.indexOf(record.status)+1];const r=await request(a,o);d.close();draft={};
  if(a==='supervise'){thread=r.thread;supervision=o.reason;location.hash='messages';}else{await refresh();toast('Enregistré.');}
  }catch(err){f.querySelector('.error').textContent=err.message;}finally{b.disabled=false;}};
 }
