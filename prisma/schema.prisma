@@ -1,0 +1,20 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+// The logistics schema and its cross-table constraints live in the SQL migration.
+// Prisma's transactional SQL client is shared by the dashboard and billing handlers.
+model User {
+  id       String @id
+  email    String @unique
+  name     String
+  password String
+  role     String
+  enabled  Int @default(1)
+  prefs    Int @default(1)
+  created  String
+  @@map("users")
+}
