@@ -1,0 +1,16 @@
+# PostgreSQL local pour le développement : `docker compose up -d`
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: packio
+      POSTGRES_PASSWORD: packio
+      POSTGRES_DB: packio
+    ports:
+      - "5432:5432"
+    volumes:
+      - packio-db:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+volumes:
+  packio-db:

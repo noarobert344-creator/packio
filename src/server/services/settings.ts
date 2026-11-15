@@ -42,6 +42,7 @@ export const SETTINGS_SCHEMAS = {
     hostName: z.string().max(120),
     hostAddress: z.string().max(240),
     dpoEmail: z.string().max(120),
+    consumerMediator: z.string().max(300),
   }),
   messaging: z.object({
     supervisionMinutes: z.number().int().min(5).max(24 * 60),
@@ -72,6 +73,7 @@ export const SETTINGS_DEFAULTS: Settings = {
     hostName: "Vercel Inc.",
     hostAddress: "440 N Barranca Ave #4133, Covina, CA 91723, États-Unis",
     dpoEmail: "",
+    consumerMediator: "",
   },
   messaging: { supervisionMinutes: 60 },
 };
