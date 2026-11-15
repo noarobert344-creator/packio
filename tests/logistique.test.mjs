@@ -51,9 +51,13 @@ test('souscription, attribution manuelle, réception, réservations et débit un
  await call('message',{id:th,body:'Bien reçu'},client);await call('thread',{id:th},other,404);
  assert.equal((await call('thread',{id:th},prep)).data.messages[0].body,'Bien reçu');
  });
+ await t.test('la messagerie d’équipe est réservée au personnel',async()=>{
+ await call('staff',{id:prepId,body:'Consigne de préparation'},admin);
+ assert.equal((await call('staff',{},prep)).data.messages.at(-1).body,'Consigne de préparation');await call('staff',{id:prepId},client,403);
+ });
  const data={supplier:'AliExpress',product:'Sac test',qty:4,reference:'TEST',carrier:'Transport test',location:'locker',confirmed:true};
  await call('order',{...data,supplier:'Incompatible'},client,400);
- const order=(await call('order',data,client)).data.id;
+ const requestId=randomUUID();const order=(await call('order',{...data,requestId},client)).data.id;assert.equal((await call('order',{...data,requestId},client)).data.id,order);
  await call('receive',{id:order,status:'En stock',qty:4,location:'A2'},client,403);
  await call('receive',{id:order,status:'En stock',qty:4,location:'A2'},prep);
  const item=(await call('state',undefined,client)).data.items[0].id;

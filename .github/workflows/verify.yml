@@ -2,6 +2,9 @@ name: Vérifier Packio
 on:
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: packio-pr-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
