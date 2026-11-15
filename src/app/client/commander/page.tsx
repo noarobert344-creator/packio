@@ -37,7 +37,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
     <div className="space-y-8">
       <PageHeader
         title="Commander des articles"
-        description="Achetez sur Vinted, ZenMarket, SHEIN, AliExpress ou toute boutique compatible, en vous faisant livrer au point de réception de votre préparateur. Déclarez ensuite la commande ici."
+        description="Achetez sur ZenMarket, Vinted ou Vestiaire Collective pour votre stock, ou sur Temu, SHEIN et AliExpress en dropshipping, en vous faisant livrer au point de réception de votre préparateur. Déclarez ensuite la commande ici."
         actions={
           <Button asChild>
             <a href="#nouvelle-commande">Nouvelle commande</a>
@@ -70,37 +70,53 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
         )}
       </div>
 
-      <Section title="Fournisseurs et compatibilité" description="Packio ne suppose pas qu'un fournisseur livre partout : chaque combinaison fournisseur / point de réception est vérifiée." contentClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {info.suppliers.map((s) => {
-          const okCount = Object.values(s.compatibility).filter((c) => c.ok).length;
-          return (
-            <div key={s.id} className="flex flex-col gap-2 rounded-xl border p-4">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-medium">{s.name}</p>
-                <span className={okCount ? "text-xs text-success" : "text-xs text-muted-foreground"}>
-                  {okCount} / {info.locations.length} point(s) compatible(s)
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Livre vers : {s.acceptedLocationTypes.map((t) => LOCATION_TYPE[t]).join(", ")}
-              </p>
-              {s.requiresPickupCode && (
-                <p className="flex items-center gap-1 text-xs text-warning">
-                  <KeyRound className="size-3" /> Code de retrait à transmettre
-                </p>
-              )}
-              {s.compatibilityNotes && <p className="text-xs text-muted-foreground">{s.compatibilityNotes}</p>}
-              {s.websiteUrl && (
-                <Button asChild variant="outline" size="sm" className="mt-auto w-fit">
-                  <a href={s.websiteUrl} target="_blank" rel="noopener noreferrer">
-                    Ouvrir le fournisseur <ExternalLink />
-                  </a>
-                </Button>
-              )}
-            </div>
-          );
-        })}
-      </Section>
+      {(
+        [
+          { mode: "STOCK", title: "Commander pour mon stock", description: "ZenMarket, Vinted et Vestiaire Collective : l'article est réceptionné et stocké chez votre préparateur." },
+          { mode: "DROPSHIP", title: "Dropshipping", description: "Temu, SHEIN et AliExpress : l'article déjà vendu est expédié à votre acheteur dès sa réception, sous 48 h." },
+        ] as const
+      ).map((group) => {
+        const list = info.suppliers.filter((s) => s.orderModes.includes(group.mode));
+        if (!list.length) return null;
+        return (
+          <Section key={group.mode} title={group.title} description={group.description} contentClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {list.map((s) => {
+              const okCount = Object.values(s.compatibility).filter((c) => c.ok).length;
+              return (
+                <div key={s.id} className="flex flex-col gap-2 rounded-xl border p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium">{s.name}</p>
+                    <span className={okCount ? "text-xs text-success" : "text-xs text-muted-foreground"}>
+                      {okCount} / {info.locations.length} point(s) compatible(s)
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Livre vers : {s.acceptedLocationTypes.map((t) => LOCATION_TYPE[t]).join(", ")}
+                  </p>
+                  {s.requiresPickupCode && (
+                    <p className="flex items-center gap-1 text-xs text-warning">
+                      <KeyRound className="size-3" /> Code de retrait à transmettre
+                    </p>
+                  )}
+                  {s.compatibilityNotes && <p className="text-xs text-muted-foreground">{s.compatibilityNotes}</p>}
+                  <div className="mt-auto flex flex-wrap gap-2 pt-1">
+                    <Button asChild size="sm" variant="secondary">
+                      <a href={`?${group.mode === "DROPSHIP" ? "mode=dropshipping&" : ""}fournisseur=${s.code}#nouvelle-commande`}>Déclarer une commande</a>
+                    </Button>
+                    {s.websiteUrl && (
+                      <Button asChild variant="outline" size="sm">
+                        <a href={s.websiteUrl} target="_blank" rel="noopener noreferrer">
+                          Ouvrir {s.name} <ExternalLink />
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </Section>
+        );
+      })}
 
       <div id="nouvelle-commande" className="scroll-mt-24">
         <Section title="Nouvelle commande" description="Ces informations permettent à votre préparateur d'identifier et de contrôler votre colis.">
@@ -114,6 +130,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
               requiresPickupCode: s.requiresPickupCode,
               compatibilityNotes: s.compatibilityNotes,
               compatibility: s.compatibility,
+              orderModes: s.orderModes,
             }))}
             locations={info.locations.map((l) => ({ id: l.id, label: l.label, detail: l.relayName ? `${l.relayName}, ${l.city}` : `${l.addressLine1}, ${l.city}` }))}
             defaultMode={one(sp.mode) === "dropshipping" ? "DROPSHIP" : "STOCK"}

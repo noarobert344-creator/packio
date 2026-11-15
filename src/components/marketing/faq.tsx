@@ -69,8 +69,8 @@ export function Faq({ ctx }: { ctx: FaqContext }) {
       ),
     },
     {
-      q: "Puis-je commander chez n'importe quel fournisseur ?",
-      a: "Vinted, SHEIN, AliExpress, ZenMarket et la plupart des boutiques en ligne sont utilisables. Tous les fournisseurs ne livrent cependant pas vers tous les lockers ou points relais : Packio vérifie la compatibilité entre le fournisseur et le point de réception avant d'enregistrer votre commande, et vous propose l'adresse adaptée.",
+      q: "Chez quels fournisseurs puis-je commander ?",
+      a: "Pour votre stock : ZenMarket, Vinted et Vestiaire Collective. En dropshipping (article déjà vendu, expédié à votre acheteur dès réception) : Temu, SHEIN et AliExpress. Tous les fournisseurs ne livrent pas vers tous les lockers ou points relais : Packio vérifie la compatibilité entre le fournisseur et le point de réception avant d'enregistrer votre commande, et vous propose l'adresse adaptée.",
     },
     {
       q: "Comment fonctionne la réception en locker ?",
@@ -105,7 +105,7 @@ export function Faq({ ctx }: { ctx: FaqContext }) {
     },
     {
       q: "Comment fonctionne le dropshipping Vinted ?",
-      a: `Vous avez vendu un article que vous n'avez pas encore ? Commandez-le chez votre fournisseur en livraison vers votre préparateur et déclarez la commande en dropshipping, avec le bordereau de la vente (ou l'adresse de l'acheteur). À la réception, votre préparateur l'expédie directement à l'acheteur, sous ${ctx.shippingHours} h : l'article n'occupe aucune place de stock. Vous restez l'interlocuteur de votre acheteur et respectez les règles de la plateforme de vente.`,
+      a: `Vous avez vendu un article que vous n'avez pas encore ? Commandez-le sur Temu, SHEIN ou AliExpress en livraison vers votre préparateur et déclarez la commande en dropshipping, avec le bordereau de la vente (ou l'adresse de l'acheteur). À la réception, votre préparateur l'expédie directement à l'acheteur, sous ${ctx.shippingHours} h : l'article n'occupe aucune place de stock. Vous restez l'interlocuteur de votre acheteur et respectez les règles de la plateforme de vente.`,
     },
     {
       q: "Puis-je récupérer les photos de mes articles ?",

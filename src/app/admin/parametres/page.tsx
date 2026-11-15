@@ -152,6 +152,7 @@ type SupplierRow = {
   acceptedNetworks: string[];
   requiresPickupCode: boolean;
   compatibilityNotes: string | null;
+  orderModes: ("STOCK" | "DROPSHIP")[];
   isActive: boolean;
   sortOrder: number;
 };
@@ -176,6 +177,16 @@ function SupplierFields({ s }: { s?: SupplierRow }) {
       <CheckboxGroup name="acceptedNetworks" label="Réseaux de lockers / points relais acceptés" options={PICKUP_NETWORKS.map((n) => ({ value: n.code, label: n.label }))} selected={s?.acceptedNetworks ?? []} />
       <CheckboxField name="requiresPickupCode" label="Le retrait nécessite un code transmis au client" defaultChecked={s?.requiresPickupCode} />
       <TextAreaField name="compatibilityNotes" label="Notes de compatibilité (affichées au client)" defaultValue={s?.compatibilityNotes ?? ""} rows={3} />
+      <CheckboxGroup
+        name="orderModes"
+        label="Proposé pour"
+        options={[
+          { value: "STOCK", label: "Commandes vers le stock" },
+          { value: "DROPSHIP", label: "Dropshipping" },
+        ]}
+        selected={s?.orderModes ?? ["STOCK"]}
+        columns={2}
+      />
       <div className="grid grid-cols-[1fr_6rem] items-end gap-3">
         <CheckboxField name="isActive" label="Proposé aux clients" defaultChecked={s?.isActive ?? true} />
         <TextField name="sortOrder" label="Ordre" type="number" min={0} defaultValue={s?.sortOrder ?? 50} required />
@@ -213,6 +224,7 @@ async function SuppliersTab() {
             <TableHead className="pl-5">Fournisseur</TableHead>
             <TableHead>Livre vers</TableHead>
             <TableHead className="min-w-64">Réseaux acceptés</TableHead>
+            <TableHead>Proposé pour</TableHead>
             <TableHead>Code de retrait</TableHead>
             <TableHead className="text-right">Commandes</TableHead>
             <TableHead>Statut</TableHead>
@@ -228,6 +240,9 @@ async function SuppliersTab() {
               </TableCell>
               <TableCell className="text-xs">{s.acceptedLocationTypes.map((t) => LOCATION_TYPE[t]).join(", ")}</TableCell>
               <TableCell className="max-w-80 text-xs whitespace-normal text-muted-foreground">{s.acceptedNetworks.length ? s.acceptedNetworks.map(networkLabel).join(", ") : "—"}</TableCell>
+              <TableCell className="text-xs">
+                {s.orderModes.length ? s.orderModes.map((m) => (m === "STOCK" ? "Stock" : "Dropshipping")).join(", ") : <span className="text-muted-foreground">Aucun</span>}
+              </TableCell>
               <TableCell className="text-xs">{s.requiresPickupCode ? "Requis" : "—"}</TableCell>
               <TableCell className="text-right tabular">{s._count.orders}</TableCell>
               <TableCell>

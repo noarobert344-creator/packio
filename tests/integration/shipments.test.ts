@@ -29,7 +29,7 @@ async function setup(plan: "STARTER" | "PRO" = "STARTER") {
 }
 
 async function stockedItem(customer: Actor, preparer: Actor, locationId: string, qty = 3) {
-  const supplier = await db.supplier.findUniqueOrThrow({ where: { code: "ALIEXPRESS" } });
+  const supplier = await db.supplier.findUniqueOrThrow({ where: { code: "ZENMARKET" } });
   const order = await createSupplierOrder(customer, { supplierId: supplier.id, locationId, description: "Coques de téléphone", quantity: qty, trackingNumber: "LP00123456789CN" });
   await markPickedUp(preparer, { orderId: order.id });
   await receiveOrder(preparer, { orderId: order.id, quantityReceived: qty, conditionOk: true });
@@ -190,11 +190,16 @@ describe("Parcours commande → stock → expédition → crédits", () => {
     const prep = await createPreparerWithLocation(admin, { locationType: "LOCKER" });
     const client = await createCustomer();
     await assignPreparer(admin, { customerId: client.customerId, preparerId: prep.preparer.id });
-    const aliexpress = await db.supplier.findUniqueOrThrow({ where: { code: "ALIEXPRESS" } });
+    const zenmarket = await db.supplier.findUniqueOrThrow({ where: { code: "ZENMARKET" } });
     const vinted = await db.supplier.findUniqueOrThrow({ where: { code: "VINTED" } });
     await expect(
-      createSupplierOrder(client.actor, { supplierId: aliexpress.id, locationId: prep.location.id, description: "Lampe", quantity: 1 }),
+      createSupplierOrder(client.actor, { supplierId: zenmarket.id, locationId: prep.location.id, description: "Lampe", quantity: 1 }),
     ).rejects.toThrow(/ne livre pas/);
+    // Fournisseurs réservés à un type de commande.
+    const temu = await db.supplier.findUniqueOrThrow({ where: { code: "TEMU" } });
+    await expect(
+      createSupplierOrder(client.actor, { supplierId: temu.id, locationId: prep.location.id, description: "Lampe", quantity: 1 }),
+    ).rejects.toMatchObject({ code: "SUPPLIER_MODE" });
     const ok = await createSupplierOrder(client.actor, { supplierId: vinted.id, locationId: prep.location.id, description: "Veste en jean", quantity: 1 });
     await customerUpdateOrder(client.actor, { orderId: ok.id, status: "AT_LOCKER", pickupCode: "483920" });
     expect((await db.supplierOrder.findUniqueOrThrow({ where: { id: ok.id } })).pickupCode).toBe("483920");

@@ -149,6 +149,8 @@ Contraintes notables (migration `integrity_constraints`) :
 
 ### Points de réception et fournisseurs
 
+Fournisseurs proposés par type de commande (réglable dans `Admin → Paramètres → Fournisseurs`, contrôlé côté serveur) : **commandes vers le stock** : ZenMarket, Vinted, Vestiaire Collective ; **dropshipping** : Temu, SHEIN, AliExpress.
+
 Seuls les lieux **validés par un administrateur** sont communiqués aux clients. Chaque fournisseur déclare les types de points (adresse professionnelle, locker, point relais) et les réseaux acceptés ; une commande vers un point incompatible est refusée. Les valeurs initiales sont volontairement prudentes et **doivent être vérifiées** dans `Admin → Paramètres → Fournisseurs`. Pour les lockers, le client transmet le **code de retrait** depuis la fiche de la commande (visible uniquement par lui et son préparateur). Chaque client dispose d'un **code client** (`PK-XXXXX`) à indiquer sur ses colis.
 
 ### Crédits
@@ -164,9 +166,9 @@ Seuls les lieux **validés par un administrateur** sont communiqués aux clients
 
 | Offre | Mensuel | Annuel (1 mois offert) | Crédits / mois | Places de stockage |
 | --- | --- | --- | --- | --- |
-| Starter | 39 € / mois | 429 € / an (≈ 35,75 € / mois) | 20 | 10 articles |
-| Pro | 95 € / mois | 1 045 € / an (≈ 87,08 € / mois) | 50 | 25 articles |
-| Business | 171 € / mois | 1 881 € / an (≈ 156,75 € / mois) | 90 | 60 articles |
+| Starter | 39 € / mois | 429 € / an (≈ 35,75 € / mois) | 20 | 5 articles |
+| Pro | 95 € / mois | 1 045 € / an (≈ 87,08 € / mois) | 50 | 10 articles |
+| Business | 171 € / mois | 1 881 € / an (≈ 156,75 € / mois) | 90 | 20 articles |
 
 **Prix minimum d'un crédit : 1,90 €** en abonnement mensuel comme en recharge (Starter 1,95 €, Pro et Business 1,90 €, recharges de 1,99 € à 2,49 €). Le back-office refuse un prix inférieur ; seule la formule annuelle (1 mois offert) descend en dessous.
 
@@ -217,11 +219,15 @@ Règles paramétrables (réglage `storage`, valeurs par défaut dans `src/server
 
 ### Dropshipping
 
-Pour un article déjà vendu (Vinted ou autre), le client déclare sa commande fournisseur en **dropshipping**, avec le bordereau de la vente ou, à défaut, l'adresse complète de l'acheteur. À la mise en stock par le préparateur, les articles sont marqués « dropshipping » et une expédition **express** (type « Dropshipping ») vers l'acheteur est créée automatiquement, avec le bordereau joint et l'échéance de 48 h. Aucune place n'est consommée.
+Pour un article déjà vendu (Vinted ou autre), le client le commande sur Temu, SHEIN ou AliExpress et déclare la commande en **dropshipping**, avec le bordereau de la vente ou, à défaut, l'adresse complète de l'acheteur. À la mise en stock par le préparateur, les articles sont marqués « dropshipping » et une expédition **express** (type « Dropshipping ») vers l'acheteur est créée automatiquement, avec le bordereau joint et l'échéance de 48 h. Aucune place n'est consommée.
 
-### Photos produit
+### À vendre (photos produit)
 
-Le préparateur photographie les articles en stock depuis sa fiche article ; le client est notifié et télécharge les photos depuis `Mon stock → article`, pour ses propres annonces. Les fichiers restent privés (accès contrôlé côté serveur).
+Le préparateur dispose d'un espace **À vendre** (`/preparateur/a-vendre`) : les articles de ses clients à photographier, puis les photos publiées (badge dans la navigation). Les photos sont publiées dans l'espace **À vendre** du client (`/client/a-vendre`) : galerie par article, téléchargement (une photo ou toutes en ZIP), SKU à copier dans l'annonce et statut de l'annonce liée (à publier, en ligne, vendu). Le client est notifié. Les fichiers restent privés (accès contrôlé côté serveur).
+
+### Bordereaux
+
+Les bordereaux arrivent automatiquement dans l'espace **Bordereaux** du préparateur (`/preparateur/bordereaux`, badge dans la navigation) et du client (`/client/bordereaux`), chacun **à côté de l'article** à expédier (photo, SKU, emplacement) : bordereaux des ventes Vinted / Vestiaire Collective remontés par Packio Connect, des commandes en dropshipping et ceux joints aux demandes d'expédition. Le préparateur imprime ou télécharge le bordereau et voit l'échéance de 48 h ; le client voit aussi les ventes dont le bordereau n'est pas encore arrivé.
 
 ### Packio Connect (extension navigateur)
 
@@ -329,7 +335,7 @@ npm test
 - **crédits supplémentaires** : uniquement 10, 30, 50 ou 100, achat, abonnement requis ;
 - **permissions** : isolation entre clients, entre préparateurs, permissions administrateur, messagerie, fichiers.
 
-Parcours de bout en bout (Playwright) — reproduit le parcours du cahier des charges : souscription Starter et paiement, message d'attente 24 h, attribution manuelle par l'administrateur, commande AliExpress, réception et mise en stock par le préparateur, demande d'expédition, classification (crédits réservés), préparation, étiquette, dépôt (crédits débités) avec suivi transporteur, messagerie client ↔ préparateur et supervision dans le back-office. Prérequis : base de développement initialisée (`npm run db:seed`) et `BILLING_MODE="dev"` ; le serveur de développement est démarré automatiquement s'il ne tourne pas.
+Parcours de bout en bout (Playwright) — reproduit le parcours du cahier des charges : souscription Starter et paiement, message d'attente 24 h, attribution manuelle par l'administrateur, commande ZenMarket vers le stock, réception et mise en stock par le préparateur, demande d'expédition, classification (crédits réservés), préparation, étiquette, dépôt (crédits débités) avec suivi transporteur, messagerie client ↔ préparateur et supervision dans le back-office. Prérequis : base de développement initialisée (`npm run db:seed`) et `BILLING_MODE="dev"` ; le serveur de développement est démarré automatiquement s'il ne tourne pas.
 
 ```bash
 npm run test:e2e

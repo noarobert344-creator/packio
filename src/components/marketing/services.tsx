@@ -12,7 +12,7 @@ export function Services({ shippingHours }: { shippingHours: number }) {
     {
       icon: Zap,
       title: "Dropshipping Vinted",
-      text: "Vous avez vendu un article que vous n'avez pas encore ? Commandez-le chez votre fournisseur vers votre préparateur, joignez le bordereau Vinted : il l'expédie à l'acheteur dès réception, sans passer par votre stock.",
+      text: "Vous avez vendu un article que vous n'avez pas encore ? Commandez-le sur Temu, SHEIN ou AliExpress vers votre préparateur, joignez le bordereau Vinted : il l'expédie à l'acheteur dès réception, sans passer par votre stock.",
     },
     {
       icon: Camera,

@@ -25,7 +25,7 @@ const STEPS = [
   {
     icon: ShoppingBag,
     title: "Commandez vers son point de réception",
-    text: "Achetez sur Vinted, SHEIN, AliExpress, ZenMarket ou ailleurs, en livraison vers l'adresse ou le locker validé de votre préparateur, puis déclarez la commande. Article déjà vendu ? Passez-la en dropshipping.",
+    text: "Achetez sur ZenMarket, Vinted ou Vestiaire Collective pour votre stock, en livraison vers l'adresse ou le locker validé de votre préparateur, puis déclarez la commande. Article déjà vendu ? Commandez-le sur Temu, SHEIN ou AliExpress en dropshipping.",
   },
   {
     icon: PackageCheck,

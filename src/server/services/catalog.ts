@@ -1,4 +1,4 @@
-import type { CustomerStatus, LocationType, ParcelSize } from "@/generated/prisma/enums";
+import type { CustomerStatus, LocationType, OrderMode, ParcelSize } from "@/generated/prisma/enums";
 import { db } from "@/server/db";
 import { DomainError, NotFoundError } from "@/server/errors";
 import { assertAdmin, type Actor } from "@/server/auth/actor";
@@ -149,6 +149,7 @@ export async function saveSupplier(
     acceptedNetworks: string[];
     requiresPickupCode: boolean;
     compatibilityNotes?: string | null;
+    orderModes: OrderMode[];
     isActive: boolean;
     sortOrder: number;
   },
@@ -163,6 +164,7 @@ export async function saveSupplier(
     acceptedNetworks: input.acceptedNetworks,
     requiresPickupCode: input.requiresPickupCode,
     compatibilityNotes: input.compatibilityNotes?.trim() || null,
+    orderModes: [...new Set(input.orderModes)],
     isActive: input.isActive,
     sortOrder: input.sortOrder,
   };

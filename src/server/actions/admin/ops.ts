@@ -308,6 +308,7 @@ const supplierSchema = z.object({
   acceptedNetworks: stringArray(),
   requiresPickupCode: checkbox(),
   compatibilityNotes: optionalText(1000),
+  orderModes: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.enum(["STOCK", "DROPSHIP"]))),
   isActive: checkbox(),
   sortOrder: intField("Ordre", { min: 0, max: 999 }),
 });

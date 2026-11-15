@@ -27,7 +27,7 @@ async function setup() {
 }
 
 async function stockedItem(customer: Actor, preparer: Actor, locationId: string, qty = 2) {
-  const supplier = await db.supplier.findUniqueOrThrow({ where: { code: "ALIEXPRESS" } });
+  const supplier = await db.supplier.findUniqueOrThrow({ where: { code: "ZENMARKET" } });
   const order = await createSupplierOrder(customer, { supplierId: supplier.id, locationId, description: "Vestes en jean", quantity: qty });
   await markPickedUp(preparer, { orderId: order.id });
   await receiveOrder(preparer, { orderId: order.id, quantityReceived: qty, conditionOk: true });

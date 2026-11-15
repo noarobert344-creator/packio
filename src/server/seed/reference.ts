@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@/generated/prisma/client";
-import type { LocationType } from "@/generated/prisma/enums";
+import type { LocationType, OrderMode } from "@/generated/prisma/enums";
 import { SYSTEM_ROLES } from "@/server/auth/permissions";
 
 /**
@@ -32,9 +32,9 @@ const plan = (code: string, name: string, tagline: string, priceCents: number, m
 });
 
 export const DEFAULT_PLANS = [
-  plan("STARTER", "Starter", "Pour lancer votre activité sans gérer un seul colis.", 3900, 20, 10, false, 1),
-  plan("PRO", "Pro", "Pour les vendeurs réguliers qui expédient chaque semaine.", 9500, 50, 25, true, 2),
-  plan("BUSINESS", "Business", "Pour les boutiques à fort volume.", 17100, 90, 60, false, 3),
+  plan("STARTER", "Starter", "Pour lancer votre activité sans gérer un seul colis.", 3900, 20, 5, false, 1),
+  plan("PRO", "Pro", "Pour les vendeurs réguliers qui expédient chaque semaine.", 9500, 50, 10, true, 2),
+  plan("BUSINESS", "Business", "Pour les boutiques à fort volume.", 17100, 90, 20, false, 3),
 ];
 
 export const DEFAULT_SIZE_RULES = [
@@ -52,6 +52,9 @@ export const DEFAULT_CREDIT_PACKS = [
 ];
 
 const ALL: LocationType[] = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT"];
+/** Commandes pour le stock : ZenMarket, Vinted, Vestiaire Collective. Dropshipping : Temu, SHEIN, AliExpress. */
+const STOCK: OrderMode[] = ["STOCK"];
+const DROPSHIP: OrderMode[] = ["DROPSHIP"];
 
 /**
  * Compatibilités par défaut, volontairement prudentes. Elles doivent être
@@ -66,7 +69,8 @@ export const DEFAULT_SUPPLIERS = [
     acceptedLocationTypes: ALL,
     acceptedNetworks: ["MONDIAL_RELAY", "INPOST", "RELAIS_COLIS", "VINTED_GO", "CHRONOPOST_PICKUP"],
     requiresPickupCode: true,
-    sortOrder: 1,
+    orderModes: STOCK,
+    sortOrder: 2,
     compatibilityNotes:
       "Les modes de livraison proposés dépendent du vendeur et du pays. Choisissez au paiement le point relais ou le locker de votre préparateur, avec le nom de destinataire indiqué. Transmettez ensuite le code de retrait reçu.",
   },
@@ -77,8 +81,32 @@ export const DEFAULT_SUPPLIERS = [
     acceptedLocationTypes: ["BUSINESS_ADDRESS"] as LocationType[],
     acceptedNetworks: [],
     requiresPickupCode: false,
-    sortOrder: 2,
+    orderModes: STOCK,
+    sortOrder: 1,
     compatibilityNotes: "Expédition internationale vers une adresse complète avec numéro de téléphone : les lockers et points relais ne sont pas utilisables.",
+  },
+  {
+    code: "VESTIAIRE",
+    name: "Vestiaire Collective",
+    websiteUrl: "https://fr.vestiairecollective.com",
+    acceptedLocationTypes: ["BUSINESS_ADDRESS"] as LocationType[],
+    acceptedNetworks: [],
+    requiresPickupCode: false,
+    orderModes: STOCK,
+    sortOrder: 3,
+    compatibilityNotes:
+      "Livraison à l'adresse professionnelle de votre préparateur (nom du destinataire et code client indiqués dans votre espace). Les options de point relais varient selon la commande : vérifiez-les au paiement.",
+  },
+  {
+    code: "TEMU",
+    name: "Temu",
+    websiteUrl: "https://www.temu.com/fr",
+    acceptedLocationTypes: ["BUSINESS_ADDRESS"] as LocationType[],
+    acceptedNetworks: [],
+    requiresPickupCode: false,
+    orderModes: DROPSHIP,
+    sortOrder: 4,
+    compatibilityNotes: "Livraison à l'adresse professionnelle de votre préparateur. Les délais de livraison varient : tenez-en compte dans le délai annoncé à votre acheteur.",
   },
   {
     code: "SHEIN",
@@ -87,7 +115,8 @@ export const DEFAULT_SUPPLIERS = [
     acceptedLocationTypes: ["BUSINESS_ADDRESS", "RELAY_POINT"] as LocationType[],
     acceptedNetworks: ["MONDIAL_RELAY", "RELAIS_COLIS"],
     requiresPickupCode: false,
-    sortOrder: 3,
+    orderModes: DROPSHIP,
+    sortOrder: 5,
     compatibilityNotes: "La livraison en point relais n'est pas proposée pour toutes les commandes : vérifiez l'option au moment du paiement.",
   },
   {
@@ -97,7 +126,8 @@ export const DEFAULT_SUPPLIERS = [
     acceptedLocationTypes: ["BUSINESS_ADDRESS"] as LocationType[],
     acceptedNetworks: [],
     requiresPickupCode: false,
-    sortOrder: 4,
+    orderModes: DROPSHIP,
+    sortOrder: 6,
     compatibilityNotes: "Livraison à l'adresse professionnelle du préparateur recommandée. Les options de retrait varient selon le vendeur et ne sont pas activées par défaut.",
   },
   {
@@ -107,6 +137,8 @@ export const DEFAULT_SUPPLIERS = [
     acceptedLocationTypes: ALL,
     acceptedNetworks: ["MONDIAL_RELAY", "INPOST", "RELAIS_COLIS", "VINTED_GO", "CHRONOPOST_PICKUP", "LA_POSTE", "UPS_ACCESS_POINT", "DPD_PICKUP", "GLS_RELAY", "AMAZON_LOCKER", "OTHER"],
     requiresPickupCode: false,
+    /** Non proposé aux clients par défaut ; activable dans le back-office. */
+    orderModes: [] as OrderMode[],
     sortOrder: 99,
     compatibilityNotes: "Vous devez confirmer que la boutique livre bien vers le point de réception choisi.",
   },

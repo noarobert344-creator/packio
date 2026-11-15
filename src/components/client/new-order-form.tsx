@@ -31,6 +31,8 @@ export type OrderSupplier = {
   requiresPickupCode: boolean;
   compatibilityNotes: string | null;
   compatibility: Record<string, { ok: true } | { ok: false; reason: string }>;
+  /** Types de commande pour lesquels le fournisseur est proposé. */
+  orderModes: ("STOCK" | "DROPSHIP")[];
 };
 
 export function NewOrderForm({
@@ -46,14 +48,21 @@ export function NewOrderForm({
   storage: OrderStorageInfo;
   defaultMode?: "STOCK" | "DROPSHIP";
 }) {
-  const [mode, setMode] = useState<"STOCK" | "DROPSHIP">(defaultMode);
+  const [mode, setModeState] = useState<"STOCK" | "DROPSHIP">(defaultMode);
+  const modeSuppliers = useMemo(() => suppliers.filter((s) => s.orderModes.includes(mode)), [suppliers, mode]);
   const [quantity, setQuantity] = useState("1");
   const qty = Math.max(0, Number.parseInt(quantity, 10) || 0);
   const missing = storage.capacity === null || mode === "DROPSHIP" ? 0 : storage.used + storage.incoming + qty - storage.capacity;
   const creditsNeeded = missing > 0 ? Math.ceil(missing / storage.slotsPerCredit) : 0;
   const slotsAdded = creditsNeeded * storage.slotsPerCredit;
-  const [supplierId, setSupplierId] = useState(() => suppliers.find((s) => s.code === defaultSupplier)?.id ?? suppliers[0]?.id ?? "");
-  const supplier = suppliers.find((s) => s.id === supplierId);
+  const [supplierId, setSupplierId] = useState(
+    () => suppliers.find((s) => s.code === defaultSupplier && s.orderModes.includes(defaultMode))?.id ?? suppliers.find((s) => s.orderModes.includes(defaultMode))?.id ?? "",
+  );
+  const supplier = modeSuppliers.find((s) => s.id === supplierId) ?? modeSuppliers[0];
+  const setMode = (next: "STOCK" | "DROPSHIP") => {
+    setModeState(next);
+    if (!suppliers.find((s) => s.id === supplierId)?.orderModes.includes(next)) setSupplierId(suppliers.find((s) => s.orderModes.includes(next))?.id ?? "");
+  };
   const compatible = useMemo(() => locations.filter((l) => supplier?.compatibility[l.id]?.ok), [locations, supplier]);
   const [locationId, setLocationId] = useState(compatible[0]?.id ?? "");
   const effectiveLocation = compatible.some((l) => l.id === locationId) ? locationId : (compatible[0]?.id ?? "");
@@ -92,9 +101,10 @@ export function NewOrderForm({
           name="supplierId"
           label="Fournisseur"
           required
-          value={supplierId}
+          value={supplier?.id ?? ""}
           onChange={(e) => setSupplierId(e.target.value)}
-          options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
+          options={modeSuppliers.map((s) => ({ value: s.id, label: s.name }))}
+          hint={mode === "DROPSHIP" ? "Dropshipping : Temu, SHEIN ou AliExpress." : "Commandes vers le stock : ZenMarket, Vinted ou Vestiaire Collective."}
         />
         {supplier?.code === "OTHER" && <TextField name="supplierLabel" label="Nom de la boutique" required placeholder="Ex. : Zalando, Leboncoin…" />}
       </div>

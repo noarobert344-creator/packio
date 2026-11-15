@@ -152,6 +152,11 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
     const supplier = await tx.supplier.findUnique({ where: { id: input.supplierId } });
     const location = await tx.preparerLocation.findUnique({ where: { id: input.locationId } });
     if (!supplier || !supplier.isActive) throw new DomainError("SUPPLIER", "Fournisseur invalide.", { fieldErrors: { supplierId: "Fournisseur invalide" } });
+    if (!supplier.orderModes.includes(dropship ? "DROPSHIP" : "STOCK")) {
+      throw new DomainError("SUPPLIER_MODE", dropship ? `${supplier.name} n'est pas proposé pour le dropshipping.` : `${supplier.name} n'est pas proposé pour les commandes vers le stock.`, {
+        fieldErrors: { supplierId: "Fournisseur non proposé pour ce type de commande" },
+      });
+    }
     if (!location || location.preparerId !== preparerId || !location.isActive || !location.validatedAt) {
       throw new DomainError("LOCATION", "Ce point de réception n'est pas disponible.", { fieldErrors: { locationId: "Point de réception invalide" } });
     }

@@ -187,7 +187,7 @@ export async function adjustQuantityAction(_prev: ActionState, formData: FormDat
     async (actor, data) => {
       if (data.delta === 0) return { ok: false, error: "Indiquez une variation non nulle.", fieldErrors: { delta: "Non nulle" } };
       await adjustQuantity(actor, data);
-      refresh(`/preparateur/stock/${data.itemId}`, "/preparateur/stock");
+      refresh(`/preparateur/stock/${data.itemId}`, "/preparateur/stock", "/preparateur/a-vendre");
       return { ok: true, message: "Quantité mise à jour." };
     },
   );
@@ -212,7 +212,7 @@ export async function updateItemAction(_prev: ActionState, formData: FormData): 
         notes: "notes" in raw ? (data.notes ?? null) : undefined,
         photoIds: data.photoIds,
       });
-      refresh(`/preparateur/stock/${data.itemId}`, "/preparateur/stock");
+      refresh(`/preparateur/stock/${data.itemId}`, "/preparateur/stock", "/preparateur/a-vendre");
       return { ok: true, message: data.photoIds.length ? "Photos ajoutées." : "Article mis à jour." };
     },
   );

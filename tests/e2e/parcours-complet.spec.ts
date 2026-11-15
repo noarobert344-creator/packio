@@ -6,7 +6,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
  *  1. un visiteur choisit Starter, s'inscrit, paie, voit le message d'attente ;
  *  2. l'administrateur attribue manuellement un préparateur (Camille ou Yanis,
  *     selon la capacité restante) ;
- *  3. le client voit son préparateur et enregistre une commande AliExpress ;
+ *  3. le client voit son préparateur et enregistre une commande ZenMarket (vers le stock) ;
  *  4. le préparateur réceptionne le colis et le met en stock ;
  *  5. le client demande une expédition ;
  *  6. le préparateur classe le colis (crédits réservés), prépare, dépose
@@ -77,7 +77,7 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   await admin.getByRole("button", { name: "Confirmer l'attribution" }).click();
   await expect(admin.getByText("est désormais le préparateur attitré", { exact: false })).toBeVisible();
 
-  // 3. Le client voit son préparateur et son point de réception, puis commande sur AliExpress
+  // 3. Le client voit son préparateur et son point de réception, puis commande sur ZenMarket (commande vers le stock)
   await expect(async () => {
     await page.goto("/client/preparateur");
     await expect(page.getByRole("heading", { name: preparer!.name })).toBeVisible({ timeout: 3_000 });
@@ -85,7 +85,7 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   await expect(page.getByText("Adresses de réception validées")).toBeVisible();
   await page.goto("/client/commander");
   const form = page.locator("#nouvelle-commande");
-  await form.locator('select[name="supplierId"]').selectOption({ label: "AliExpress" });
+  await form.locator('select[name="supplierId"]').selectOption({ label: "ZenMarket" });
   await form.locator('input[name="description"]').fill("Coque de téléphone transparente");
   await form.locator('input[name="quantity"]').fill("2");
   await form.locator('input[name="trackingNumber"]').fill("LPE2E000000001CN");

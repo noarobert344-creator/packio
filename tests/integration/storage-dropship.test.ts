@@ -21,8 +21,9 @@ async function setup(plan: "STARTER" | "PRO" = "STARTER") {
   return { admin, prep, client };
 }
 
-async function supplierId() {
-  return (await db.supplier.findUniqueOrThrow({ where: { code: "ALIEXPRESS" } })).id;
+/** Commande vers le stock : ZenMarket ; dropshipping : AliExpress. */
+async function supplierId(code: "ZENMARKET" | "ALIEXPRESS" | "VINTED" = "ZENMARKET") {
+  return (await db.supplier.findUniqueOrThrow({ where: { code } })).id;
 }
 
 async function stocked(customer: Actor, preparer: Actor, locationId: string, qty: number, opts?: { accept?: boolean }) {
@@ -50,12 +51,12 @@ async function drain(admin: Actor, customerId: string) {
 describe("Stockage, retours, dropshipping et délai de 48 h", () => {
   beforeEach(resetDb);
 
-  it("offres : 39 €, 95 €, 171 € (1,90 € minimum le crédit) ; 20, 50, 90 crédits ; 10, 25, 60 places ; recharges réévaluées", async () => {
+  it("offres : 39 €, 95 €, 171 € (1,90 € minimum le crédit) ; 20, 50, 90 crédits ; 5, 10, 20 places ; recharges réévaluées", async () => {
     const plans = await db.plan.findMany({ orderBy: { sortOrder: "asc" } });
     expect(plans.map((p) => [p.code, p.priceCents, p.monthlyCredits, p.storageLimit, p.annualPriceCents])).toEqual([
-      ["STARTER", 3900, 20, 10, 42900],
-      ["PRO", 9500, 50, 25, 104500],
-      ["BUSINESS", 17100, 90, 60, 188100],
+      ["STARTER", 3900, 20, 5, 42900],
+      ["PRO", 9500, 50, 10, 104500],
+      ["BUSINESS", 17100, 90, 20, 188100],
     ]);
     const packs = await db.creditPack.findMany({ where: { isActive: true }, orderBy: { credits: "asc" } });
     expect(packs.map((p) => [p.credits, p.priceCents])).toEqual([
@@ -79,7 +80,7 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
 
   it("commande au-delà des places : crédits demandés avec accord, 3 places par crédit pour 30 jours", async () => {
     const { prep, client } = await setup();
-    await stocked(client.actor, prep.actor, prep.location.id, 8);
+    await stocked(client.actor, prep.actor, prep.location.id, 3);
     const sid = await supplierId();
     const order = { supplierId: sid, locationId: prep.location.id, description: "Lot de cintres", quantity: 4 };
 
@@ -87,7 +88,7 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
     const created = await createSupplierOrder(client.actor, { ...order, acceptStorageCharge: true });
     expect(created.storageCreditsCharged).toBe(1);
     const overview = await getStorageOverview(client.customerId);
-    expect([overview.included, overview.extra, overview.capacity, overview.used, overview.incoming]).toEqual([10, 3, 13, 8, 4]);
+    expect([overview.included, overview.extra, overview.capacity, overview.used, overview.incoming]).toEqual([5, 3, 8, 3, 4]);
     expect(overview.purchases[0].expiresAt.getTime() - overview.purchases[0].startsAt.getTime()).toBe(30 * 86_400_000);
     expect(await db.creditTransaction.count({ where: { type: "STORAGE_FEE" } })).toBe(1);
     expect((await wallet(client.customerId)).monthlyBalance).toBe(19);
@@ -99,7 +100,7 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
 
   it("refuse la commande hors places si le solde est insuffisant", async () => {
     const { admin, prep, client } = await setup();
-    await stocked(client.actor, prep.actor, prep.location.id, 10);
+    await stocked(client.actor, prep.actor, prep.location.id, 5);
     await drain(admin, client.customerId);
     await expect(
       createSupplierOrder(client.actor, { supplierId: await supplierId(), locationId: prep.location.id, description: "Article", quantity: 1, acceptStorageCharge: true }),
@@ -112,7 +113,7 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
     const b = await purchaseStorageSlots(client.actor, { credits: 2, requestId: "req-123456" });
     expect(a?.slots).toBe(6);
     expect(b).toBeNull();
-    expect((await getStorageOverview(client.customerId)).capacity).toBe(16);
+    expect((await getStorageOverview(client.customerId)).capacity).toBe(11);
     expect((await wallet(client.customerId)).monthlyBalance).toBe(18);
   });
 
@@ -176,8 +177,8 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
 
   it("dropshipping : sans place de stock, expédition express créée à la réception avec le bordereau", async () => {
     const { prep, client } = await setup();
-    await stocked(client.actor, prep.actor, prep.location.id, 10); // stock plein
-    const sid = await supplierId();
+    await stocked(client.actor, prep.actor, prep.location.id, 5); // stock plein
+    const sid = await supplierId("ALIEXPRESS");
     await expect(
       createSupplierOrder(client.actor, { supplierId: sid, locationId: prep.location.id, description: "Sac vendu", quantity: 1, mode: "DROPSHIP" }),
     ).rejects.toMatchObject({ code: "DROPSHIP_RECIPIENT" });
@@ -207,7 +208,11 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
     expect([it.quantityAvailable, it.quantityReserved]).toEqual([0, 1]);
     expect((await db.supplierOrder.findUniqueOrThrow({ where: { id: order.id } })).dropshipShipmentId).toBe(shipment!.id);
     // Les articles en dropshipping n'occupent pas de place.
-    expect((await getStorageOverview(client.customerId)).used).toBe(10);
+    expect((await getStorageOverview(client.customerId)).used).toBe(5);
+    // AliExpress n'est proposé qu'en dropshipping.
+    await expect(
+      createSupplierOrder(client.actor, { supplierId: sid, locationId: prep.location.id, description: "Pour le stock", quantity: 1, acceptStorageCharge: true }),
+    ).rejects.toMatchObject({ code: "SUPPLIER_MODE" });
   });
 
   it("délai de 48 h : alerte unique en cas de retard ; l'attente de crédits suspend le délai", async () => {

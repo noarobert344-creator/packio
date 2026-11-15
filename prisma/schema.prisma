@@ -387,6 +387,8 @@ model Supplier {
   /// Le retrait au locker nécessite un code transmis au client.
   requiresPickupCode    Boolean        @default(false)
   compatibilityNotes    String?
+  /// Types de commande pour lesquels le fournisseur est proposé (stock, dropshipping).
+  orderModes            OrderMode[]    @default([STOCK, DROPSHIP])
   isActive              Boolean        @default(true)
   sortOrder             Int            @default(0)
   createdAt             DateTime       @default(now())

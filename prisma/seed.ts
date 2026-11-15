@@ -159,7 +159,7 @@ async function main() {
   const camilleActor = await actorFor(camille.preparer.userId);
 
   const vinted = await db.supplier.findUniqueOrThrow({ where: { code: "VINTED" } });
-  const ali = await db.supplier.findUniqueOrThrow({ where: { code: "ALIEXPRESS" } });
+  const zen = await db.supplier.findUniqueOrThrow({ where: { code: "ZENMARKET" } });
   const shein = await db.supplier.findUniqueOrThrow({ where: { code: "SHEIN" } });
 
   // Commande déjà en stock
@@ -169,10 +169,10 @@ async function main() {
   await receiveOrder(camilleActor, { orderId: o1.id, quantityReceived: 1, conditionOk: true, conditionNotes: "Très bon état" });
   const s1 = await stockOrder(camilleActor, { orderId: o1.id, items: [{ name: "Veste en jean Levi's (M)", quantity: 1, storageLocation: "A-03" }] });
 
-  const o2 = await createSupplierOrder(leaActor, { supplierId: ali.id, locationId: camilleBusiness.id, description: "Lot de 10 cintres en velours", quantity: 10, trackingNumber: "LPDEMO0000002CN", carrier: "CAINIAO" });
+  const o2 = await createSupplierOrder(leaActor, { supplierId: zen.id, locationId: camilleBusiness.id, description: "Figurines One Piece, édition limitée", quantity: 2, trackingNumber: "EMDEMO0000002JP", carrier: "LA_POSTE" });
   await markPickedUp(camilleActor, { orderId: o2.id });
-  await receiveOrder(camilleActor, { orderId: o2.id, quantityReceived: 10, conditionOk: true });
-  const s2 = await stockOrder(camilleActor, { orderId: o2.id, items: [{ name: "Cintres velours (lot)", quantity: 10, storageLocation: "B-11" }] });
+  await receiveOrder(camilleActor, { orderId: o2.id, quantityReceived: 2, conditionOk: true });
+  const s2 = await stockOrder(camilleActor, { orderId: o2.id, items: [{ name: "Figurine One Piece (édition limitée)", quantity: 2, storageLocation: "B-11" }] });
 
   const o3 = await createSupplierOrder(leaActor, { supplierId: vinted.id, locationId: camilleLocker.id, description: "Sneakers Nike Air Max 90 — 39", quantity: 1, carrier: "INPOST", trackingNumber: "DEMO000000003" });
   await markPickedUp(camilleActor, { orderId: o3.id });
@@ -180,7 +180,22 @@ async function main() {
   const s3 = await stockOrder(camilleActor, { orderId: o3.id, items: [{ name: "Nike Air Max 90 (39)", quantity: 1, storageLocation: "C-01" }] });
 
   // Commandes en cours d'acheminement
-  await createSupplierOrder(leaActor, { supplierId: shein.id, locationId: camilleBusiness.id, description: "Robe midi fleurie — S", quantity: 2, expectedArrivalAt: addDays(new Date(), 4) });
+  // Dropshipping : robe déjà vendue sur Vinted, expédiée à l'acheteuse dès réception.
+  await createSupplierOrder(leaActor, {
+    supplierId: shein.id,
+    locationId: camilleBusiness.id,
+    description: "Robe midi fleurie — S",
+    quantity: 1,
+    expectedArrivalAt: addDays(new Date(), 4),
+    mode: "DROPSHIP",
+    salePlatform: "VINTED",
+    saleReference: "VT-DEMO-2042",
+    buyerName: "Camille Roy",
+    buyerAddressLine1: "18 rue Sainte-Catherine",
+    buyerPostalCode: "33000",
+    buyerCity: "Bordeaux",
+    buyerCountry: "FR",
+  });
   const o5 = await createSupplierOrder(leaActor, { supplierId: vinted.id, locationId: camilleLocker.id, description: "Sac Longchamp Le Pliage", quantity: 1 });
   await customerUpdateOrder(leaActor, { orderId: o5.id, trackingNumber: "DEMO000000005", carrier: "INPOST" });
 
