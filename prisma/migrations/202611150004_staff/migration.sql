@@ -1,0 +1,2 @@
+CREATE TABLE staff_messages (id TEXT PRIMARY KEY, prep TEXT NOT NULL REFERENCES preps(uid), sender TEXT NOT NULL REFERENCES users(id), body TEXT NOT NULL, created TEXT NOT NULL);
+CREATE INDEX staff_messages_prep ON staff_messages(prep,created);

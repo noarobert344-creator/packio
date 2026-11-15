@@ -1,0 +1,15 @@
+{
+  "name": "Packio · démonstration privée",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:24",
+  "forwardPorts": [
+    3010
+  ],
+  "portsAttributes": {
+    "3010": {
+      "label": "Packio · démo",
+      "onAutoForward": "openPreview",
+      "visibility": "private"
+    }
+  },
+  "postStartCommand": "nohup npm run demo >/tmp/packio-demo.log 2>&1 < /dev/null &"
+}
