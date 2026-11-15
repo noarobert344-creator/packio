@@ -1,7 +1,8 @@
 import {resolve} from 'node:path';
 if(process.env.NODE_ENV==='production'||process.env.VERCEL||process.env.DATABASE_URL)throw Error('La démonstration fonctionne uniquement avec la base SQLite dédiée.');
 process.env.PACKIO_DB=resolve('var/demo.sqlite');process.env.PACKIO_SANDBOX_BILLING='1';process.env.PACKIO_DEMO='1';
-process.env.APP_URL='http://localhost:'+Number(process.env.PORT||3010);
+const port=Number(process.env.PORT||3010);
+process.env.APP_URL=process.env.CODESPACES==='true'&&process.env.CODESPACE_NAME&&process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN?'https://'+process.env.CODESPACE_NAME+'-'+port+'.'+process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:'http://localhost:'+port;
 const {tx,one}=await import('../lib/db.mjs');const {bootstrapAdmin,hashPassword,createUser}=await import('../lib/auth.mjs');
 const {operation}=await import('../lib/logistics.mjs');const {grantCycle}=await import('../lib/credits.mjs');
 const pwd='Packio-Demo-Local!';const email='admin@packio.example';
