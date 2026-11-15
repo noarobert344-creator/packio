@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Packio · commandes et expéditions",
+  "version": "0.1.0",
+  "description": "Préparez une commande fournisseur ou une expédition Vinted depuis l’onglet ouvert.",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Ouvrir dans Packio"
+  }
+}
