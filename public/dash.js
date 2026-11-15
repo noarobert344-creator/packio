@@ -100,6 +100,10 @@ async function action(a,id,title){
 }
 export async function start(){
  const params=new URLSearchParams(location.hash.slice(1));if(params.has('import')){const payload={supplier:params.get('supplier')||'',product:(params.get('product')||'').slice(0,200),link:params.get('link')||''};sessionStorage.setItem('packio-import',JSON.stringify({payload,mode:params.get('import')==='vente'?'ship':'order'}));history.replaceState(null,'','/espace');}
- await refresh();document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;b.disabled=true;action(b.dataset.a,b.dataset.id,b.textContent).catch(err=>toast(err.message)).finally(()=>b.disabled=false);});window.addEventListener('hashchange',()=>{filter='';render();});
+ await refresh();document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;b.disabled=true;action(b.dataset.a,b.dataset.id,b.textContent).catch(err=>toast(err.message)).finally(()=>b.disabled=false);});window.addEventListener('hashchange',()=>{filter='';render();refresh().catch(e=>toast(e.message));});
+ let syncing=false;
+ const sync=async()=>{if(syncing||document.hidden||document.querySelector('dialog[open]')||document.activeElement?.matches('input,textarea,select')||section==='messages')return;syncing=true;
+ try{const latest=await request('state');if(!document.querySelector('dialog[open]')&&section!=='messages'&&JSON.stringify(latest)!==JSON.stringify(s)){s=latest;render();}}catch{}finally{syncing=false;}};
+ setInterval(sync,12000);window.addEventListener('focus',sync);
  const stored=sessionStorage.getItem('packio-import');if(stored&&isClient()&&s.clients[0]?.prep){const v=JSON.parse(stored);draft=v.payload;draftMode=v.mode;sessionStorage.removeItem('packio-import');await action(draftMode,'',draftMode==='ship'?'Préparer une vente':'Importer une commande');}
 }
