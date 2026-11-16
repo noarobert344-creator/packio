@@ -417,3 +417,26 @@ export async function enableAdminPreparerProfile(actor: Actor) {
   await audit({ actor, action: "preparer.admin_enabled", entityType: "preparer", entityId: profile.id, summary: `${actor.firstName} ${actor.lastName} (administrateur)` });
   return profile;
 }
+
+/**
+ * Corrige le nombre de colis traités d'un préparateur (par exemple pour
+ * reprendre les colis préparés avant Packio). Valeur et motif journalisés.
+ */
+export async function setParcelsProcessed(actor: Actor, input: { preparerId: string; value: number; reason: string }) {
+  assertAdmin(actor, "preparers.manage");
+  if (!Number.isInteger(input.value) || input.value < 0 || input.value > 1_000_000) {
+    throw new DomainError("VALUE", "Indiquez un nombre entier entre 0 et 1 000 000.", { fieldErrors: { value: "Nombre invalide" } });
+  }
+  const before = await db.preparerProfile.findUnique({ where: { id: input.preparerId }, select: { parcelsProcessed: true } });
+  if (!before) throw new NotFoundError("Préparateur introuvable.");
+  await db.preparerProfile.update({ where: { id: input.preparerId }, data: { parcelsProcessed: input.value } });
+  await audit({
+    actor,
+    action: "preparer.parcels_corrected",
+    entityType: "preparer",
+    entityId: input.preparerId,
+    summary: `Colis traités : ${before.parcelsProcessed} → ${input.value}. Motif : ${input.reason}`,
+    metadata: { before: before.parcelsProcessed, after: input.value, reason: input.reason },
+  });
+  return { before: before.parcelsProcessed, after: input.value };
+}

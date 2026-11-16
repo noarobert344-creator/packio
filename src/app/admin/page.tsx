@@ -134,7 +134,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
                     </TableCell>
                     <TableCell className="text-right">
                       {canAssign && c.assignmentState !== "REASSIGNING" ? (
-                        <AssignDialog customerId={c.id} customerName={`${c.user.firstName} ${c.user.lastName}`} options={capacityOptions} size="sm" label="Attribuer" />
+                        <AssignDialog customerId={c.id} customerName={`${c.user.firstName} ${c.user.lastName}`} options={capacityOptions} size="sm" label="Attribuer" canEditParcels={can(actor, "preparers.manage")} />
                       ) : (
                         <Button asChild size="sm" variant="outline">
                           <Link href={`/admin/clients/${c.id}`}>Ouvrir</Link>

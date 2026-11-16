@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DemoBadge, KeyValue } from "@/components/admin/people/display";
 import { CapacityBar } from "@/components/admin/people/capacity-bar";
-import { EditPreparerDialog, MessagePreparerDialog, PreparerStatusDialog, ResendInvitationButton } from "@/components/admin/people/preparer-forms";
+import { EditPreparerDialog, MessagePreparerDialog, ParcelsProcessedDialog, PreparerStatusDialog, ResendInvitationButton } from "@/components/admin/people/preparer-forms";
 import { LocationDialog } from "@/components/admin/people/location-dialog";
 import { AbsenceDialog } from "@/components/admin/people/misc-actions";
 import { AssignCustomerDialog, CancelAbsenceButton, DeactivateLocationButton, LocationValidationButton } from "@/components/admin/people/preparer-actions";
@@ -101,6 +101,7 @@ export default async function AdminPreparerPage({ params }: { params: Promise<{ 
               />
             )}
             {canManage && <PreparerStatusDialog preparerId={preparer.id} status={preparer.status} clients={stats.clients} />}
+            {canManage && <ParcelsProcessedDialog preparerId={preparer.id} name={name} value={preparer.parcelsProcessed} />}
             {can(actor, "support.manage") && <MessagePreparerDialog preparerId={preparer.id} name={name} />}
           </>
         }

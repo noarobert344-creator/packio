@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CircleAlert, Clock, Gauge, Hourglass, Users } from "lucide-react";
 import { requireAdmin } from "@/server/auth/current";
+import { can } from "@/server/auth/actor";
 import { getAssignmentStats, listRecentAssignments, listWaitingCustomers } from "@/server/queries/admin-people";
 import { computeSla, listPreparerCapacities } from "@/server/services/assignments";
 import { PageHeader, Section } from "@/components/shared/page-header";
@@ -18,7 +19,7 @@ import { formatDateTime, formatDuration, fullName } from "@/lib/format";
 export const metadata: Metadata = { title: "Attributions — Administration" };
 
 export default async function AdminAssignmentsPage() {
-  await requireAdmin("assignments.manage");
+  const actor = await requireAdmin("assignments.manage");
   const [waiting, capacities, stats, recent] = await Promise.all([listWaitingCustomers(), listPreparerCapacities(), getAssignmentStats(30), listRecentAssignments(15)]);
   const now = new Date();
   const withSla = waiting.map((c) => ({ ...c, sla: computeSla(c, now) }));
@@ -104,7 +105,7 @@ export default async function AdminAssignmentsPage() {
                               <Link href={`/admin/clients/${c.id}`}>Réattribuer</Link>
                             </Button>
                           ) : (
-                            <AssignDialog customerId={c.id} customerName={name} options={capacities} size="sm" label="Attribuer" />
+                            <AssignDialog customerId={c.id} customerName={name} options={capacities} size="sm" label="Attribuer" canEditParcels={can(actor, "preparers.manage")} />
                           )}
                           <NotifyDelayDialog customerId={c.id} size="sm" />
                         </div>

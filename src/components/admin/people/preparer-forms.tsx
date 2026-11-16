@@ -2,14 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Pencil, Send } from "lucide-react";
+import { CheckCircle2, PackageCheck, Pencil, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActionDialog } from "@/components/shared/action-dialog";
 import { ActionForm, SubmitButton, useFieldError } from "@/components/shared/action-form";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "@/components/shared/form-field";
 import { CopyButton } from "@/components/shared/copy-button";
 import { CARRIERS } from "@/lib/labels";
-import { createPreparerAction, resendInvitationAction, setPreparerStatusAction, updatePreparerAction, messagePreparerAction } from "@/server/actions/admin/people";
+import {
+  createPreparerAction,
+  resendInvitationAction,
+  setParcelsProcessedAction,
+  setPreparerStatusAction,
+  updatePreparerAction,
+  messagePreparerAction,
+} from "@/server/actions/admin/people";
 
 export type PreparerValues = {
   firstName: string;
@@ -201,6 +208,34 @@ export function MessagePreparerDialog({ preparerId, name }: { preparerId: string
       <input type="hidden" name="preparerId" value={preparerId} />
       <TextField name="subject" label="Objet" required />
       <TextAreaField name="body" label="Message" required rows={5} />
+    </ActionDialog>
+  );
+}
+
+/** Correction du nombre de colis traités (ex. colis préparés avant Packio), motif journalisé. */
+export function ParcelsProcessedDialog({ preparerId, name, value, compact }: { preparerId: string; name: string; value: number; compact?: boolean }) {
+  return (
+    <ActionDialog
+      trigger={
+        compact ? (
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" aria-label={`Modifier les colis traités de ${name}`}>
+            <Pencil className="size-3.5" /> Modifier
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" size="sm">
+            <PackageCheck /> Modifier les colis traités
+          </Button>
+        )
+      }
+      title={`Colis traités par ${name}`}
+      description="Nombre de colis préparés par ce préparateur, visible dans le back-office et lors des attributions. Il augmente tout seul à chaque colis traité dans Packio ; corrigez-le par exemple pour reprendre les colis préparés avant Packio."
+      action={setParcelsProcessedAction}
+      submitLabel="Enregistrer"
+      successMessage="Nombre de colis traités mis à jour."
+    >
+      <input type="hidden" name="preparerId" value={preparerId} />
+      <TextField name="value" label="Nombre de colis traités" type="number" min={0} max={1000000} step={1} required defaultValue={String(value)} />
+      <TextField name="reason" label="Motif" required placeholder="Ex. : colis préparés avant l'arrivée sur Packio" hint="Conservé dans le journal d'audit." />
     </ActionDialog>
   );
 }

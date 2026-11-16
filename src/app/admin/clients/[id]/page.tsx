@@ -111,7 +111,7 @@ export default async function AdminCustomerPage({ params, searchParams }: { para
                   </div>
                   {canAssign && (
                     <div className="flex flex-wrap gap-2">
-                      <ReassignDialog customerId={customer.id} currentPreparerId={customer.currentPreparerId} options={capacities} defaultOpen={openReassign} />
+                      <ReassignDialog customerId={customer.id} currentPreparerId={customer.currentPreparerId} options={capacities} defaultOpen={openReassign} canEditParcels={can(actor, "preparers.manage")} />
                       {customer.assignmentState !== "REASSIGNING" && <StartReassignmentDialog customerId={customer.id} />}
                     </div>
                   )}
@@ -143,7 +143,7 @@ export default async function AdminCustomerPage({ params, searchParams }: { para
 
               {canAssign && waiting && (
                 <div className="flex flex-wrap gap-2">
-                  {!customer.currentPreparer && <AssignDialog customerId={customer.id} customerName={name} options={capacities} />}
+                  {!customer.currentPreparer && <AssignDialog customerId={customer.id} customerName={name} options={capacities} canEditParcels={can(actor, "preparers.manage")} />}
                   <NotifyDelayDialog customerId={customer.id} />
                 </div>
               )}

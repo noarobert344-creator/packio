@@ -12,7 +12,7 @@ import { DomainError, NotFoundError } from "@/server/errors";
 import { assignPreparer, notifyCustomerOfDelay, reassignCustomer, startReassignment } from "@/server/services/assignments";
 import { adminAdjustCredits } from "@/server/services/credits";
 import { anonymizeCustomer, setCustomerStatus, updateCustomerNotes } from "@/server/services/catalog";
-import { cancelAbsence, createPreparer, deactivateLocation, declareAbsence, saveLocation, setLocationValidation, setPreparerStatus, updatePreparer } from "@/server/services/preparers";
+import { cancelAbsence, createPreparer, deactivateLocation, declareAbsence, saveLocation, setLocationValidation, setParcelsProcessed, setPreparerStatus, updatePreparer } from "@/server/services/preparers";
 import { sendInvitation } from "@/server/services/auth";
 import { sendMessage } from "@/server/services/messaging";
 import { assignIncident } from "@/server/services/incidents";
@@ -163,6 +163,23 @@ export async function updatePreparerAction(_prev: ActionState, formData: FormDat
     revalidatePath(`/admin/preparateurs/${preparerId}`);
     revalidatePath("/admin/preparateurs");
     return { ok: true, message: "Fiche préparateur mise à jour." };
+  });
+}
+
+export async function setParcelsProcessedAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const schema = z.object({
+    preparerId: z.string().min(1),
+    value: intField("Nombre de colis", { min: 0, max: 1_000_000 }),
+    reason: requiredText("Motif", 3, 300),
+  });
+  return runAction(schema, formToObject(formData), async (actor, data) => {
+    await setParcelsProcessed(actor, data);
+    revalidatePath(`/admin/preparateurs/${data.preparerId}`);
+    revalidatePath("/admin/preparateurs");
+    revalidatePath("/admin/attributions");
+    revalidatePath("/admin/clients", "layout");
+    revalidatePath("/admin/statistiques");
+    return { ok: true, message: `Colis traités : ${data.value}.` };
   });
 }
 

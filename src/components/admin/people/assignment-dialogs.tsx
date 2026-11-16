@@ -8,12 +8,13 @@ import { assignPreparerAction, notifyDelayAction, reassignCustomerAction, startR
 import { PreparerPicker } from "./preparer-picker";
 import type { CapacityOption } from "./types";
 
-export function AssignDialog({ customerId, customerName, options, size = "default", label = "Attribuer un préparateur" }: {
+export function AssignDialog({ customerId, customerName, options, size = "default", label = "Attribuer un préparateur", canEditParcels }: {
   customerId: string;
   customerName: string;
   options: CapacityOption[];
   size?: "default" | "sm";
   label?: string;
+  canEditParcels?: boolean;
 }) {
   const none = !options.some((o) => o.available);
   return (
@@ -36,13 +37,19 @@ export function AssignDialog({ customerId, customerName, options, size = "defaul
           Aucun préparateur n&apos;est disponible actuellement. Ajoutez un préparateur, validez un point de réception ou augmentez une capacité.
         </p>
       )}
-      <PreparerPicker options={options} />
+      <PreparerPicker options={options} canEditParcels={canEditParcels} />
       <TextField name="note" label="Note interne (facultatif)" placeholder="Ex. : même ville que le client" />
     </ActionDialog>
   );
 }
 
-export function ReassignDialog({ customerId, currentPreparerId, options, defaultOpen }: { customerId: string; currentPreparerId: string | null; options: CapacityOption[]; defaultOpen?: boolean }) {
+export function ReassignDialog({ customerId, currentPreparerId, options, defaultOpen, canEditParcels }: {
+  customerId: string;
+  currentPreparerId: string | null;
+  options: CapacityOption[];
+  defaultOpen?: boolean;
+  canEditParcels?: boolean;
+}) {
   return (
     <ActionDialog
       wide
@@ -59,7 +66,7 @@ export function ReassignDialog({ customerId, currentPreparerId, options, default
       pendingLabel="Réattribution…"
     >
       <input type="hidden" name="customerId" value={customerId} />
-      <PreparerPicker options={options} excludeId={currentPreparerId} />
+      <PreparerPicker options={options} excludeId={currentPreparerId} canEditParcels={canEditParcels} />
       <TextField name="reason" label="Motif" required placeholder="Ex. : déménagement du préparateur" />
       <CheckboxField
         name="transferStock"

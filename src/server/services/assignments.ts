@@ -52,6 +52,7 @@ type PreparerCapacity = {
   activeClients: number;
   storageCapacity: number;
   storedUnits: number;
+  parcelsProcessed: number;
   validatedLocations: number;
   absentNow: boolean;
   available: boolean;
@@ -97,6 +98,7 @@ export async function listPreparerCapacities(client: Tx | typeof db = db, now = 
       activeClients,
       storageCapacity: p.storageCapacity,
       storedUnits,
+      parcelsProcessed: p.parcelsProcessed,
       validatedLocations: p.locations.length,
       absentNow,
       available: unavailableReason === null,
