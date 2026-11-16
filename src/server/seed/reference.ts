@@ -44,11 +44,15 @@ export const DEFAULT_SIZE_RULES = [
 ];
 
 /** Recharges de crédits supplémentaires : 10, 30, 50 ou 100 (prix modifiables par l'admin). */
+/**
+ * Recharges : le crédit acheté en plus coûte au moins autant qu'un crédit
+ * inclus dans l'offre Starter (2,45 €), de 2,99 € à 2,49 € selon la quantité.
+ */
 export const DEFAULT_CREDIT_PACKS = [
-  { name: "10 crédits", credits: 10, priceCents: 2490, sortOrder: 1 },
-  { name: "30 crédits", credits: 30, priceCents: 6990, sortOrder: 2 },
-  { name: "50 crédits", credits: 50, priceCents: 10990, sortOrder: 3 },
-  { name: "100 crédits", credits: 100, priceCents: 19900, sortOrder: 4 },
+  { name: "10 crédits", credits: 10, priceCents: 2990, sortOrder: 1 },
+  { name: "30 crédits", credits: 30, priceCents: 8490, sortOrder: 2 },
+  { name: "50 crédits", credits: 50, priceCents: 13490, sortOrder: 3 },
+  { name: "100 crédits", credits: 100, priceCents: 24900, sortOrder: 4 },
 ];
 
 const ALL: LocationType[] = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT"];

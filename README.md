@@ -172,7 +172,7 @@ Seuls les lieux **validés par un administrateur** sont communiqués aux clients
 | Pro | 95 € / mois | 1 045 € / an (≈ 87,08 € / mois) | 40 | 10 articles |
 | Business | 179 € / mois | 1 969 € / an (≈ 164,08 € / mois) | 80 | 20 articles |
 
-**Prix minimum d'un crédit : 1,90 €** en abonnement mensuel comme en recharge (Starter 2,45 €, Pro 2,38 €, Business 2,24 €, recharges de 1,99 € à 2,49 €). Le back-office refuse un prix inférieur ; seule la formule annuelle (1 mois offert) descend en dessous.
+**Prix minimum d'un crédit : 1,90 €** en abonnement mensuel comme en recharge (Starter 2,45 €, Pro 2,38 €, Business 2,24 €, recharges de 2,49 € à 2,99 €). Le back-office refuse un prix inférieur ; seule la formule annuelle (1 mois offert) descend en dessous.
 
 Les places de stockage correspondent au nombre d'articles stockés **en même temps** (voir [Stockage](#stockage)). Ce sont des valeurs par défaut, modifiables par offre ; une valeur modifiée dans le back-office n'est jamais écrasée par une migration. La formule mensuelle se renouvelle tous les **30 jours**, la formule annuelle tous les **365 jours** (périodes de facturation Whop). Un prix annuel vide dans le back-office retire la formule annuelle de l'offre.
 
@@ -182,10 +182,12 @@ Les places de stockage correspondent au nombre d'articles stockés **en même te
 
 | Recharge | Prix | Prix par crédit |
 | --- | --- | --- |
-| 10 crédits | 24,90 € | 2,49 € |
-| 30 crédits | 69,90 € | 2,33 € |
-| 50 crédits | 109,90 € | 2,20 € |
-| 100 crédits | 199 € | 1,99 € |
+| 10 crédits | 29,90 € | 2,99 € |
+| 30 crédits | 84,90 € | 2,83 € |
+| 50 crédits | 134,90 € | 2,70 € |
+| 100 crédits | 249 € | 2,49 € |
+
+Un crédit de recharge coûte toujours au moins autant qu'un crédit inclus dans une offre (Starter : 2,45 €), pour que l'abonnement reste la formule la plus avantageuse.
 
 Seules ces quatre quantités sont acceptées (contrôle côté serveur). Les crédits achetés suivent leur propre politique d'expiration.
 

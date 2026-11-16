@@ -62,11 +62,14 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
     ]);
     const packs = await db.creditPack.findMany({ where: { isActive: true }, orderBy: { credits: "asc" } });
     expect(packs.map((p) => [p.credits, p.priceCents])).toEqual([
-      [10, 2490],
-      [30, 6990],
-      [50, 10990],
-      [100, 19900],
+      [10, 2990],
+      [30, 8490],
+      [50, 13490],
+      [100, 24900],
     ]);
+    // Un crédit de recharge ne coûte jamais moins qu'un crédit inclus dans une offre.
+    const minPlanCredit = Math.max(...plans.map((p) => p.priceCents / p.monthlyCredits));
+    for (const pk of packs) expect(pk.priceCents / pk.credits).toBeGreaterThanOrEqual(minPlanCredit);
   });
 
   it("refuse un prix inférieur à 1,90 € le crédit (offre mensuelle et recharge)", async () => {
