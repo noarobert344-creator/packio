@@ -23,8 +23,12 @@ export const metadata: Metadata = { title: "Ventes et comptes liés" };
 
 const STEPS = [
   { icon: Puzzle, title: "Installez Packio Connect", text: "L'extension pour Chrome lit vos ventes Vinted et Vestiaire Collective, depuis votre navigateur, avec vos propres sessions." },
-  { icon: Link2, title: "Indiquez le SKU dans vos annonces", text: "Ajoutez la référence SKU de l'article (visible dans Mon stock) à la description de l'annonce : elle est rattachée automatiquement. Sinon, associez-la ici." },
-  { icon: ShoppingBag, title: "Vendez, Packio expédie", text: "Les ventes reconnues par leur SKU partent seules chez votre préparateur, avec le bordereau. Pour les autres : « Vendu avec Packio » ou « Supprimer »." },
+  {
+    icon: Link2,
+    title: "Mettez le code de l'article dans l'annonce",
+    text: "Chaque article de votre stock a un code (par exemple SKU-AB12CD3), affiché dans « Mon stock ». Copiez-le dans la description de votre annonce Vinted : quand l'article se vend, Packio sait tout seul lequel expédier. Sans code, vous reliez la vente à l'article ici, en un clic.",
+  },
+  { icon: ShoppingBag, title: "Vendez, Packio expédie", text: "Les ventes reconnues grâce au code partent seules chez votre préparateur, avec le bordereau. Pour les autres : « Vendu avec Packio » ou « Supprimer »." },
 ];
 
 const PAGE = 30;

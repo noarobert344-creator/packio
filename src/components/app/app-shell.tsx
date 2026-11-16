@@ -13,15 +13,19 @@ import { UserMenu } from "./user-menu";
 import { GlobalSearch } from "./global-search";
 import { Logo } from "@/components/brand/logo";
 import { OfflineBanner } from "./offline-banner";
+import { CreditsBadge } from "./credits-badge";
 
 const ROLE_LABEL = { CUSTOMER: "Client", PREPARER: "Préparateur", ADMIN: "Administration Packio" } as const;
 const SETTINGS = { CUSTOMER: "/client/parametres", PREPARER: "/preparateur/parametres", ADMIN: "/admin/parametres" } as const;
 const SUPPORT = { CUSTOMER: "/client/messages?support=1", PREPARER: "/preparateur/messages?support=1", ADMIN: undefined } as const;
 
 export async function AppShell({ actor, badges = {}, children }: { actor: Actor; badges?: Record<string, number>; children: React.ReactNode }) {
-  const [user, unread] = await Promise.all([
+  const [user, unread, wallet] = await Promise.all([
     db.user.findUnique({ where: { id: actor.userId }, select: { avatarFileId: true } }),
     unreadNotificationCount(actor.userId),
+    actor.role === "CUSTOMER" && actor.customerId
+      ? db.creditWallet.findUnique({ where: { customerId: actor.customerId }, select: { monthlyBalance: true, purchasedBalance: true } })
+      : null,
   ]);
   const showDemoBanner = actor.isDemo || env.billingMode === "dev";
   const footer = (
@@ -54,6 +58,7 @@ export async function AppShell({ actor, badges = {}, children }: { actor: Actor;
           </Link>
           {actor.role === "ADMIN" && <GlobalSearch />}
           <div className="ml-auto flex items-center gap-1">
+            {actor.role === "CUSTOMER" && actor.customerId && <CreditsBadge initial={(wallet?.monthlyBalance ?? 0) + (wallet?.purchasedBalance ?? 0)} />}
             <ThemeToggle />
             <NotificationBell settingsHref={`${SETTINGS[actor.role]}?onglet=notifications`} />
             <div className="ml-1">

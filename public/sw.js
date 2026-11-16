@@ -1,6 +1,50 @@
-/* Packio : notifications sur le téléphone (Web Push). */
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+/* Packio : page « mise à jour en cours » et notifications sur le téléphone (Web Push). */
+const CACHE = "packio-maintenance-v1";
+const MAINTENANCE = "/maintenance.html";
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => cache.add(new Request(MAINTENANCE, { cache: "reload" })))
+      .catch(() => undefined)
+      .then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k.startsWith("packio-") && k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  );
+});
+
+/**
+ * Pendant une mise à jour, le serveur est coupé quelques instants (erreur 502,
+ * 503 ou 504, ou aucune réponse) : au lieu de la page d'erreur de
+ * l'hébergeur, on affiche la page « Packio se met à jour », qui se recharge
+ * toute seule. Seules les pages (navigation) sont concernées ; tout le reste
+ * passe directement par le réseau, sans cache.
+ */
+async function maintenancePage() {
+  const cached = await caches.match(MAINTENANCE);
+  if (cached) {
+    return new Response(cached.body, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "30" } });
+  }
+  return Response.error();
+}
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.mode !== "navigate" || request.method !== "GET") return;
+  event.respondWith(
+    fetch(request)
+      .then((response) => ([502, 503, 504].includes(response.status) ? maintenancePage() : response))
+      .catch(() => maintenancePage()),
+  );
+});
 
 self.addEventListener("push", (event) => {
   let data = {};

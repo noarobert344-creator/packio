@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Packio se met à jour</title>
+<style>
+  :root { color-scheme: dark; --bg: #0b0d12; --card: #12151c; --border: rgba(255,255,255,.09); --fg: #f3f5f8; --muted: #9aa3b2; --brand: #4f7cff; --brand-soft: rgba(79,124,255,.16); }
+  @media (prefers-color-scheme: light) {
+    :root { color-scheme: light; --bg: #f6f7f9; --card: #ffffff; --border: #e3e6ec; --fg: #15171c; --muted: #5d6573; --brand: #3b6ef5; --brand-soft: rgba(59,110,245,.12); }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: grid; place-items: center; padding: 24px 16px; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  .glow { position: fixed; inset: auto; width: 46rem; height: 46rem; border-radius: 50%; background: radial-gradient(closest-side, var(--brand-soft), transparent); top: 50%; left: 50%; translate: -50% -60%; filter: blur(20px); animation: pulse 6s ease-in-out infinite; pointer-events: none; }
+  main { position: relative; width: 100%; max-width: 26rem; text-align: center; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .18em; font-size: 15px; margin-bottom: 36px; }
+  .brand svg { width: 34px; height: 34px; }
+  .scene { position: relative; height: 120px; margin-bottom: 28px; }
+  .box { position: absolute; left: 50%; bottom: 18px; width: 72px; height: 72px; translate: -50% 0; animation: hop 1.4s cubic-bezier(.5,0,.5,1) infinite; }
+  .box svg { width: 100%; height: 100%; }
+  .shadow { position: absolute; left: 50%; bottom: 10px; width: 64px; height: 10px; translate: -50% 0; border-radius: 50%; background: rgba(0,0,0,.35); animation: squash 1.4s cubic-bezier(.5,0,.5,1) infinite; }
+  .dots { position: absolute; left: 50%; top: 0; translate: -50% 0; display: flex; gap: 6px; }
+  .dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--brand); opacity: .25; animation: blink 1.2s infinite; }
+  .dots span:nth-child(2) { animation-delay: .2s; } .dots span:nth-child(3) { animation-delay: .4s; }
+  h1 { margin: 0 0 10px; font-size: 26px; letter-spacing: -.01em; }
+  p { margin: 0; color: var(--muted); }
+  .bar { position: relative; height: 4px; margin: 28px auto 14px; width: 220px; border-radius: 999px; background: var(--brand-soft); overflow: hidden; }
+  .bar span { position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: inherit; background: var(--brand); animation: slide 1.4s cubic-bezier(.65,0,.35,1) infinite; }
+  .small { font-size: 13px; }
+  @keyframes hop { 0%,100% { transform: translateY(0) rotate(0) } 35% { transform: translateY(-34px) rotate(-6deg) } 55% { transform: translateY(-34px) rotate(4deg) } 80% { transform: translateY(0) rotate(0) } }
+  @keyframes squash { 0%,100% { transform: scaleX(1); opacity: .5 } 45% { transform: scaleX(.55); opacity: .2 } }
+  @keyframes blink { 0%,100% { opacity: .2 } 50% { opacity: 1 } }
+  @keyframes slide { 0% { transform: translateX(-100%) } 100% { transform: translateX(260%) } }
+  @keyframes pulse { 0%,100% { opacity: .7 } 50% { opacity: 1 } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+</style>
+</head>
+<body>
+  <div class="glow" aria-hidden="true"></div>
+  <main role="status" aria-live="polite">
+    <div class="brand" aria-label="Packio">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8.5" fill="#2f4dff"/><path d="M10.5 24.5V7.5h8.25a4.75 4.75 0 0 1 0 9.5H10.5" fill="none" stroke="#fff" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.75 7.5v9.5" stroke="#fff" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round"/><rect x="18.6" y="20.4" width="4.6" height="4.6" rx="1.3" fill="#fff"/></svg>
+      PACKIO
+    </div>
+    <div class="scene" aria-hidden="true">
+      <div class="dots"><span></span><span></span><span></span></div>
+      <div class="box">
+        <svg viewBox="0 0 72 72" fill="none"><path d="M36 6 64 20v32L36 66 8 52V20L36 6Z" fill="var(--brand)" opacity=".18"/><path d="M36 6 64 20 36 34 8 20 36 6Z" fill="var(--brand)" opacity=".55"/><path d="M36 34v32M8 20l28 14 28-14M8 20v32l28 14 28-14V20L36 6 8 20Z" stroke="var(--brand)" stroke-width="3" stroke-linejoin="round"/><path d="m22 13 28 14" stroke="var(--brand)" stroke-width="3"/></svg>
+      </div>
+      <div class="shadow"></div>
+    </div>
+    <h1 id="title">Packio se met à jour</h1>
+    <p id="text">On prépare une nouvelle version pour vous. Packio revient dans quelques instants.</p>
+    <div class="bar" aria-hidden="true"><span></span></div>
+    <p class="small" id="hint">Cette page se rechargera toute seule.</p>
+  </main>
+  <script>
+    (function () {
+      var title = document.getElementById("title");
+      var text = document.getElementById("text");
+      function offline() {
+        title.textContent = "Pas de connexion internet";
+        text.textContent = "Vérifiez votre connexion : Packio s'affichera dès qu'elle reviendra.";
+      }
+      function updating() {
+        title.textContent = "Packio se met à jour";
+        text.textContent = "On prépare une nouvelle version pour vous. Packio revient dans quelques instants.";
+      }
+      if (!navigator.onLine) offline();
+      window.addEventListener("offline", offline);
+      window.addEventListener("online", updating);
+      // Dès que le site répond à nouveau, on recharge la page demandée.
+      function check() {
+        fetch("/api/health", { cache: "no-store" })
+          .then(function (res) { if (res.ok) location.reload(); else setTimeout(check, 4000); })
+          .catch(function () { setTimeout(check, 4000); });
+      }
+      setTimeout(check, 3000);
+    })();
+  </script>
+</body>
+</html>

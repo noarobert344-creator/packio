@@ -18,6 +18,12 @@ export function UpdateWatcher() {
   const [state, setState] = useState<State>("ok");
   const failures = useRef(0);
 
+  // Service worker : page « mise à jour en cours » pendant les coupures (et notifications).
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
