@@ -232,9 +232,14 @@ export async function sendMessage(
     });
     const preview = body ? (body.length > 140 ? `${body.slice(0, 140)}…` : body) : "Pièce jointe";
     const senderName = `${actor.firstName} ${actor.lastName.charAt(0)}.`;
+    // Le préparateur de la conversation peut être un administrateur (mode préparateur).
+    const preparerUserId = conversation.preparerId
+      ? (await tx.preparerProfile.findUnique({ where: { id: conversation.preparerId }, select: { userId: true } }))?.userId
+      : null;
     for (const r of recipients) {
-      if (r.user.role === "ADMIN") continue;
-      const base = r.user.role === "PREPARER" ? "/preparateur/messages" : "/client/messages";
+      const isPreparer = r.userId === preparerUserId || r.user.role === "PREPARER";
+      if (r.user.role === "ADMIN" && !isPreparer) continue;
+      const base = isPreparer ? "/preparateur/messages" : "/client/messages";
       fx.notify(r.userId, {
         type: "NEW_MESSAGE",
         title: `Nouveau message de ${actor.role === "ADMIN" ? "l'équipe Packio" : senderName}`,

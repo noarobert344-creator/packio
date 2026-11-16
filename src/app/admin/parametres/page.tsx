@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Lock, Pencil, Plus, ShieldCheck } from "lucide-react";
+import { ArrowLeftRight, Lock, Pencil, Plus, ShieldCheck } from "lucide-react";
 import type { LocationType } from "@/generated/prisma/enums";
 import { requireAdmin } from "@/server/auth/current";
 import { can, type Actor } from "@/server/auth/actor";
@@ -9,6 +9,7 @@ import { PERMISSIONS, type Permission } from "@/server/auth/permissions";
 import { getAllSettings } from "@/server/services/settings";
 import { loadProfile } from "@/server/settings-page";
 import { listAdmins } from "@/server/queries/admin-ops";
+import { enablePreparerSpaceAction, switchSpaceAction } from "@/server/actions/auth";
 import { saveLegalSettingsAction, savePlatformSettingsAction, saveRoleAction, saveSupplierAction, setStaffRoleAction } from "@/server/actions/admin/ops";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -407,6 +408,29 @@ async function AccountTab({ actor }: { actor: Actor }) {
       </Section>
       <Section title="Sécurité" description="Changer votre mot de passe déconnecte vos autres sessions.">
         <PasswordForm />
+      </Section>
+      <Section
+        title="Mon espace préparateur"
+        description="Vous pouvez aussi être préparateur avec ce compte : recevoir, préparer et expédier les colis de clients qui vous sont attribués. Vous passez d'un espace à l'autre depuis le menu de votre compte."
+        className="lg:col-span-2"
+      >
+        {actor.switchTo ? (
+          <form action={switchSpaceAction}>
+            <input type="hidden" name="target" value="PREPARER" />
+            <Button type="submit">
+              <ArrowLeftRight /> Passer en mode préparateur
+            </Button>
+          </form>
+        ) : can(actor, "preparers.manage") ? (
+          <form action={enablePreparerSpaceAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button type="submit">
+              <ArrowLeftRight /> Activer mon espace préparateur
+            </Button>
+            <span className="text-xs text-muted-foreground">Votre fiche (téléphone, adresse, lockers) vous sera demandée, puis vos points de réception seront à valider.</span>
+          </form>
+        ) : (
+          <p className="text-sm text-muted-foreground">Votre rôle d&apos;administration ne permet pas d&apos;activer un espace préparateur.</p>
+        )}
       </Section>
     </div>
   );

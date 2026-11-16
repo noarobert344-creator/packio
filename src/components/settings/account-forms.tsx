@@ -21,45 +21,9 @@ export function ProfileForm({
   showCompany?: boolean;
   avatarHint?: string;
 }) {
-  const router = useRouter();
-  const [uploading, setUploading] = useState(false);
   return (
     <div className="grid gap-6">
-      <div className="flex items-center gap-4">
-        <Avatar className="size-16">
-          {user.avatarFileId && <AvatarImage src={`/api/files/${user.avatarFileId}`} alt="" />}
-          <AvatarFallback className="bg-brand-soft text-lg font-semibold text-brand">
-            {user.firstName[0]}
-            {user.lastName[0]}
-          </AvatarFallback>
-        </Avatar>
-        <label className="cursor-pointer">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="sr-only"
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              setUploading(true);
-              try {
-                await uploadToPackio(f, "AVATAR");
-                toast.success("Photo de profil mise à jour.");
-                router.refresh();
-              } catch (err) {
-                toast.error(err instanceof Error ? err.message : "Échec du téléversement");
-              } finally {
-                setUploading(false);
-              }
-            }}
-          />
-          <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm hover:bg-muted">
-            {uploading ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
-            {user.avatarFileId ? "Changer la photo" : "Ajouter une photo"}
-          </span>
-          {avatarHint && <span className="mt-1.5 block max-w-xs text-xs text-muted-foreground">{avatarHint}</span>}
-        </label>
-      </div>
+      <AvatarPicker user={user} hint={avatarHint} />
       <ActionForm action={updateProfileAction} className="grid gap-4 sm:grid-cols-2">
         <TextField name="firstName" label="Prénom" defaultValue={user.firstName} required />
         <TextField name="lastName" label="Nom" defaultValue={user.lastName} required />
@@ -70,6 +34,49 @@ export function ProfileForm({
           <SubmitButton pendingLabel="Enregistrement…">Enregistrer</SubmitButton>
         </div>
       </ActionForm>
+    </div>
+  );
+}
+
+/** Photo de profil : aperçu et téléversement immédiat. */
+export function AvatarPicker({ user, hint }: { user: { firstName: string; lastName: string; avatarFileId: string | null }; hint?: string }) {
+  const router = useRouter();
+  const [uploading, setUploading] = useState(false);
+  return (
+    <div className="flex items-center gap-4">
+      <Avatar className="size-16">
+        {user.avatarFileId && <AvatarImage src={`/api/files/${user.avatarFileId}`} alt="" />}
+        <AvatarFallback className="bg-brand-soft text-lg font-semibold text-brand">
+          {user.firstName[0]}
+          {user.lastName[0]}
+        </AvatarFallback>
+      </Avatar>
+      <label className="cursor-pointer">
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="sr-only"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            setUploading(true);
+            try {
+              await uploadToPackio(f, "AVATAR");
+              toast.success("Photo de profil mise à jour.");
+              router.refresh();
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Échec du téléversement");
+            } finally {
+              setUploading(false);
+            }
+          }}
+        />
+        <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm hover:bg-muted">
+          {uploading ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
+          {user.avatarFileId ? "Changer la photo" : "Ajouter une photo"}
+        </span>
+        {hint && <span className="mt-1.5 block max-w-xs text-xs text-muted-foreground">{hint}</span>}
+      </label>
     </div>
   );
 }

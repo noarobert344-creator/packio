@@ -102,16 +102,19 @@ model User {
 }
 
 model Session {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   /// SHA-256 du jeton envoyé dans le cookie (le jeton brut n'est jamais stocké).
-  tokenHash  String   @unique
+  tokenHash  String    @unique
   userId     String
   expiresAt  DateTime
-  lastUsedAt DateTime @default(now())
+  lastUsedAt DateTime  @default(now())
   ip         String?
   userAgent  String?
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Administrateur qui est aussi préparateur : espace actif de la session
+  /// (PREPARER = mode préparateur ; vide = rôle du compte).
+  activeRole UserRole?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -257,6 +260,8 @@ model PreparerProfile {
   status               PreparerStatus @default(ACTIVE)
   adminNotes           String?
   joinedAt             DateTime       @default(now())
+  /// Questionnaire de bienvenue rempli (téléphone, adresse, lockers, photo).
+  onboardedAt          DateTime?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
@@ -572,6 +577,8 @@ enum CreditTransactionType {
   ADMIN_DEBIT
   REFUND_DEBIT
   STORAGE_FEE
+  /// Retrait par le préparateur attitré, justifié au client par message.
+  PREPARER_DEBIT
 }
 
 /// Registre transactionnel des crédits (ajout seul). La clé d'idempotence

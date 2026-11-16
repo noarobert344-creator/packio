@@ -35,7 +35,9 @@ export const metadata: Metadata = { title: "Fiche client — Administration" };
 export default async function AdminCustomerPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const actor = await requireAdmin("customers.read");
   const { id } = await params;
-  const justAssigned = one((await searchParams).attribue) === "1";
+  const sp = await searchParams;
+  const justAssigned = one(sp.attribue) === "1";
+  const openReassign = one(sp["changer-preparateur"]) === "1";
   const customer = await getCustomerDetail(id);
   if (!customer) notFound();
 
@@ -109,7 +111,7 @@ export default async function AdminCustomerPage({ params, searchParams }: { para
                   </div>
                   {canAssign && (
                     <div className="flex flex-wrap gap-2">
-                      <ReassignDialog customerId={customer.id} currentPreparerId={customer.currentPreparerId} options={capacities} />
+                      <ReassignDialog customerId={customer.id} currentPreparerId={customer.currentPreparerId} options={capacities} defaultOpen={openReassign} />
                       {customer.assignmentState !== "REASSIGNING" && <StartReassignmentDialog customerId={customer.id} />}
                     </div>
                   )}

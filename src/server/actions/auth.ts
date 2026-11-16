@@ -6,7 +6,9 @@ import type { ActionState } from "@/lib/action-types";
 import { emailField, optionalText, phoneField, requiredText } from "@/lib/forms";
 import { toActionError, zodFieldErrors, formToObject } from "@/server/action";
 import { endSession, getSession, homePathFor, requestMeta, startSession } from "@/server/auth/current";
-import { toActor } from "@/server/auth/session-store";
+import { setSessionSpace, toActor } from "@/server/auth/session-store";
+import { audit } from "@/server/services/audit";
+import { enableAdminPreparerProfile } from "@/server/services/preparers";
 import { db } from "@/server/db";
 import { DomainError } from "@/server/errors";
 import { acceptInvitation, authenticate, registerCustomer, requestPasswordReset, resetPassword } from "@/server/services/auth";
@@ -63,6 +65,26 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
   if (offre) params.set("offre", offre);
   if (parsed.data.periodicite === "annuel") params.set("periodicite", "annuel");
   redirect(params.size ? `/client/abonnement?${params}` : "/client/abonnement");
+}
+
+/** Administrateur et préparateur : bascule entre les deux espaces. */
+export async function switchSpaceAction(formData: FormData) {
+  const session = await getSession();
+  if (!session) redirect("/connexion");
+  const target = formData.get("target") === "PREPARER" ? "PREPARER" : "ADMIN";
+  if (await setSessionSpace(session.sessionId, session.actor.userId, target)) {
+    await audit({ actor: session.actor, action: "session.space_switched", entityType: "user", entityId: session.actor.userId, summary: target === "PREPARER" ? "Mode préparateur" : "Mode administration" });
+  }
+  redirect(target === "PREPARER" ? "/preparateur" : "/admin");
+}
+
+/** Active l'espace préparateur du compte administrateur, puis y bascule. */
+export async function enablePreparerSpaceAction() {
+  const session = await getSession();
+  if (!session) redirect("/connexion");
+  await enableAdminPreparerProfile(session.actor);
+  await setSessionSpace(session.sessionId, session.actor.userId, "PREPARER");
+  redirect("/preparateur");
 }
 
 export async function logoutAction() {

@@ -28,6 +28,7 @@ export const NOTIFICATION_TYPES = {
   SUBSCRIPTION_RENEWED: { label: "Abonnement renouvelé", audience: ["CUSTOMER"], email: true },
   SUBSCRIPTION_UPDATED: { label: "Abonnement modifié", audience: ["CUSTOMER"], email: true },
   CREDITS_ADDED: { label: "Crédits ajoutés", audience: ["CUSTOMER"], email: false },
+  CREDITS_REMOVED_BY_PREPARER: { label: "Crédits retirés par votre préparateur", audience: ["CUSTOMER"], email: true, locked: true },
   STORAGE_REMINDER: { label: "Fin de la durée de stockage d'un article", audience: ["CUSTOMER"], email: true },
   STORAGE_CHARGED: { label: "Prolongation ou places de stockage", audience: ["CUSTOMER"], email: false },
   STORAGE_OVERDUE: { label: "Stockage impayé (crédits insuffisants)", audience: ["CUSTOMER", "ADMIN"], email: true },
@@ -39,6 +40,7 @@ export const NOTIFICATION_TYPES = {
   ADMIN_ASSIGNMENT_LATE: { label: "Délai d'attribution dépassé", audience: ["ADMIN"], email: true },
   ADMIN_NO_PREPARER: { label: "Aucun préparateur disponible", audience: ["ADMIN"], email: true },
   ADMIN_CONTACT_REQUEST: { label: "Nouveau message de contact", audience: ["ADMIN"], email: true },
+  ADMIN_PREPARER_ONBOARDED: { label: "Fiche d'un préparateur à valider", audience: ["ADMIN"], email: true },
   SECURITY: { label: "Sécurité du compte", audience: ["CUSTOMER", "PREPARER", "ADMIN"], email: true, locked: true },
 } as const satisfies Record<
   string,

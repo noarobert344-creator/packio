@@ -137,6 +137,7 @@ async function main() {
     adminNotes: "Préparatrice de démonstration.",
   });
   await markDemo(camille.preparer.userId);
+  await db.preparerProfile.update({ where: { id: camille.preparer.id }, data: { onboardedAt: new Date() } });
   const camilleBusiness = await saveLocation(admin, {
     preparerId: camille.preparer.id, type: "BUSINESS_ADDRESS", label: "Adresse professionnelle", addressLine1: "18 rue Garibaldi", postalCode: "69006", city: "Lyon", country: "FR", recipientName: "Camille Martin", isPrimary: false, validate: true,
     instructions: "Indiquez votre code client Packio en complément d'adresse.",
@@ -156,6 +157,7 @@ async function main() {
     storageCapacity: 400, maxClients: 8,
   });
   await markDemo(yanis.preparer.userId);
+  await db.preparerProfile.update({ where: { id: yanis.preparer.id }, data: { onboardedAt: new Date() } });
   await saveLocation(admin, {
     preparerId: yanis.preparer.id, type: "LOCKER", label: "Locker principal", network: "MONDIAL_RELAY", relayName: "Locker Mondial Relay Lille Centre (démo)", externalId: "DEMO-LIL-007",
     addressLine1: "1 place de la Gare", postalCode: "59000", city: "Lille", country: "FR", recipientName: "Yanis Benali", isPrimary: true, validate: true,

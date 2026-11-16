@@ -26,7 +26,8 @@ import {
   startPreparation,
   updateTransit,
 } from "@/server/services/shipments";
-import { cancelAbsence, declareAbsence, saveLocation, updateAvailability, type WeeklyAvailability } from "@/server/services/preparers";
+import { preparerDebitCredits, PREPARER_DEBIT_MAX } from "@/server/services/preparer-credits";
+import { cancelAbsence, completeOnboarding, declareAbsence, ONBOARDING_LOCKER_NETWORKS, saveLocation, updateAvailability, type OnboardingInput, type WeeklyAvailability } from "@/server/services/preparers";
 
 function refresh(...paths: string[]) {
   for (const p of paths) revalidatePath(p);
@@ -415,4 +416,83 @@ export async function proposeLocationAction(_prev: ActionState, formData: FormDa
     refresh("/preparateur/disponibilites");
     return { ok: true, message: "Point de réception proposé. Il sera communiqué aux clients après validation par l'équipe Packio." };
   });
+}
+
+// -----------------------------------------------------------------------------
+// Questionnaire de bienvenue
+// -----------------------------------------------------------------------------
+
+const onboardingSchema = z.object({
+  phone: requiredText("Téléphone", 6, 30),
+  addressLine1: requiredText("Adresse", 3, 200),
+  addressLine2: optionalText(200),
+  postalCode: requiredText("Code postal", 3, 10),
+  city: requiredText("Ville", 2, 100),
+  ...Object.fromEntries(
+    ONBOARDING_LOCKER_NETWORKS.flatMap((n) => [
+      [`${n.code}_relayName`, optionalText(150)],
+      [`${n.code}_addressLine1`, optionalText(200)],
+      [`${n.code}_postalCode`, optionalText(10)],
+      [`${n.code}_city`, optionalText(100)],
+    ]),
+  ),
+});
+
+export async function completeOnboardingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(onboardingSchema, formToObject(formData), async (actor, data) => {
+    const values = data as Record<string, string | undefined>;
+    const lockers: OnboardingInput["lockers"] = [];
+    const fieldErrors: Record<string, string> = {};
+    for (const n of ONBOARDING_LOCKER_NETWORKS) {
+      const block = {
+        relayName: values[`${n.code}_relayName`] ?? "",
+        addressLine1: values[`${n.code}_addressLine1`] ?? "",
+        postalCode: values[`${n.code}_postalCode`] ?? "",
+        city: values[`${n.code}_city`] ?? "",
+      };
+      const filled = Object.values(block).filter((v) => v.trim()).length;
+      if (filled === 0) continue; // Locker facultatif non renseigné.
+      if (filled < 4) {
+        for (const [k, v] of Object.entries(block)) if (!v.trim()) fieldErrors[`${n.code}_${k}`] = "Requis pour ce locker";
+        continue;
+      }
+      lockers.push({ network: n.code, ...block });
+    }
+    if (Object.keys(fieldErrors).length) {
+      throw new DomainError("LOCKER", "Complétez chaque locker renseigné, ou laissez-le entièrement vide.", { fieldErrors });
+    }
+    const res = await completeOnboarding(actor, {
+      phone: data.phone,
+      addressLine1: data.addressLine1,
+      addressLine2: data.addressLine2 ?? null,
+      postalCode: data.postalCode,
+      city: data.city,
+      lockers,
+    });
+    revalidatePath("/preparateur", "layout");
+    return {
+      ok: true,
+      message: `Merci ! ${res.locations} point(s) de réception envoyé(s) à l'équipe Packio pour validation.`,
+      redirectTo: "/preparateur",
+    };
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Retrait de crédits justifié
+// -----------------------------------------------------------------------------
+
+export async function preparerDebitCreditsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(
+    z.object({ customerId: id, amount: intField("Crédits", { min: 1, max: PREPARER_DEBIT_MAX }), reason: requiredText("Motif", 10, 500), requestId: id }),
+    formToObject(formData),
+    async (actor, data) => {
+      const res = await preparerDebitCredits(actor, data);
+      revalidatePath(`/preparateur/clients/${data.customerId}`);
+      return {
+        ok: true,
+        message: res.applied ? `${res.debited} crédit(s) retiré(s). Le motif a été envoyé à votre client dans la messagerie.` : "Ce retrait a déjà été enregistré.",
+      };
+    },
+  );
 }

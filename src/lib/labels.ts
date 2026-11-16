@@ -141,6 +141,7 @@ export const CREDIT_TX_TYPE: Record<CreditTransactionType, string> = {
   ADMIN_DEBIT: "Débit manuel",
   REFUND_DEBIT: "Retrait suite à remboursement",
   STORAGE_FEE: "Stockage",
+  PREPARER_DEBIT: "Retrait par votre préparateur",
 };
 
 export const SHIPMENT_KIND: Record<ShipmentKind, Labeled> = {

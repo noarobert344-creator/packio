@@ -1,7 +1,7 @@
 import { nowMs } from "@/server/lib/clock";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClock, MapPin, MessagesSquare, Package, Truck } from "lucide-react";
+import { CalendarClock, MapPin, MessagesSquare, Package, Truck, Phone } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Section } from "@/components/shared/page-header";
@@ -81,9 +81,16 @@ export default async function MyPreparerPage() {
             </h2>
             <StatusBadge tone={status.tone} label={status.label} />
           </div>
-          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <MapPin className="size-4" /> {preparer.city}
-            {preparer.country !== "FR" ? `, ${preparer.country}` : ""}
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="size-4" /> {preparer.city}
+              {preparer.country !== "FR" ? `, ${preparer.country}` : ""}
+            </span>
+            {preparer.user.phone && (
+              <a href={`tel:${preparer.user.phone.replace(/\s/g, "")}`} className="inline-flex items-center gap-1.5 hover:text-foreground">
+                <Phone className="size-4" /> {preparer.user.phone}
+              </a>
+            )}
           </p>
           <p className="text-sm">
             <span className="font-semibold tabular">{ordersCount}</span> <span className="text-muted-foreground">colis confiés depuis l&apos;attribution</span>

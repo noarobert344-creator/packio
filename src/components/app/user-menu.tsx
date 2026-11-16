@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { LogOut, Settings, LifeBuoy } from "lucide-react";
+import { ArrowLeftRight, LogOut, Settings, LifeBuoy } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { logoutAction } from "@/server/actions/auth";
+import { logoutAction, switchSpaceAction } from "@/server/actions/auth";
 
-export function UserMenu({ name, email, avatarUrl, initials, settingsHref, supportHref, roleLabel }: {
+export function UserMenu({ name, email, avatarUrl, initials, settingsHref, supportHref, roleLabel, switchTo }: {
   name: string;
   email: string;
   avatarUrl?: string | null;
@@ -14,6 +14,8 @@ export function UserMenu({ name, email, avatarUrl, initials, settingsHref, suppo
   settingsHref: string;
   supportHref?: string;
   roleLabel: string;
+  /** Administrateur qui est aussi préparateur : espace vers lequel basculer. */
+  switchTo?: "ADMIN" | "PREPARER" | null;
 }) {
   return (
     <DropdownMenu>
@@ -41,6 +43,19 @@ export function UserMenu({ name, email, avatarUrl, initials, settingsHref, suppo
               <LifeBuoy /> Support Packio
             </Link>
           </DropdownMenuItem>
+        )}
+        {switchTo && (
+          <>
+            <DropdownMenuSeparator />
+            <form action={switchSpaceAction}>
+              <input type="hidden" name="target" value={switchTo} />
+              <DropdownMenuItem asChild>
+                <button type="submit" className="w-full font-medium text-brand">
+                  <ArrowLeftRight /> {switchTo === "PREPARER" ? "Passer en mode préparateur" : "Revenir à l'administration"}
+                </button>
+              </DropdownMenuItem>
+            </form>
+          </>
         )}
         <DropdownMenuSeparator />
         <form action={logoutAction}>

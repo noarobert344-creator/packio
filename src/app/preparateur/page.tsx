@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Boxes, CalendarOff, Camera, CheckCircle2, Headset, MapPin, PackageCheck, PackageOpen, Ruler, Siren, Timer, Truck, Users, Warehouse, Hourglass } from "lucide-react";
 import { db } from "@/server/db";
+import { redirect } from "next/navigation";
 import { requirePreparer } from "@/server/auth/current";
 import { getPreparerDashboard } from "@/server/services/stats";
 import { getTodayLists } from "@/server/queries/preparer";
@@ -17,6 +18,9 @@ export const metadata: Metadata = { title: "Tableau de bord préparateur" };
 
 export default async function PreparerDashboardPage() {
   const actor = await requirePreparer();
+  // Première connexion : questionnaire de bienvenue (téléphone, adresse, lockers, photo).
+  const onboarding = await db.preparerProfile.findUnique({ where: { id: actor.preparerId }, select: { onboardedAt: true } });
+  if (onboarding && !onboarding.onboardedAt) redirect("/preparateur/bienvenue");
   const now = new Date();
   const [stats, today, me, late] = await Promise.all([
     getPreparerDashboard(actor.preparerId),

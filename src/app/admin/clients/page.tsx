@@ -89,9 +89,14 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
                       </TableCell>
                       <TableCell className="text-sm">
                         {c.currentPreparer ? (
-                          <Link href={`/admin/preparateurs/${c.currentPreparer.id}`} className="hover:underline">
-                            {c.currentPreparer.user.firstName} {c.currentPreparer.user.lastName}
-                          </Link>
+                          <span className="flex flex-col">
+                            <Link href={`/admin/preparateurs/${c.currentPreparer.id}`} className="hover:underline">
+                              {c.currentPreparer.user.firstName} {c.currentPreparer.user.lastName}
+                            </Link>
+                            <Link href={`/admin/clients/${c.id}?changer-preparateur=1`} className="text-xs text-brand hover:underline">
+                              Changer
+                            </Link>
+                          </span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}

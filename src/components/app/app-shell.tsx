@@ -64,7 +64,8 @@ export async function AppShell({ actor, badges = {}, children }: { actor: Actor;
                 avatarUrl={user?.avatarFileId ? `/api/files/${user.avatarFileId}` : null}
                 settingsHref={SETTINGS[actor.role]}
                 supportHref={SUPPORT[actor.role]}
-                roleLabel={ROLE_LABEL[actor.role]}
+                roleLabel={actor.switchTo ? `${ROLE_LABEL[actor.role]} · compte administrateur et préparateur` : ROLE_LABEL[actor.role]}
+                switchTo={actor.switchTo}
               />
             </div>
           </div>

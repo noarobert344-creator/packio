@@ -436,7 +436,7 @@ export async function debitCredits(
     customerId: string;
     amount: number;
     bucket?: CreditBucket;
-    type: Extract<CreditTransactionType, "ADMIN_DEBIT" | "REFUND_DEBIT" | "STORAGE_FEE">;
+    type: Extract<CreditTransactionType, "ADMIN_DEBIT" | "REFUND_DEBIT" | "STORAGE_FEE" | "PREPARER_DEBIT">;
     description: string;
     reason?: string | null;
     actorId?: string | null;

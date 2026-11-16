@@ -42,16 +42,17 @@ export function AssignDialog({ customerId, customerName, options, size = "defaul
   );
 }
 
-export function ReassignDialog({ customerId, currentPreparerId, options }: { customerId: string; currentPreparerId: string | null; options: CapacityOption[] }) {
+export function ReassignDialog({ customerId, currentPreparerId, options, defaultOpen }: { customerId: string; currentPreparerId: string | null; options: CapacityOption[]; defaultOpen?: boolean }) {
   return (
     <ActionDialog
       wide
+      defaultOpen={defaultOpen}
       trigger={
         <Button variant="outline">
-          <ArrowLeftRight /> Réattribuer
+          <ArrowLeftRight /> Changer de préparateur
         </Button>
       }
-      title="Réattribuer le client"
+      title="Changer le préparateur du client"
       description="L'affectation actuelle est clôturée (historique conservé) et l'ancien préparateur perd l'accès à la conversation. Les commandes déjà en route vers l'ancien préparateur restent à sa charge."
       action={reassignCustomerAction}
       submitLabel="Confirmer la réattribution"

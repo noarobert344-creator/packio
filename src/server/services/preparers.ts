@@ -307,3 +307,113 @@ export async function getPreparerStats(preparerId: string) {
     storedUnits: (stock._sum.quantityAvailable ?? 0) + (stock._sum.quantityReserved ?? 0),
   };
 }
+
+// -----------------------------------------------------------------------------
+// Questionnaire de bienvenue (fiche visible par les clients)
+// -----------------------------------------------------------------------------
+
+/** Lockers proposés au questionnaire (tous facultatifs). */
+export const ONBOARDING_LOCKER_NETWORKS = [
+  { code: "MONDIAL_RELAY", label: "Mondial Relay" },
+  { code: "VINTED_GO", label: "Vinted Go" },
+  { code: "CHRONOPOST_PICKUP", label: "Chronopost" },
+] as const;
+
+export type OnboardingInput = {
+  phone: string;
+  addressLine1: string;
+  addressLine2?: string | null;
+  postalCode: string;
+  city: string;
+  lockers: { network: (typeof ONBOARDING_LOCKER_NETWORKS)[number]["code"]; relayName: string; addressLine1: string; postalCode: string; city: string }[];
+};
+
+/**
+ * Première connexion du préparateur : téléphone, adresse de réception et
+ * lockers facultatifs. Les points de réception restent à valider par Packio
+ * avant d'être proposés aux clients.
+ */
+export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
+  const preparerId = assertPreparer(actor);
+  const phone = input.phone.trim();
+  const fieldErrors: Record<string, string> = {};
+  if (phone.replace(/\D/g, "").length < 9) fieldErrors.phone = "Numéro de téléphone invalide";
+  if (!input.addressLine1.trim()) fieldErrors.addressLine1 = "Adresse requise";
+  if (!/^[0-9A-Za-z -]{3,10}$/.test(input.postalCode.trim())) fieldErrors.postalCode = "Code postal invalide";
+  if (!input.city.trim()) fieldErrors.city = "Ville requise";
+  if (Object.keys(fieldErrors).length) throw new DomainError("ONBOARDING", "Complétez les champs obligatoires.", { fieldErrors });
+
+  return withEffects(async (tx, fx) => {
+    const profile = await tx.preparerProfile.findUniqueOrThrow({ where: { id: preparerId }, include: { user: { select: { firstName: true, lastName: true } } } });
+    if (profile.onboardedAt) throw new DomainError("ALREADY_DONE", "Votre fiche est déjà complétée : modifiez-la depuis vos paramètres.");
+    const name = `${profile.user.firstName} ${profile.user.lastName}`;
+    const address = { addressLine1: input.addressLine1.trim(), addressLine2: input.addressLine2?.trim() || null, postalCode: input.postalCode.trim(), city: input.city.trim() };
+    await tx.user.update({ where: { id: actor.userId }, data: { phone } });
+    await tx.preparerProfile.update({
+      where: { id: preparerId },
+      data: {
+        city: address.city,
+        businessAddressLine1: address.addressLine1,
+        businessAddressLine2: address.addressLine2,
+        businessPostalCode: address.postalCode,
+        businessCity: address.city,
+        onboardedAt: new Date(),
+      },
+    });
+    const hasPrimary = await tx.preparerLocation.count({ where: { preparerId, isPrimary: true, isActive: true } });
+    await tx.preparerLocation.create({
+      data: { preparerId, type: "BUSINESS_ADDRESS", label: "Adresse de réception", ...address, country: "FR", recipientName: name, recipientPhone: phone, isPrimary: !hasPrimary },
+    });
+    for (const l of input.lockers) {
+      const network = ONBOARDING_LOCKER_NETWORKS.find((n) => n.code === l.network)!;
+      await tx.preparerLocation.create({
+        data: {
+          preparerId,
+          type: "LOCKER",
+          label: `Locker ${network.label}`,
+          network: network.code,
+          relayName: l.relayName.trim(),
+          addressLine1: l.addressLine1.trim(),
+          postalCode: l.postalCode.trim(),
+          city: l.city.trim(),
+          country: "FR",
+          recipientName: name,
+          recipientPhone: phone,
+          isPrimary: false,
+        },
+      });
+    }
+    await audit({ actor, action: "preparer.onboarded", entityType: "preparer", entityId: preparerId, summary: `${1 + input.lockers.length} point(s) de réception à valider` }, tx);
+    fx.notifyAdmins(
+      {
+        type: "ADMIN_PREPARER_ONBOARDED",
+        title: "Fiche préparateur à valider",
+        body: `${name} a complété sa fiche : ${1 + input.lockers.length} point(s) de réception à valider avant de recevoir des clients.`,
+        link: `/admin/preparateurs/${preparerId}`,
+      },
+      "preparers.manage",
+    );
+    return { locations: 1 + input.lockers.length };
+  });
+}
+
+// -----------------------------------------------------------------------------
+// Administrateur qui est aussi préparateur
+// -----------------------------------------------------------------------------
+
+/**
+ * Crée le profil préparateur d'un administrateur (un seul compte, deux
+ * espaces). La fiche (téléphone, adresse, lockers) est demandée à la première
+ * visite de l'espace préparateur, puis validée comme pour tout préparateur.
+ */
+export async function enableAdminPreparerProfile(actor: Actor) {
+  assertAdmin(actor, "preparers.manage");
+  const existing = await db.preparerProfile.findUnique({ where: { userId: actor.userId }, select: { id: true } });
+  if (existing) return existing;
+  const profile = await db.preparerProfile.create({
+    data: { userId: actor.userId, city: "À compléter", country: "FR", compatibleCarriers: [], availability: DEFAULT_AVAILABILITY, status: "ACTIVE" },
+    select: { id: true },
+  });
+  await audit({ actor, action: "preparer.admin_enabled", entityType: "preparer", entityId: profile.id, summary: `${actor.firstName} ${actor.lastName} (administrateur)` });
+  return profile;
+}

@@ -118,7 +118,7 @@ export async function assertCanReadFile(actor: Actor, file: FileRow & { avatarOf
   if (file.purpose === "AVATAR" && file.avatarOf) {
     if (actor.role === "ADMIN") return;
     const owner = file.avatarOf;
-    if (owner.role === "PREPARER" && actor.role === "CUSTOMER") {
+    if (actor.role === "CUSTOMER") {
       const c = await db.customerProfile.findUnique({ where: { id: actor.customerId! }, include: { currentPreparer: { select: { userId: true } } } });
       if (c?.currentPreparer?.userId === owner.id) return;
     }

@@ -1,11 +1,11 @@
 "use client";
 
-import { ClipboardCheck, PackagePlus } from "lucide-react";
+import { ClipboardCheck, MinusCircle, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TextAreaField, TextField } from "@/components/shared/form-field";
 import { FileUploader } from "@/components/shared/file-uploader";
 import { useFieldError } from "@/components/shared/action-form";
-import { addItemAction, inventoryCountAction } from "@/server/actions/preparer";
+import { addItemAction, inventoryCountAction, preparerDebitCreditsAction } from "@/server/actions/preparer";
 import { StepDialog } from "./step-form";
 
 export function AddItemDialog({ customerId, customerLabel }: { customerId: string; customerLabel: string }) {
@@ -87,6 +87,29 @@ export function InventoryCountDialog({ customerId, items }: { customerId: string
         ))}
       </ul>
       <TextAreaField name="notes" label="Notes" rows={2} placeholder="Facultatif" />
+    </StepDialog>
+  );
+}
+
+/** Retrait de crédits : le motif est envoyé au client dans la messagerie. */
+export function DebitCreditsDialog({ customerId, available, requestId, max }: { customerId: string; available: number; requestId: string; max: number }) {
+  return (
+    <StepDialog
+      trigger={
+        <Button variant="outline">
+          <MinusCircle /> Retirer des crédits
+        </Button>
+      }
+      title="Retirer des crédits"
+      description={`Solde disponible du client : ${available} crédit(s). Le motif lui est envoyé automatiquement dans votre conversation, et le retrait figure dans son historique.`}
+      action={preparerDebitCreditsAction}
+      submitLabel="Retirer et prévenir le client"
+      pendingLabel="Retrait…"
+    >
+      <input type="hidden" name="customerId" value={customerId} />
+      <input type="hidden" name="requestId" value={requestId} />
+      <TextField name="amount" label="Nombre de crédits" type="number" min={1} max={Math.min(max, Math.max(available, 1))} defaultValue="1" required inputMode="numeric" className="sm:max-w-40" />
+      <TextAreaField name="reason" label="Motif (envoyé au client)" rows={3} required placeholder="Ex. : emballage renforcé demandé pour l'article fragile, carton double épaisseur." />
     </StepDialog>
   );
 }

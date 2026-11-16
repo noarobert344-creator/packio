@@ -49,7 +49,7 @@ export async function loadActorFromToken(token: string | undefined | null): Prom
     await db.session.update({ where: { id: session.id }, data: { lastUsedAt: new Date(now) } }).catch(() => undefined);
   }
 
-  return { sessionId: session.id, actor: toActor(user) };
+  return { sessionId: session.id, actor: toActor(user, session.activeRole) };
 }
 
 export function toActor(user: {
@@ -62,18 +62,31 @@ export function toActor(user: {
   staffRole: { permissions: string[] } | null;
   customerProfile: { id: string } | null;
   preparerProfile: { id: string } | null;
-}): Actor {
+}, activeRole?: Actor["role"] | null): Actor {
+  // Administrateur et préparateur : la session porte l'espace actif. En mode
+  // préparateur, le compte n'a aucune permission d'administration.
+  const dual = user.role === "ADMIN" && !!user.preparerProfile;
+  const role = dual && activeRole === "PREPARER" ? "PREPARER" : user.role;
   return {
     userId: user.id,
-    role: user.role,
+    role,
     email: user.email,
     firstName: user.firstName,
     lastName: user.lastName,
     isDemo: user.isDemo,
-    permissions: user.role === "ADMIN" ? (user.staffRole?.permissions ?? []) : [],
+    permissions: role === "ADMIN" ? (user.staffRole?.permissions ?? []) : [],
     customerId: user.customerProfile?.id ?? null,
     preparerId: user.preparerProfile?.id ?? null,
+    switchTo: dual ? (role === "PREPARER" ? "ADMIN" : "PREPARER") : null,
   };
+}
+
+/** Bascule de l'espace actif d'une session (administrateur qui est aussi préparateur). */
+export async function setSessionSpace(sessionId: string, userId: string, target: "ADMIN" | "PREPARER") {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { role: true, preparerProfile: { select: { id: true } } } });
+  if (!user || user.role !== "ADMIN" || !user.preparerProfile) return false;
+  await db.session.update({ where: { id: sessionId }, data: { activeRole: target === "PREPARER" ? "PREPARER" : null } });
+  return true;
 }
 
 export async function revokeSessionToken(token: string) {

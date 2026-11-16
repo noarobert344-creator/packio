@@ -7,9 +7,12 @@ import { getMyClient } from "@/server/queries/preparer";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatusFrom } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { AddItemDialog, InventoryCountDialog } from "@/components/preparer/client-actions";
-import { INVENTORY_STATUS, SHIPMENT_STATUS, SUPPLIER_ORDER_STATUS } from "@/lib/labels";
-import { formatDate } from "@/lib/format";
+import { AddItemDialog, DebitCreditsDialog, InventoryCountDialog } from "@/components/preparer/client-actions";
+import { getWalletOverview, listCreditTransactions } from "@/server/services/credits";
+import { PREPARER_DEBIT_MAX } from "@/server/services/preparer-credits";
+import { randomUUID } from "node:crypto";
+import { CREDIT_TX_TYPE, INVENTORY_STATUS, SHIPMENT_STATUS, SUPPLIER_ORDER_STATUS } from "@/lib/labels";
+import { formatDate, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Fiche client" };
 
@@ -19,6 +22,8 @@ export default async function PreparerClientPage({ params }: { params: Promise<{
   const data = await getMyClient(actor.preparerId, id);
   if (!data) notFound();
   const { customer, orders, items, shipments, conversationId } = data;
+  // Crédits du client : visibles par son préparateur, qui peut en retirer en le justifiant.
+  const [wallet, { items: transactions }] = await Promise.all([getWalletOverview(customer.id), listCreditTransactions(customer.id, { take: 8 })]);
   const name = `${customer.user.firstName} ${customer.user.lastName}`;
   const units = items.reduce((s, i) => s + i.quantityAvailable + i.quantityReserved, 0);
   const plan = customer.subscriptions[0]?.plan;
@@ -40,6 +45,7 @@ export default async function PreparerClientPage({ params }: { params: Promise<{
                 </Link>
               </Button>
             )}
+            <DebitCreditsDialog customerId={customer.id} available={wallet.available} requestId={randomUUID()} max={PREPARER_DEBIT_MAX} />
             <InventoryCountDialog customerId={customer.id} items={countable} />
             <AddItemDialog customerId={customer.id} customerLabel={`${name} (${customer.referenceCode})`} />
           </>
@@ -51,6 +57,34 @@ export default async function PreparerClientPage({ params }: { params: Promise<{
           Le code client <span className="rounded-md bg-foreground px-1.5 py-0.5 font-mono text-xs font-semibold text-background">{customer.referenceCode}</span> figure en complément du nom du destinataire sur les colis envoyés à vos points de réception.
         </p>
       </div>
+
+      <Section
+        title="Crédits du client"
+        description={`${wallet.available} crédit(s) disponible(s)${wallet.wallet.reservedBalance ? `, ${wallet.wallet.reservedBalance} réservé(s) pour des expéditions` : ""}. Tout retrait doit être justifié : le motif est envoyé au client.`}
+        contentClassName="p-0"
+      >
+        {transactions.length ? (
+          <ul className="divide-y">
+            {transactions.map((t) => (
+              <li key={t.id} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
+                <span className="min-w-0">
+                  <span className="block truncate">{t.description ?? CREDIT_TX_TYPE[t.type]}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDateTime(t.createdAt)}
+                    {t.reason ? ` · ${t.reason}` : ""}
+                  </span>
+                </span>
+                <span className={t.amount < 0 ? "shrink-0 font-medium text-danger tabular" : "shrink-0 font-medium text-success tabular"}>
+                  {t.amount > 0 ? "+" : ""}
+                  {t.amount}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-5 py-4 text-sm text-muted-foreground">Aucun mouvement de crédits.</p>
+        )}
+      </Section>
 
       <Section title="Stock chez vous" description="Articles du client que vous détenez." contentClassName="p-0">
         {items.length ? (

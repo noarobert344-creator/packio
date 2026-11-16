@@ -13,6 +13,11 @@ export type Actor = {
   customerId: string | null;
   preparerId: string | null;
   isDemo: boolean;
+  /**
+   * Administrateur qui est aussi préparateur : espace vers lequel il peut
+   * basculer (null pour un compte à rôle unique).
+   */
+  switchTo?: "ADMIN" | "PREPARER" | null;
 };
 
 export function isAdmin(actor: Actor) {
