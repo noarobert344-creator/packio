@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CalendarClock, CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { PlanPicker } from "@/components/client/plan-picker";
+import { PaymentPending } from "@/components/client/payment-pending";
 import { requireCustomer } from "@/server/auth/current";
 import { db } from "@/server/db";
 import { getActiveSubscription } from "@/server/services/customers";
@@ -26,6 +28,11 @@ export default async function SubscriptionPage({ searchParams }: { searchParams:
     }),
     db.subscription.findFirst({ where: { customerId: actor.customerId, status: "CANCELED" }, orderBy: { endedAt: "desc" }, include: { pendingPlan: true } }),
   ]);
+  // Retour de Whop : abonnement actif → tableau de bord ; sinon, attente de la confirmation.
+  if (one(sp.paiement) === "confirme") {
+    if (sub) redirect("/client?abonnement=confirme");
+    return <PaymentPending />;
+  }
   // Fin d'une formule annuelle avec passage au mensuel demandé : offre pré-sélectionnée.
   const awaitingMonthly = !sub && lastEnded?.pendingBillingInterval === "MONTHLY" && lastEnded.pendingPlan?.isActive ? lastEnded.pendingPlan : null;
   const preselect = awaitingMonthly?.code ?? one(sp.offre)?.toUpperCase();

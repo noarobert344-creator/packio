@@ -133,7 +133,8 @@ export async function startSubscriptionCheckout(actor: Actor, planId: string, in
   if (env.billingMode === "dev") return { url: `/paiement-demo?type=abonnement&offre=${plan.id}&periodicite=${intervalParam(interval)}` };
 
   assertWhop();
-  return createSubscriptionCheckout({ customerId, plan, interval, redirectPath: "/client?abonnement=confirme" });
+  // Retour sur une page d'attente : le webhook de Whop arrive parfois quelques secondes après le client.
+  return createSubscriptionCheckout({ customerId, plan, interval, redirectPath: "/client/abonnement?paiement=confirme" });
 }
 
 /** Lien de gestion de l'abonnement chez Whop (moyen de paiement, reçus). */

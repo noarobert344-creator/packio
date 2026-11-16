@@ -17,6 +17,7 @@ import { CREDIT_PACK_SIZES } from "@/lib/credit-packs";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { one, parsePage, type SearchParams } from "@/lib/params";
+import { AutoRefresh } from "@/components/shared/auto-refresh";
 
 export const metadata: Metadata = { title: "Mes crédits" };
 
@@ -49,6 +50,7 @@ export default async function CreditsPage({ searchParams }: { searchParams: Sear
       {one(sp.recharge) === "confirmee" && (
         <p className="flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success">
           <CheckCircle2 className="size-4" /> Recharge confirmée. Les crédits peuvent mettre quelques secondes à apparaître.
+          <AutoRefresh everyMs={3000} maxTries={10} />
         </p>
       )}
       {one(sp.recharge) === "annulee" && (
