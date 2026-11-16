@@ -58,6 +58,10 @@ const parts = [];
 const central = [];
 let offset = 0;
 const files = listFiles(OUT).sort();
+// Date et heure de construction au format MS-DOS (exigé par le format ZIP).
+const now = new Date();
+const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | Math.floor(now.getSeconds() / 2);
+const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
 for (const file of files) {
   const name = Buffer.from(relative(OUT, file).split("\\").join("/"), "utf8");
   const data = readFileSync(file);
@@ -66,6 +70,8 @@ for (const file of files) {
   local.writeUInt32LE(0x04034b50, 0);
   local.writeUInt16LE(20, 4);
   local.writeUInt16LE(0x0800, 6);
+  local.writeUInt16LE(dosTime, 10);
+  local.writeUInt16LE(dosDate, 12);
   local.writeUInt32LE(crc, 14);
   local.writeUInt32LE(data.length, 18);
   local.writeUInt32LE(data.length, 22);
@@ -76,6 +82,8 @@ for (const file of files) {
   header.writeUInt16LE(20, 4);
   header.writeUInt16LE(20, 6);
   header.writeUInt16LE(0x0800, 8);
+  header.writeUInt16LE(dosTime, 12);
+  header.writeUInt16LE(dosDate, 14);
   header.writeUInt32LE(crc, 16);
   header.writeUInt32LE(data.length, 20);
   header.writeUInt32LE(data.length, 24);
