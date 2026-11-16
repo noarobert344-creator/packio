@@ -50,12 +50,10 @@ services:
       # Votre adresse e-mail : compte super administrateur créé au premier déploiement.
       - key: INITIAL_ADMIN_EMAIL
         sync: false
-      # Assistance IA de Packio Connect (facultatif) : clé API Claude, saisie dans
-      # le tableau de bord Render. Budget mensuel en dollars.
-      - key: ANTHROPIC_API_KEY
+      # Lecture de secours de Packio Connect (facultatif) : clé Google Gemini
+      # gratuite (aistudio.google.com/apikey), saisie dans le tableau de bord Render.
+      - key: GEMINI_API_KEY
         sync: false
-      - key: AI_MONTHLY_BUDGET_USD
-        value: "15"
       # Site de démonstration : comptes de démo et paiements simulés (aucun
       # encaissement). Pour le lancement réel, voir le README (base neuve,
       # DEMO_DATA supprimé, BILLING_MODE=whop).

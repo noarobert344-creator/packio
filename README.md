@@ -250,13 +250,16 @@ Extension Chrome (Manifest V3) fournie dans le dossier `extension/` — installa
 - **Messagerie** : notes vocales (micro), vidéos (40 Mo), audio, images, PDF, Word, Excel, PowerPoint, ZIP, texte ; type réel vérifié côté serveur, lecture partielle (Range) pour les médias.
 - **Statistiques et comptabilité** : pages Statistiques du client et du préparateur (par mois, exports CSV `/api/exports/...`) et comptabilité mensuelle de la plateforme dans Admin → Statistiques.
 
-### Assistance IA de Packio Connect (Claude, facultatif)
+### Lecture de secours de Packio Connect (gratuite, IA facultative)
 
-Les adresses Vinted et Vestiaire Collective lues par l'extension ne sont pas documentées et peuvent changer. Quand l'extension ne reconnaît plus la liste des ventes, elle envoie l'extrait à `POST /api/extension/ai-extract` : le serveur demande à **Claude** (modèle `claude-opus-5-5`, effort `low`, sortie structurée validée par un schéma, repli automatique en cas de refus) d'en extraire les ventes, puis l'extension reprend la synchronisation normale. Le résultat est revalidé (identifiants, prix, dates, URL de bordereau limitée au domaine de la plateforme).
+Les adresses Vinted et Vestiaire Collective lues par l'extension ne sont pas documentées et peuvent changer. Quand l'extension ne reconnaît plus la liste des ventes, elle envoie l'extrait à `POST /api/extension/ai-extract`, qui essaie dans l'ordre :
 
-- Activée seulement si `ANTHROPIC_API_KEY` est définie côté serveur (jamais dans l'extension ni dans le navigateur).
-- Garde-fous : `AI_DAILY_CALLS_PER_CUSTOMER` appels par client et par jour (6 par défaut), budget mensuel `AI_MONTHLY_BUDGET_USD` (15 $ par défaut) estimé à partir des jetons consommés ; chaque appel est enregistré (`ai_usages`) et la consommation du mois est affichée dans **Admin → Statistiques**. L'extrait envoyé n'est pas conservé.
-- Obtenir une clé : [console.anthropic.com](https://console.anthropic.com) → **Settings → API Keys → Create Key** ; les crédits disponibles apparaissent dans **Settings → Billing**. L'abonnement Claude (Pro / Max) utilisé sur claude.ai est distinct de la facturation de l'API.
+1. **Lecture automatique** (gratuite, rien ne quitte le serveur) : elle cherche dans l'extrait JSON (ou dans les blocs JSON d'une page HTML) la liste qui ressemble à des ventes, même si les noms des champs ont changé (identifiant, article, prix, date, acheteur, bordereau).
+2. **IA de secours**, seulement si une clé est configurée et que la lecture automatique échoue : **Google Gemini** (`GEMINI_API_KEY`, offre gratuite, modèle `AI_GEMINI_MODEL`, `gemini-3.5-flash-lite` par défaut) ou **Claude** (`ANTHROPIC_API_KEY`, payant). Les données personnelles (acheteurs, adresses, téléphones, e-mails) sont **masquées avant l'envoi** : sur l'offre gratuite, Google peut utiliser les contenus pour améliorer ses produits.
+
+Le résultat est toujours revalidé (identifiants, prix, dates, URL de bordereau limitée au domaine de la plateforme), l'extrait n'est pas conservé et chaque lecture est enregistrée (`ai_usages`, visible dans **Admin → Statistiques**). Garde-fous de l'IA : `AI_DAILY_CALLS_PER_CUSTOMER` appels par client et par jour (6 par défaut) et, pour Claude, budget mensuel `AI_MONTHLY_BUDGET_USD`.
+
+Clé Gemini gratuite : [aistudio.google.com/apikey](https://aistudio.google.com/apikey) (compte Google), puis `GEMINI_API_KEY` dans Render → Environment. L'appel Gemini suit l'API Interactions documentée par Google et n'a pas pu être testé sans clé : vérifiez la lecture de secours après avoir ajouté la clé (Admin → Statistiques).
 
 ## Sécurité et RGPD
 
@@ -350,7 +353,7 @@ npm run extension:build -- https://packio.onrender.com
 ```
 
 2. Ouvrez un compte développeur sur la [console du Chrome Web Store](https://chrome.google.com/webstore/devconsole) (5 $, une fois), au nom de l'éditeur de Packio.
-3. **Nouvel élément** : envoyez `dist/packio-connect-<version>.zip` (version 0.2.0 actuellement), puis remplissez la fiche avec les textes et images de [`extension/store/`](extension/store/fiche-chrome-web-store.md) et soumettez-la à l'examen (quelques jours en général).
+3. **Nouvel élément** : envoyez `dist/packio-connect-<version>.zip` (version 0.2.1 actuellement), puis remplissez la fiche avec les textes et images de [`extension/store/`](extension/store/fiche-chrome-web-store.md) et soumettez-la à l'examen (quelques jours en général).
 4. Une fois l'extension publiée, ajoutez `EXTENSION_STORE_URL` (adresse de la fiche) dans **packio → Environment**, puis redéployez : les clients voient le bouton **Installer depuis le Chrome Web Store**, puis **Connecter l'extension**, dans **Ventes et comptes liés**.
 
 ## Déploiement (Vercel)

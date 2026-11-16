@@ -57,10 +57,9 @@ export default async function AdminStatsPage() {
         <StatCard label="Crédits consommés (total)" value={consumed} icon={Coins} hint="Débits définitifs au dépôt" />
       </div>
       <p className="-mt-3 mb-6 text-xs text-muted-foreground">
-        Assistance IA (Packio Connect) :{" "}
-        {ai.enabled
-          ? `${ai.calls} appel(s) ce mois, ${ai.salesFound} vente(s) récupérée(s), ${ai.costUsd.toFixed(2)} $ sur un budget de ${ai.budgetUsd} $.`
-          : "désactivée (clé ANTHROPIC_API_KEY absente)."}
+        Lecture de secours (Packio Connect) ce mois : {ai.autoReads} lecture(s) automatique(s) gratuite(s), {ai.aiCalls} appel(s) à l&apos;IA
+        {ai.provider === "gemini" ? " Gemini (gratuite)" : ai.provider === "claude" ? ` Claude (${ai.costUsd.toFixed(2)} $ sur ${ai.budgetUsd} $)` : " (aucune IA configurée)"}, {ai.salesFound}{" "}
+        vente(s) récupérée(s).
       </p>
       <div className="grid gap-6 xl:grid-cols-2">
         <Section>

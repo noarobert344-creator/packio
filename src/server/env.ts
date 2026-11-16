@@ -29,12 +29,19 @@ export const env = {
     return mode;
   },
   /**
-   * IA de secours de Packio Connect (Claude). Activée seulement si
-   * ANTHROPIC_API_KEY est définie (lue directement par le SDK, jamais exposée).
+   * IA de secours de Packio Connect, après la lecture automatique (gratuite) :
+   * Google Gemini si GEMINI_API_KEY est définie (offre gratuite), sinon Claude
+   * si ANTHROPIC_API_KEY l'est. Clés lues côté serveur uniquement.
    */
   ai: {
-    get enabled() {
-      return !!process.env.ANTHROPIC_API_KEY;
+    get provider(): "gemini" | "claude" | null {
+      if (process.env.GEMINI_API_KEY) return "gemini";
+      if (process.env.ANTHROPIC_API_KEY) return "claude";
+      return null;
+    },
+    /** Modèle Gemini (offre gratuite). */
+    get geminiModel() {
+      return process.env.AI_GEMINI_MODEL || "gemini-3.5-flash-lite";
     },
     /** Budget mensuel en dollars (estimation à partir des jetons consommés). */
     get monthlyBudgetUsd() {

@@ -8,7 +8,7 @@ Ce dossier `store/` n'est pas inclus dans le paquet de l'extension.
 
 ## 1. Paquet
 
-Fichier à envoyer : `dist/packio-connect-<version>.zip` (actuellement 0.2.0), créé par :
+Fichier à envoyer : `dist/packio-connect-<version>.zip` (actuellement 0.2.1), créé par :
 
 ```bash
 npm run extension:build -- https://packio.onrender.com

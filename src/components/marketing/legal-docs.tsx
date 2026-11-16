@@ -422,9 +422,9 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
         </li>
         <li>Resend — envoi des e-mails transactionnels.</li>
         <li>
-          Anthropic (Claude) — uniquement si l&apos;assistance IA est activée : lecture de secours des pages de ventes Vinted ou Vestiaire Collective que
-          l&apos;extension Packio Connect ne parvient pas à lire ; l&apos;extrait n&apos;est pas conservé par Packio et n&apos;est pas utilisé pour entraîner les
-          modèles.
+          Google (Gemini) ou Anthropic (Claude) — uniquement si une IA de secours est activée, et seulement quand la lecture automatique de Packio ne parvient pas
+          à lire une page de ventes Vinted ou Vestiaire Collective : les données personnelles (acheteurs, adresses, téléphones, e-mails) sont masquées avant
+          l&apos;envoi, et l&apos;extrait n&apos;est pas conservé par Packio.
         </li>
         <li>L&apos;hébergeur ci-dessus ou un prestataire de stockage compatible S3 — conservation privée des photos et documents.</li>
         <li>Transporteurs — données du destinataire figurant sur l&apos;étiquette d&apos;expédition.</li>

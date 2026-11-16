@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   try {
     const input = schema.parse(body.data);
     const res = await extractSalesWithAI(auth.customerId, input);
-    return json(request, { ok: true, sales: res.sales });
+    return json(request, { ok: true, sales: res.sales, method: res.method });
   } catch (err) {
     return errorResponse(request, err);
   }
