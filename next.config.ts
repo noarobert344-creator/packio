@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   // Cache Components is intentionally disabled: Packio is an authenticated,
   // per-user application where nearly every route reads the session.
   poweredByHeader: false,
+  // Version du site (commit déployé), comparée par le navigateur pour annoncer
+  // les mises à jour (voir src/components/shared/update-watcher.tsx).
+  env: {
+    APP_VERSION: (process.env.RENDER_GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || `local-${Date.now().toString(36)}`).slice(0, 12),
+  },
   serverExternalPackages: ["@prisma/client", "pg"],
   turbopack: {
     rules: {

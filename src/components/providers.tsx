@@ -3,6 +3,7 @@
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { UpdateWatcher } from "@/components/shared/update-watcher";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -10,6 +11,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <TooltipProvider delayDuration={200}>
         {children}
         <Toaster position="top-center" richColors closeButton />
+        <UpdateWatcher />
       </TooltipProvider>
     </ThemeProvider>
   );
