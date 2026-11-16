@@ -42,6 +42,26 @@ describe("Poste restante : livrer sans jamais passer par le domicile du prépara
       code: "INCOMPATIBLE",
     });
     expect(checkCompatibility(vinted, { type: "POST_OFFICE", network: "LA_POSTE" }).ok).toBe(false);
+
+    // Un préparateur ne peut jamais proposer d'adresse : lockers, points relais ou poste restante seulement.
+    await expect(
+      saveLocation(prep.actor, {
+        preparerId: prep.preparer.id,
+        type: "BUSINESS_ADDRESS",
+        label: "Chez moi",
+        network: null,
+        relayName: null,
+        addressLine1: "3 rue de chez moi",
+        postalCode: "69001",
+        city: "Lyon",
+        country: "FR",
+        recipientName: "Paul P.",
+        isPrimary: false,
+      }),
+    ).rejects.toMatchObject({ code: "NO_ADDRESS" });
+    for (const code of ["VESTIAIRE", "TEMU", "ALIEXPRESS"]) {
+      expect((await db.supplier.findUniqueOrThrow({ where: { code } })).acceptedLocationTypes).toContain("POST_OFFICE");
+    }
     expect(checkCompatibility(zen, { type: "POST_OFFICE", network: "LA_POSTE" }).ok).toBe(true);
   });
 });

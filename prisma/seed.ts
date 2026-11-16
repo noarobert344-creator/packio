@@ -127,9 +127,6 @@ async function main() {
     phone: "+33 6 00 00 00 01",
     city: "Lyon",
     country: "FR",
-    businessAddressLine1: "18 rue Garibaldi",
-    businessPostalCode: "69006",
-    businessCity: "Lyon",
     compatibleCarriers: ["COLISSIMO", "MONDIAL_RELAY", "INPOST", "CHRONOPOST", "VINTED_GO"],
     storageCapacity: 800,
     maxClients: 15,
@@ -138,22 +135,26 @@ async function main() {
   });
   await markDemo(camille.preparer.userId);
   await db.preparerProfile.update({ where: { id: camille.preparer.id }, data: { onboardedAt: new Date() } });
-  const camilleBusiness = await saveLocation(admin, {
-    preparerId: camille.preparer.id, type: "BUSINESS_ADDRESS", label: "Adresse professionnelle", addressLine1: "18 rue Garibaldi", postalCode: "69006", city: "Lyon", country: "FR", recipientName: "Camille Martin", isPrimary: false, validate: true,
-    instructions: "Indiquez votre code client Packio en complément d'adresse.",
+  // Jamais d'adresse : lockers, point relais et poste restante uniquement.
+  const camillePostOffice = await saveLocation(admin, {
+    preparerId: camille.preparer.id, type: "POST_OFFICE", label: "Poste restante", relayName: "Bureau de poste Lyon Brotteaux (démo)", addressLine1: "1 place Jules Ferry", postalCode: "69006", city: "Lyon", country: "FR", recipientName: "Camille Martin", isPrimary: false, validate: true,
   });
   const camilleLocker = await saveLocation(admin, {
     preparerId: camille.preparer.id, type: "LOCKER", label: "Locker principal", network: "INPOST", relayName: "InPost Lyon Brotteaux (démo)", externalId: "DEMO-LYO-001",
     addressLine1: "2 place Jules Ferry", postalCode: "69006", city: "Lyon", country: "FR", recipientName: "Camille Martin", isPrimary: true, validate: true, openingHours: "24 h/24, 7 j/7",
   });
-  await saveLocation(admin, {
+  const camilleRelay = await saveLocation(admin, {
     preparerId: camille.preparer.id, type: "RELAY_POINT", label: "Point relais secondaire", network: "MONDIAL_RELAY", relayName: "Relais démo Part-Dieu", externalId: "DEMO-MR-042",
-    addressLine1: "40 rue Servient", postalCode: "69003", city: "Lyon", country: "FR", recipientName: "Camille Martin", isPrimary: false, validate: false,
+    addressLine1: "40 rue Servient", postalCode: "69003", city: "Lyon", country: "FR", recipientName: "Camille Martin", isPrimary: false, validate: true,
+  });
+  await saveLocation(admin, {
+    preparerId: camille.preparer.id, type: "LOCKER", label: "Locker Vinted Go", network: "VINTED_GO", relayName: "Vinted Go Lyon Guillotière (démo)",
+    addressLine1: "12 cours Gambetta", postalCode: "69007", city: "Lyon", country: "FR", recipientName: "Camille Martin", isPrimary: false, validate: false,
   });
 
   const yanis = await createPreparer(admin, {
     firstName: "Yanis", lastName: "Benali", email: `yanis.benali@${DEMO_DOMAIN}`, phone: "+33 6 00 00 00 02", city: "Lille", country: "FR",
-    businessAddressLine1: "7 rue Nationale", businessPostalCode: "59000", businessCity: "Lille", compatibleCarriers: ["COLISSIMO", "MONDIAL_RELAY", "DPD", "UPS"],
+    compatibleCarriers: ["COLISSIMO", "MONDIAL_RELAY", "DPD", "UPS"],
     storageCapacity: 400, maxClients: 8,
   });
   await markDemo(yanis.preparer.userId);
@@ -163,7 +164,7 @@ async function main() {
     addressLine1: "1 place de la Gare", postalCode: "59000", city: "Lille", country: "FR", recipientName: "Yanis Benali", isPrimary: true, validate: true,
   });
   await saveLocation(admin, {
-    preparerId: yanis.preparer.id, type: "BUSINESS_ADDRESS", label: "Adresse professionnelle", addressLine1: "7 rue Nationale", postalCode: "59000", city: "Lille", country: "FR", recipientName: "Yanis Benali", isPrimary: false, validate: true,
+    preparerId: yanis.preparer.id, type: "POST_OFFICE", label: "Poste restante", relayName: "Bureau de poste Lille Centre (démo)", addressLine1: "8 place de la République", postalCode: "59000", city: "Lille", country: "FR", recipientName: "Yanis Benali", isPrimary: false, validate: true,
   });
 
   const sofia = await createPreparer(admin, {
@@ -191,7 +192,7 @@ async function main() {
   await receiveOrder(camilleActor, { orderId: o1.id, quantityReceived: 1, conditionOk: true, conditionNotes: "Très bon état" });
   const s1 = await stockOrder(camilleActor, { orderId: o1.id, items: [{ name: "Veste en jean Levi's (M)", quantity: 1, storageLocation: "A-03" }] });
 
-  const o2 = await createSupplierOrder(leaActor, { supplierId: zen.id, locationId: camilleBusiness.id, description: "Figurines One Piece, édition limitée", quantity: 2, trackingNumber: "EMDEMO0000002JP", carrier: "LA_POSTE" });
+  const o2 = await createSupplierOrder(leaActor, { supplierId: zen.id, locationId: camillePostOffice.id, description: "Figurines One Piece, édition limitée", quantity: 2, trackingNumber: "EMDEMO0000002JP", carrier: "LA_POSTE" });
   await markPickedUp(camilleActor, { orderId: o2.id });
   await receiveOrder(camilleActor, { orderId: o2.id, quantityReceived: 2, conditionOk: true });
   const s2 = await stockOrder(camilleActor, { orderId: o2.id, items: [{ name: "Figurine One Piece (édition limitée)", quantity: 2, storageLocation: "B-11" }] });
@@ -205,7 +206,7 @@ async function main() {
   // Dropshipping : robe déjà vendue sur Vinted, expédiée à l'acheteuse dès réception.
   await createSupplierOrder(leaActor, {
     supplierId: shein.id,
-    locationId: camilleBusiness.id,
+    locationId: camilleRelay.id,
     description: "Robe midi fleurie — S",
     quantity: 1,
     expectedArrivalAt: addDays(new Date(), 4),

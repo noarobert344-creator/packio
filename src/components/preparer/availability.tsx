@@ -96,7 +96,7 @@ export function AbsenceDialog() {
 }
 
 export function ProposeLocationDialog({ defaultRecipient, defaultCity, defaultPhone }: { defaultRecipient: string; defaultCity: string; defaultPhone?: string | null }) {
-  const [type, setType] = useState<"BUSINESS_ADDRESS" | "LOCKER" | "RELAY_POINT" | "POST_OFFICE">("LOCKER");
+  const [type, setType] = useState<"LOCKER" | "RELAY_POINT" | "POST_OFFICE">("LOCKER");
   const relay = type === "LOCKER" || type === "RELAY_POINT";
   return (
     <StepDialog
@@ -118,14 +118,9 @@ export function ProposeLocationDialog({ defaultRecipient, defaultCity, defaultPh
           required
           value={type}
           onChange={(e) => setType(e.target.value as typeof type)}
-          options={(Object.keys(LOCATION_TYPE) as (keyof typeof LOCATION_TYPE)[]).map((k) => ({ value: k, label: LOCATION_TYPE[k] }))}
+          options={(["LOCKER", "RELAY_POINT", "POST_OFFICE"] as const).map((k) => ({ value: k, label: LOCATION_TYPE[k] }))}
         />
         <TextField name="label" label="Libellé" required placeholder="Ex. : Locker secondaire" />
-        {type === "BUSINESS_ADDRESS" && (
-          <p className="rounded-xl bg-warning-soft p-3 text-xs text-warning sm:col-span-2">
-            N&apos;indiquez jamais votre adresse personnelle : uniquement une adresse de domiciliation ou une boîte de réception de colis. Vos clients la voient.
-          </p>
-        )}
         {type === "POST_OFFICE" && (
           <>
             <p className="rounded-xl bg-info-soft p-3 text-xs text-info sm:col-span-2">

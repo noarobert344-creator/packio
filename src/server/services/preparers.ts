@@ -184,6 +184,10 @@ export async function saveLocation(actor: Actor, input: LocationInput & { prepar
   if ((input.type === "LOCKER" || input.type === "RELAY_POINT") && (!input.network || !input.relayName)) {
     throw new DomainError("RELAY", "Indiquez le réseau et le nom exact du locker / point relais.", { fieldErrors: { relayName: "Requis", network: "Requis" } });
   }
+  // Jamais d'adresse proposée par un préparateur : lockers, points relais ou poste restante.
+  if (!isAdmin && input.type === "BUSINESS_ADDRESS") {
+    throw new DomainError("NO_ADDRESS", "Proposez un locker, un point relais ou un bureau de poste (poste restante) : jamais d'adresse.", { fieldErrors: { type: "Non autorisé" } });
+  }
   if (input.type === "POST_OFFICE" && !input.relayName?.trim()) {
     throw new DomainError("POST_OFFICE", "Indiquez le nom du bureau de poste.", { fieldErrors: { relayName: "Requis" } });
   }
