@@ -257,7 +257,7 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
           compte les articles en stock et ceux des commandes en cours d&apos;acheminement vers le Préparateur.
         </li>
         <li>
-          Des places supplémentaires peuvent être ajoutées avec des crédits : 1 crédit donne droit à {ctx.storage.slotsPerCredit} places pendant{" "}
+          Des places supplémentaires peuvent être ajoutées avec des crédits : 1 crédit donne droit à {ctx.storage.slotsPerCredit} place{ctx.storage.slotsPerCredit > 1 ? "s" : ""} pendant{" "}
           {days(ctx.storage.extraSlotsDays)} à compter de leur ajout.
         </li>
         <li>

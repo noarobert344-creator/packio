@@ -63,7 +63,7 @@ export function StoragePanel({ overview, planName }: { overview: Overview; planN
               <PackagePlus className="size-4 text-brand" /> Ajouter des places
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              1 crédit = {rules.slotsPerCredit} places pendant {rules.extraSlotsDays} jours, prélevé sur votre solde.
+              1 crédit = {rules.slotsPerCredit} place{rules.slotsPerCredit > 1 ? "s" : ""} pendant {rules.extraSlotsDays} jours, prélevé sur votre solde.
             </p>
           </div>
           <input type="hidden" name="requestId" value={randomUUID()} />
@@ -71,7 +71,7 @@ export function StoragePanel({ overview, planName }: { overview: Overview; planN
             name="credits"
             label="Places à ajouter"
             defaultValue="1"
-            options={[1, 2, 3, 4, 5, 10].map((n) => ({ value: String(n), label: `${n * rules.slotsPerCredit} places — ${n} crédit${n > 1 ? "s" : ""}` }))}
+            options={[1, 2, 3, 4, 5, 10].map((n) => ({ value: String(n), label: `${n * rules.slotsPerCredit} place${n * rules.slotsPerCredit > 1 ? "s" : ""} — ${n} crédit${n > 1 ? "s" : ""}` }))}
           />
           <SubmitButton variant="outline" pendingLabel="Ajout…">
             Ajouter les places

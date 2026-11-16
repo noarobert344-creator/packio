@@ -45,7 +45,7 @@ export function Faq({ ctx }: { ctx: FaqContext }) {
     },
     {
       q: "Combien d'articles puis-je stocker ?",
-      a: `Le nombre de places dépend de votre offre (${storage}) : c'est le nombre d'articles stockés en même temps, commandes en cours d'acheminement comprises (hors dropshipping, qui ne prend aucune place). Pour aller au-delà, ajoutez des places avec vos crédits (1 crédit = ${r.slotsPerCredit} places pendant ${durationLabel(r.extraSlotsDays)}), expédiez des articles ou passez à l'offre supérieure.`,
+      a: `Le nombre de places dépend de votre offre (${storage}) : c'est le nombre d'articles stockés en même temps, commandes en cours d'acheminement comprises (hors dropshipping, qui ne prend aucune place). Pour aller au-delà, ajoutez des places avec vos crédits (1 crédit = ${r.slotsPerCredit} place${r.slotsPerCredit > 1 ? "s" : ""} pendant ${durationLabel(r.extraSlotsDays)}), expédiez des articles ou passez à l'offre supérieure.`,
     },
     {
       q: "Le dropshipping prend-il de la place dans mon stock ?",

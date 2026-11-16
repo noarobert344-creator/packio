@@ -208,7 +208,7 @@ Règles paramétrables (réglage `storage`, valeurs par défaut dans `src/server
 | Durée incluse par article | 14 jours à compter de la mise en stock |
 | Prolongation | 1 crédit **par article** pour 14 jours de plus, prélevé automatiquement |
 | Rappel | 2 jours avant la fin de la durée payée |
-| Places supplémentaires | 1 crédit = 3 places pendant 30 jours, ajoutées par le client depuis `Mon stock` |
+| Places supplémentaires | 1 crédit = 1 place pendant 30 jours, ajoutées par le client depuis `Mon stock` |
 
 - **Places** : articles en stock (disponibles ou réservés) + quantités des commandes en cours d'acheminement. Capacité = places de l'offre + places supplémentaires en cours de validité.
 - **À la commande** : si la commande dépasse la capacité, le formulaire affiche les crédits nécessaires (places manquantes ÷ 5, arrondi au supérieur) ; le client doit **cocher son accord**, les places sont alors achetées et débitées dans la même transaction. Sans accord ou sans solde suffisant, la commande est refusée.

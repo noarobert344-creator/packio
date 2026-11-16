@@ -108,20 +108,90 @@ async function PlatformTab() {
   );
 }
 
-const LEGAL_FIELDS: { key: string; label: string; wide?: boolean; area?: boolean }[] = [
-  { key: "companyName", label: "Raison sociale" },
-  { key: "legalForm", label: "Forme juridique" },
-  { key: "capital", label: "Capital social" },
-  { key: "siret", label: "SIRET" },
-  { key: "rcs", label: "RCS (ville et numéro)" },
-  { key: "vatNumber", label: "N° de TVA intracommunautaire" },
-  { key: "address", label: "Adresse du siège", wide: true },
-  { key: "publicationDirector", label: "Directeur de la publication" },
-  { key: "contactEmail", label: "E-mail de contact juridique" },
-  { key: "dpoEmail", label: "Contact protection des données (DPO)" },
-  { key: "hostName", label: "Hébergeur" },
-  { key: "hostAddress", label: "Adresse de l'hébergeur", wide: true },
-  { key: "consumerMediator", label: "Médiateur de la consommation (nom et coordonnées)", wide: true, area: true },
+/** Champs des informations légales, avec une explication simple sous chaque case. */
+const LEGAL_FIELDS: { key: string; label: string; hint: string; placeholder?: string; wide?: boolean; area?: boolean }[] = [
+  {
+    key: "companyName",
+    label: "Raison sociale",
+    hint: "Le nom officiel de votre entreprise, tel qu'il figure sur votre avis de situation INSEE ou votre extrait Kbis. En micro-entreprise : votre prénom et votre nom, suivis si vous voulez du nom commercial.",
+    placeholder: "Ex. : Jean Dupont – Packio",
+  },
+  {
+    key: "legalForm",
+    label: "Forme juridique",
+    hint: "Le type d'entreprise : entrepreneur individuel (micro-entreprise), SASU, SAS, EURL, SARL…",
+    placeholder: "Ex. : Entrepreneur individuel (micro-entreprise)",
+  },
+  {
+    key: "capital",
+    label: "Capital social",
+    hint: "Le montant du capital inscrit dans les statuts d'une société (SAS, SARL…). En micro-entreprise, il n'y en a pas : écrivez « Sans objet ».",
+    placeholder: "Ex. : 1 000 € ou Sans objet",
+  },
+  {
+    key: "siret",
+    label: "SIRET",
+    hint: "Le numéro à 14 chiffres de votre entreprise, sur votre avis de situation INSEE ou sur annuaire-entreprises.data.gouv.fr.",
+    placeholder: "Ex. : 123 456 789 00012",
+  },
+  {
+    key: "rcs",
+    label: "RCS (ville et numéro)",
+    hint: "Le registre où l'entreprise est immatriculée, tel qu'indiqué sur votre extrait Kbis (ville du greffe et numéro). Si vous n'avez pas de Kbis, écrivez « Non immatriculé au RCS ».",
+    placeholder: "Ex. : RCS Paris 123 456 789",
+  },
+  {
+    key: "vatNumber",
+    label: "N° de TVA intracommunautaire",
+    hint: "Numéro commençant par FR, indiqué par les impôts. Si vous ne facturez pas la TVA (franchise des micro-entreprises), écrivez « TVA non applicable, art. 293 B du CGI ».",
+    placeholder: "Ex. : FR12 123456789",
+  },
+  {
+    key: "address",
+    label: "Adresse du siège",
+    hint: "L'adresse officielle de l'entreprise, celle de votre avis INSEE ou de votre Kbis. En micro-entreprise, c'est souvent votre domicile ou une adresse de domiciliation.",
+    placeholder: "Ex. : 10 rue de la Paix, 75002 Paris",
+    wide: true,
+  },
+  {
+    key: "publicationDirector",
+    label: "Directeur de la publication",
+    hint: "La personne responsable de ce qui est publié sur le site : en général le dirigeant, donc vous. Prénom et nom.",
+    placeholder: "Ex. : Jean Dupont",
+  },
+  {
+    key: "contactEmail",
+    label: "E-mail de contact juridique",
+    hint: "L'adresse où vos clients et les autorités peuvent vous écrire pour une réclamation ou une demande officielle.",
+    placeholder: "Ex. : contact@votre-domaine.fr",
+  },
+  {
+    key: "dpoEmail",
+    label: "Contact protection des données (DPO)",
+    hint: "L'adresse pour les demandes sur les données personnelles (accès, correction, suppression). Pas besoin d'un DPO officiel : votre propre adresse e-mail suffit.",
+    placeholder: "Ex. : vous@exemple.fr",
+  },
+  {
+    key: "hostName",
+    label: "Hébergeur",
+    hint: "La société qui héberge le site. Avec Render : « Render Services, Inc. ».",
+    placeholder: "Render Services, Inc.",
+  },
+  {
+    key: "hostAddress",
+    label: "Adresse de l'hébergeur",
+    hint: "L'adresse de l'hébergeur, indiquée dans ses conditions d'utilisation (render.com/terms pour Render).",
+    placeholder: "525 Brannan Street, Suite 300, San Francisco, CA 94107, États-Unis",
+    wide: true,
+  },
+  {
+    key: "consumerMediator",
+    label: "Médiateur de la consommation (nom et coordonnées)",
+    hint: "Obligatoire si vous vendez à des particuliers : le médiateur agréé auquel vous adhérez (liste officielle sur economie.gouv.fr/mediation-conso). Indiquez son nom, son site et son adresse postale.",
+    placeholder: "Ex. : Nom du médiateur – www.site-du-mediateur.fr – adresse postale",
+    wide: true,
+    area: true,
+  },
 ];
 
 async function LegalTab() {
@@ -132,9 +202,9 @@ async function LegalTab() {
       <ActionForm action={saveLegalSettingsAction} className="grid gap-4 sm:grid-cols-2">
         {LEGAL_FIELDS.map((f) =>
           f.area ? (
-            <TextAreaField key={f.key} name={f.key} label={f.label} defaultValue={values[f.key] ?? ""} rows={3} className="sm:col-span-2" />
+            <TextAreaField key={f.key} name={f.key} label={f.label} hint={f.hint} placeholder={f.placeholder} defaultValue={values[f.key] ?? ""} rows={3} className="sm:col-span-2" />
           ) : (
-            <TextField key={f.key} name={f.key} label={f.label} defaultValue={values[f.key] ?? ""} className={f.wide ? "sm:col-span-2" : undefined} />
+            <TextField key={f.key} name={f.key} label={f.label} hint={f.hint} placeholder={f.placeholder} defaultValue={values[f.key] ?? ""} className={f.wide ? "sm:col-span-2" : undefined} />
           ),
         )}
         <p className="text-xs text-muted-foreground sm:col-span-2">Les documents générés sont des modèles : faites-les valider par un professionnel du droit avant la mise en production.</p>

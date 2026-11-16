@@ -118,7 +118,7 @@ export function Pricing({
             <div className="rounded-2xl bg-muted/50 p-4">
               <p className="text-sm font-medium">Places supplémentaires</p>
               <p className="mt-2 text-2xl font-semibold">
-                1 crédit <span className="text-base font-normal text-muted-foreground">=</span> {storage.slotsPerCredit} places
+                1 crédit <span className="text-base font-normal text-muted-foreground">=</span> {storage.slotsPerCredit} place{storage.slotsPerCredit > 1 ? "s" : ""}
               </p>
               <p className="text-xs text-muted-foreground">pendant {durationLabel(storage.extraSlotsDays)}</p>
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">À ajouter depuis « Mon stock », quand vous en avez besoin.</p>

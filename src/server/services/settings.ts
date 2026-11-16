@@ -88,13 +88,13 @@ export const SETTINGS_DEFAULTS: Settings = {
     vatNumber: "",
     publicationDirector: "",
     contactEmail: "",
-    hostName: "Vercel Inc.",
-    hostAddress: "440 N Barranca Ave #4133, Covina, CA 91723, États-Unis",
+    hostName: "Render Services, Inc.",
+    hostAddress: "525 Brannan Street, Suite 300, San Francisco, CA 94107, États-Unis",
     dpoEmail: "",
     consumerMediator: "",
   },
   messaging: { supervisionMinutes: 60 },
-  storage: { includedDays: 14, extensionDays: 14, extensionCredits: 1, slotsPerCredit: 3, extraSlotsDays: 30, reminderDaysBefore: 2 },
+  storage: { includedDays: 14, extensionDays: 14, extensionCredits: 1, slotsPerCredit: 1, extraSlotsDays: 30, reminderDaysBefore: 2 },
   shipping: { slaHours: 48, returnCredits: 1 },
 };
 

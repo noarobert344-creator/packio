@@ -12,8 +12,8 @@ import { getSetting, type Settings } from "./settings";
 /**
  * STOCKAGE
  *  - Chaque offre inclut un nombre de places (articles en stock en même temps).
- *  - Des places supplémentaires s'achètent avec des crédits : 1 crédit = 5
- *    places pendant 30 jours (paramétrable).
+ *  - Des places supplémentaires s'achètent avec des crédits : 1 crédit = 1
+ *    place pendant 30 jours (paramétrable).
  *  - Chaque article dispose de 2 semaines de stockage ; au-delà, chaque
  *    période de 2 semaines coûte 1 crédit par article (paramétrable), prélevé
  *    automatiquement. Faute de crédits, l'article passe « en dépassement » et
@@ -90,7 +90,7 @@ export async function buyStorageSlotsTx(
   });
 }
 
-/** Achat de places par le client depuis son espace (« 1 crédit = 3 places »). */
+/** Achat de places par le client depuis son espace (par défaut « 1 crédit = 1 place »). */
 export async function purchaseStorageSlots(actor: Actor, input: { credits: number; requestId: string }) {
   const customerId = assertCustomer(actor);
   if (!Number.isInteger(input.credits) || input.credits < 1 || input.credits > 50) {

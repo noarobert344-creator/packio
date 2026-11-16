@@ -267,7 +267,7 @@ export function NewOrderForm({
               <span>
                 Cette commande dépasse vos places de stock ({storage.capacity} places, {storage.used} occupée{storage.used > 1 ? "s" : ""}
                 {storage.incoming ? `, ${storage.incoming} en commande` : ""}). <strong>{creditsNeeded} crédit{creditsNeeded > 1 ? "s" : ""}</strong>{" "}
-                {creditsNeeded > 1 ? "seront débités" : "sera débité"} pour {slotsAdded} places supplémentaires pendant {storage.extraSlotsDays} jours.
+                {creditsNeeded > 1 ? "seront débités" : "sera débité"} pour {slotsAdded} place{slotsAdded > 1 ? "s" : ""} supplémentaire{slotsAdded > 1 ? "s" : ""} pendant {storage.extraSlotsDays} jours.
               </span>
             </p>
             {storage.availableCredits < creditsNeeded ? (
@@ -281,7 +281,7 @@ export function NewOrderForm({
               <CheckboxField
                 name="acceptStorageCharge"
                 required
-                label={`J'accepte le débit de ${creditsNeeded} crédit${creditsNeeded > 1 ? "s" : ""} pour ${slotsAdded} places de stock supplémentaires.`}
+                label={`J'accepte le débit de ${creditsNeeded} crédit${creditsNeeded > 1 ? "s" : ""} pour ${slotsAdded} place${slotsAdded > 1 ? "s" : ""} de stock supplémentaire${slotsAdded > 1 ? "s" : ""}.`}
               />
             )}
           </div>
