@@ -20,9 +20,12 @@ const productPhoto = { where: { purpose: "PRODUCT_PHOTO" as const, deletedAt: nu
  * Bordereaux reçus (ventes détectées par Packio Connect, dropshipping, envois
  * du client), chacun avec ses articles. `done` : déposés depuis 30 jours.
  */
-export async function listLabelBoard(scope: Scope, opts: { done?: boolean } = {}) {
+export async function listLabelBoard(scope: Scope, opts: { done?: boolean; dropship?: boolean } = {}) {
+  // Ventes normales (stock, retours) et dropshipping sont toujours séparées.
+  const kind: Prisma.OutboundShipmentWhereInput = opts.dropship === undefined ? {} : { kind: opts.dropship ? "DROPSHIP" : { not: "DROPSHIP" } };
   const where: Prisma.OutboundShipmentWhereInput = {
     ...scope,
+    ...kind,
     files: { some: { purpose: "SHIPPING_LABEL", deletedAt: null } },
     status: { in: opts.done ? DONE_STATUSES : OPEN_SHIPMENT_STATUSES },
     ...(opts.done ? { droppedOffAt: { gte: new Date(Date.now() - 30 * 86_400_000) } } : {}),
@@ -40,7 +43,7 @@ export async function listLabelBoard(scope: Scope, opts: { done?: boolean } = {}
         dropshipOrder: { select: { reference: true, salePlatform: true, saleReference: true } },
       },
     }),
-    db.outboundShipment.count({ where: { ...scope, files: { some: { purpose: "SHIPPING_LABEL", deletedAt: null } }, status: { in: OPEN_SHIPMENT_STATUSES } } }),
+    db.outboundShipment.count({ where: { ...scope, ...kind, files: { some: { purpose: "SHIPPING_LABEL", deletedAt: null } }, status: { in: OPEN_SHIPMENT_STATUSES } } }),
   ]);
   return { shipments, openCount };
 }
@@ -96,3 +99,21 @@ export async function listForSale(scope: Scope) {
 }
 
 export type ForSaleItem = Awaited<ReturnType<typeof listForSale>>["ready"][number];
+
+/**
+ * Dropshipping côté préparateur : commandes à réceptionner (article pas encore
+ * reçu), avec l'état du bordereau de la vente déjà transmis ou attendu.
+ */
+export async function listDropshipIncoming(preparerId: string) {
+  return db.supplierOrder.findMany({
+    where: { preparerId, mode: "DROPSHIP", status: { notIn: ["IN_STOCK", "CANCELLED", "RETURNED_TO_SUPPLIER"] } },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+    include: {
+      customer: { select: { referenceCode: true, user: { select: { firstName: true, lastName: true } } } },
+      supplier: { select: { name: true } },
+      location: { select: { label: true } },
+      files: { where: { purpose: "SHIPPING_LABEL", deletedAt: null }, orderBy: { createdAt: "desc" }, select: { id: true, filename: true } },
+    },
+  });
+}

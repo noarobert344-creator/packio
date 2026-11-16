@@ -26,6 +26,8 @@ import {
   Warehouse,
   ArrowLeftRight,
   Wallet,
+  Send,
+  Zap,
   type LucideIcon,
 } from "lucide-react";
 
@@ -71,15 +73,25 @@ export const NAV: Record<"CUSTOMER" | "PREPARER" | "ADMIN", NavGroup[]> = {
       ],
     },
     {
-      label: "Opérations",
+      label: "Stock — envois normaux",
       items: [
         { href: "/preparateur/receptions", label: "Réceptions", icon: PackageCheck, badgeKey: "receptions" },
         { href: "/preparateur/stock", label: "Stock", icon: Warehouse },
-        { href: "/preparateur/expeditions", label: "Expéditions", icon: Truck, badgeKey: "expeditions" },
-        { href: "/preparateur/bordereaux", label: "Bordereaux", icon: Printer, badgeKey: "bordereaux" },
-        { href: "/preparateur/a-vendre", label: "À vendre", icon: Camera, badgeKey: "photos" },
-        { href: "/preparateur/incidents", label: "Incidents", icon: Siren },
+        { href: "/preparateur/bordereaux", label: "Ventes normales", icon: Printer, badgeKey: "bordereaux" },
+        { href: "/preparateur/expeditions", label: "Colis à envoyer", icon: Truck, badgeKey: "expeditions" },
+        { href: "/preparateur/a-vendre", label: "Photos à vendre", icon: Camera, badgeKey: "photos" },
       ],
+    },
+    {
+      label: "Dropshipping",
+      items: [
+        { href: "/preparateur/dropshipping", label: "Ventes dropshipping", icon: Zap, badgeKey: "dropship", exact: true },
+        { href: "/preparateur/dropshipping/colis", label: "Colis dropshipping", icon: Send, badgeKey: "dropshipColis" },
+      ],
+    },
+    {
+      label: "Suivi",
+      items: [{ href: "/preparateur/incidents", label: "Incidents", icon: Siren }],
     },
     {
       label: "Compte",

@@ -1,5 +1,5 @@
 import "server-only";
-import type { InventoryStatus, ShipmentStatus, SupplierOrderStatus } from "@/generated/prisma/enums";
+import type { InventoryStatus, OrderMode, ShipmentStatus, SupplierOrderStatus } from "@/generated/prisma/enums";
 import { db } from "@/server/db";
 import { SHIPMENT_ACTIVE_STATUSES } from "@/lib/labels";
 
@@ -126,7 +126,7 @@ export async function getMyClient(preparerId: string, customerId: string) {
   return { assignment, customer, orders, items, shipments, conversationId: conversation?.id ?? null };
 }
 
-export async function listMyOrders(preparerId: string, opts: { group: OrderGroup; q?: string; page: number }) {
+export async function listMyOrders(preparerId: string, opts: { group: OrderGroup; q?: string; page: number; mode?: OrderMode }) {
   const q = opts.q?.trim();
   const search = q
     ? {
@@ -138,7 +138,8 @@ export async function listMyOrders(preparerId: string, opts: { group: OrderGroup
         ],
       }
     : {};
-  const where = { preparerId, status: { in: ORDER_GROUPS[opts.group].statuses }, ...search };
+  const scope = { preparerId, ...(opts.mode ? { mode: opts.mode } : {}) };
+  const where = { ...scope, status: { in: ORDER_GROUPS[opts.group].statuses }, ...search };
   const [items, total, counts] = await Promise.all([
     db.supplierOrder.findMany({
       where,
@@ -152,7 +153,7 @@ export async function listMyOrders(preparerId: string, opts: { group: OrderGroup
       },
     }),
     db.supplierOrder.count({ where }),
-    db.supplierOrder.groupBy({ by: ["status"], where: { preparerId }, _count: true }),
+    db.supplierOrder.groupBy({ by: ["status"], where: scope, _count: true }),
   ]);
   const groupCounts = Object.fromEntries(
     (Object.keys(ORDER_GROUPS) as OrderGroup[]).map((g) => [
@@ -226,10 +227,15 @@ export async function getItemExtras(itemId: string) {
   });
 }
 
-export async function listMyShipments(preparerId: string, opts: { group: ShipmentGroup; q?: string; page: number }) {
+/**
+ * Colis à envoyer : envois depuis le stock (ventes et retours) ou dropshipping,
+ * toujours présentés séparément.
+ */
+export async function listMyShipments(preparerId: string, opts: { group: ShipmentGroup; q?: string; page: number; dropship?: boolean }) {
   const q = opts.q?.trim();
+  const scope = { preparerId, kind: opts.dropship ? ("DROPSHIP" as const) : { not: "DROPSHIP" as const } };
   const where = {
-    preparerId,
+    ...scope,
     status: { in: SHIPMENT_GROUPS[opts.group].statuses },
     ...(q
       ? {
@@ -251,7 +257,7 @@ export async function listMyShipments(preparerId: string, opts: { group: Shipmen
       include: { customer: customerSelect, items: { select: { quantity: true } } },
     }),
     db.outboundShipment.count({ where }),
-    db.outboundShipment.groupBy({ by: ["status"], where: { preparerId }, _count: true }),
+    db.outboundShipment.groupBy({ by: ["status"], where: scope, _count: true }),
   ]);
   const groupCounts = Object.fromEntries(
     (Object.keys(SHIPMENT_GROUPS) as ShipmentGroup[]).map((g) => [
