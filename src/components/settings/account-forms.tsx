@@ -94,31 +94,42 @@ export function PasswordForm() {
   );
 }
 
-export function NotificationPreferencesForm({ rows }: { rows: { type: string; label: string; inApp: boolean; email: boolean; locked: boolean; emailAvailable: boolean }[] }) {
+export function NotificationPreferencesForm({
+  rows,
+}: {
+  rows: { type: string; label: string; inApp: boolean; email: boolean; push: boolean; locked: boolean; emailAvailable: boolean }[];
+}) {
   return (
     <ActionForm action={savePreferencesAction} className="grid gap-4">
-      <div className="overflow-hidden rounded-xl border">
+      <div className="overflow-x-auto rounded-xl border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
-              <th className="px-4 py-2.5 text-left font-medium">Événement</th>
-              <th className="w-24 px-2 py-2.5 text-center font-medium">Application</th>
-              <th className="w-24 px-2 py-2.5 text-center font-medium">E-mail</th>
+              <th className="px-3 py-2.5 text-left font-medium sm:px-4">Événement</th>
+              <th className="w-14 px-1 py-2.5 text-center font-medium sm:w-24 sm:px-2">
+                <span className="sm:hidden">App</span>
+                <span className="hidden sm:inline">Application</span>
+              </th>
+              <th className="w-14 px-1 py-2.5 text-center font-medium sm:w-24 sm:px-2">E-mail</th>
+              <th className="w-14 px-1 py-2.5 text-center font-medium sm:w-24 sm:px-2">
+                <span className="sm:hidden">Tél.</span>
+                <span className="hidden sm:inline">Téléphone</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {rows.map((r) => (
               <tr key={r.type}>
-                <td className="px-4 py-2.5">
+                <td className="px-3 py-2.5 sm:px-4">
                   {r.label}
                   {r.locked && <span className="ml-2 text-xs text-muted-foreground">(obligatoire)</span>}
                   <input type="hidden" name={`present:${r.type}`} value="1" />
                 </td>
-                <td className="px-2 py-2.5 text-center">
+                <td className="px-1 py-2.5 text-center sm:px-2">
                   <input type="checkbox" name={`inApp:${r.type}`} defaultChecked={r.inApp} disabled={r.locked} className="size-4 accent-[var(--brand)]" aria-label={`${r.label} — application`} />
                   {r.locked && <input type="hidden" name={`inApp:${r.type}`} value="on" />}
                 </td>
-                <td className="px-2 py-2.5 text-center">
+                <td className="px-1 py-2.5 text-center sm:px-2">
                   {r.emailAvailable ? (
                     <>
                       <input type="checkbox" name={`email:${r.type}`} defaultChecked={r.email} disabled={r.locked} className="size-4 accent-[var(--brand)]" aria-label={`${r.label} — e-mail`} />
@@ -127,6 +138,9 @@ export function NotificationPreferencesForm({ rows }: { rows: { type: string; la
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
+                </td>
+                <td className="px-1 py-2.5 text-center sm:px-2">
+                  <input type="checkbox" name={`push:${r.type}`} defaultChecked={r.push} className="size-4 accent-[var(--brand)]" aria-label={`${r.label} — téléphone`} />
                 </td>
               </tr>
             ))}

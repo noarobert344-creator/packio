@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   description:
     "Packio confie la réception, le stockage et l'expédition de vos commandes à un préparateur attitré. Pour les vendeurs e-commerce, revendeurs et entrepreneurs.",
   applicationName: "Packio",
+  appleWebApp: { capable: true, title: "Packio", statusBarStyle: "black-translucent" },
   openGraph: {
     type: "website",
     locale: "fr_FR",

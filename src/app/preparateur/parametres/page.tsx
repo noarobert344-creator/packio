@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { requirePreparer } from "@/server/auth/current";
 import { loadNotificationPreferenceRows, loadProfile } from "@/server/settings-page";
 import { NotificationPreferencesForm, PasswordForm, ProfileForm, SettingsNav } from "@/components/settings/account-forms";
+import { PushDevice } from "@/components/settings/push-device";
+import { getVapidPublicKey } from "@/server/services/push";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { one, type SearchParams } from "@/lib/params";
 
@@ -32,9 +34,14 @@ export default async function PreparerSettingsPage({ searchParams }: { searchPar
         </Section>
       )}
       {tab === "notifications" && (
-        <Section title="Notifications" description="Choisissez comment être prévenu de chaque événement.">
-          <NotificationPreferencesForm rows={await loadNotificationPreferenceRows(actor)} />
-        </Section>
+        <div className="space-y-6">
+          <Section title="Notifications sur ce téléphone" description="Activez-les sur chaque appareil où vous voulez être prévenu.">
+            <PushDevice publicKey={await getVapidPublicKey()} />
+          </Section>
+          <Section title="Notifications" description="Choisissez comment être prévenu de chaque événement.">
+            <NotificationPreferencesForm rows={await loadNotificationPreferenceRows(actor)} />
+          </Section>
+        </div>
       )}
     </div>
   );

@@ -77,6 +77,7 @@ model User {
   uploadedFiles            File[]                    @relation("FileUploader")
   notifications            Notification[]
   notificationPreferences  NotificationPreference[]
+  pushSubscriptions        PushSubscription[]
   conversationParticipants ConversationParticipant[]
   messages                 Message[]
   auditLogs                AuditLog[]
@@ -1216,16 +1217,38 @@ model Notification {
 }
 
 model NotificationPreference {
-  id     String  @id @default(cuid())
+  id     String   @id @default(cuid())
   userId String
   type   String
-  inApp  Boolean @default(true)
-  email  Boolean @default(true)
+  inApp  Boolean  @default(true)
+  email  Boolean  @default(true)
+  /// Notification sur le téléphone (Web Push) ; null = valeur par défaut du type (comme l'e-mail).
+  push   Boolean?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type])
   @@map("notification_preferences")
+}
+
+/// Abonnement Web Push d'un appareil (téléphone, ordinateur) : notifications hors de l'application.
+model PushSubscription {
+  id         String    @id @default(cuid())
+  userId     String
+  /// Adresse fournie par le service de notification du navigateur (Apple, Google, Mozilla, Microsoft).
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  userAgent  String?
+  failures   Int       @default(0)
+  lastSentAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 enum EmailStatus {

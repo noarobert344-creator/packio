@@ -4,6 +4,7 @@ import { db, transaction, type Tx } from "@/server/db";
 import { env } from "@/server/env";
 import { hasPermission, type Permission } from "@/server/auth/permissions";
 import { sendEmail } from "./email";
+import { sendPush } from "./push";
 import { getSetting } from "./settings";
 
 export type NotificationPayload = {
@@ -84,6 +85,8 @@ async function deliver(userId: string, payload: NotificationPayload) {
   const locked = "locked" in def && def.locked;
   const wantsInApp = locked ? true : (pref?.inApp ?? true);
   const wantsEmail = payload.forceEmail || locked ? def.email || !!payload.forceEmail : (pref?.email ?? def.email);
+  // Téléphone : choix de l'utilisateur, sinon même valeur par défaut que l'e-mail.
+  const wantsPush = pref?.push ?? def.email;
 
   if (payload.dedupeKey) {
     const existing = await db.notification.findFirst({
@@ -101,6 +104,13 @@ async function deliver(userId: string, payload: NotificationPayload) {
     await db.notification.create({
       data: { userId, type: payload.type, title: payload.title, body: payload.body, link: payload.link, data, emailedAt: wantsEmail ? new Date() : null },
     });
+  }
+  if (wantsPush) {
+    try {
+      await sendPush(userId, { title: payload.title, body: payload.body, link: payload.link, tag: payload.type });
+    } catch (err) {
+      console.error("[push] notification non envoyée", err);
+    }
   }
   if (wantsEmail) {
     await sendEmail({
@@ -160,7 +170,7 @@ export async function markNotificationsRead(userId: string, ids?: string[]) {
   });
 }
 
-export async function savePreferences(userId: string, prefs: { type: NotificationType; inApp: boolean; email: boolean }[]) {
+export async function savePreferences(userId: string, prefs: { type: NotificationType; inApp: boolean; email: boolean; push?: boolean }[]) {
   await transaction(async (tx) => {
     for (const p of prefs) {
       const def = NOTIFICATION_TYPES[p.type];
@@ -168,8 +178,8 @@ export async function savePreferences(userId: string, prefs: { type: Notificatio
       const locked = "locked" in def && def.locked;
       await tx.notificationPreference.upsert({
         where: { userId_type: { userId, type: p.type } },
-        create: { userId, type: p.type, inApp: locked ? true : p.inApp, email: locked ? def.email : p.email },
-        update: { inApp: locked ? true : p.inApp, email: locked ? def.email : p.email },
+        create: { userId, type: p.type, inApp: locked ? true : p.inApp, email: locked ? def.email : p.email, push: p.push ?? null },
+        update: { inApp: locked ? true : p.inApp, email: locked ? def.email : p.email, ...(p.push === undefined ? {} : { push: p.push }) },
       });
     }
   });

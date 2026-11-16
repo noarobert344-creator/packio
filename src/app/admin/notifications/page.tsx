@@ -24,6 +24,8 @@ import type { Tone } from "@/lib/labels";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { parsePage, type SearchParams } from "@/lib/params";
+import { PushDevice } from "@/components/settings/push-device";
+import { getVapidPublicKey } from "@/server/services/push";
 
 export const metadata: Metadata = { title: "Notifications" };
 
@@ -102,7 +104,10 @@ export default async function AdminNotificationsPage({ searchParams }: { searchP
               </ActionForm>
             </Section>
           )}
-          <Section title="Mes préférences" description="Choisissez comment être prévenu pour chaque type d'événement.">
+          <Section title="Notifications sur ce téléphone" description="Activez-les sur chaque appareil où vous voulez être prévenu.">
+            <PushDevice publicKey={await getVapidPublicKey()} />
+          </Section>
+          <Section title="Mes préférences" description="Choisissez comment être prévenu pour chaque type d'événement : application, e-mail ou téléphone.">
             <NotificationPreferencesForm rows={prefs} />
           </Section>
         </div>

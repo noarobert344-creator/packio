@@ -9,7 +9,15 @@ export async function loadNotificationPreferenceRows(actor: Actor) {
     const def = NOTIFICATION_TYPES[type];
     const pref = prefs.find((p) => p.type === type);
     const locked = "locked" in def && !!def.locked;
-    return { type, label: def.label, locked, emailAvailable: def.email, inApp: locked ? true : (pref?.inApp ?? true), email: locked ? def.email : (pref?.email ?? def.email) };
+    return {
+      type,
+      label: def.label,
+      locked,
+      emailAvailable: def.email,
+      inApp: locked ? true : (pref?.inApp ?? true),
+      email: locked ? def.email : (pref?.email ?? def.email),
+      push: pref?.push ?? def.email,
+    };
   });
 }
 

@@ -6,6 +6,8 @@ import { ActionDialog } from "@/components/shared/action-dialog";
 import { SelectField, TextAreaField, TextField } from "@/components/shared/form-field";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
 import { NotificationPreferencesForm, PasswordForm, ProfileForm, SettingsNav } from "@/components/settings/account-forms";
+import { PushDevice } from "@/components/settings/push-device";
+import { getVapidPublicKey } from "@/server/services/push";
 import { requireCustomer } from "@/server/auth/current";
 import { loadNotificationPreferenceRows, loadProfile } from "@/server/settings-page";
 import { requestAccountDeletionAction, updateReturnAddressAction } from "@/server/actions/customer";
@@ -74,9 +76,14 @@ export default async function ClientSettingsPage({ searchParams }: { searchParam
         </Section>
       )}
       {tab === "notifications" && (
-        <Section title="Préférences de notification" description="Choisissez comment être informé de chaque événement. Les notifications de sécurité et de paiement sont obligatoires.">
-          <NotificationPreferencesForm rows={await loadNotificationPreferenceRows(actor)} />
-        </Section>
+        <div className="space-y-6">
+          <Section title="Notifications sur ce téléphone" description="Activez-les sur chaque appareil où vous voulez être prévenu.">
+            <PushDevice publicKey={await getVapidPublicKey()} />
+          </Section>
+          <Section title="Préférences de notification" description="Choisissez comment être informé de chaque événement : dans l'application, par e-mail ou sur votre téléphone. Les notifications de sécurité et de paiement restent visibles dans l'application.">
+            <NotificationPreferencesForm rows={await loadNotificationPreferenceRows(actor)} />
+          </Section>
+        </div>
       )}
       {tab === "donnees" && (
         <div className="space-y-6">

@@ -306,6 +306,10 @@ Renseignez `RESEND_API_KEY` et `EMAIL_FROM` (domaine vérifié chez Resend). San
 
 Sans disque persistant (serverless, ou hébergement sans disque), utilisez `STORAGE_DRIVER="s3"` avec un bucket **privé** compatible S3 : Supabase Storage (gratuit jusqu'à 1 Go), Cloudflare R2 ou Scaleway Object Storage, avec des serveurs dans l'UE. Les téléchargements passent toujours par `/api/files/[id]` (contrôle des droits), qui redirige vers une adresse signée valable 2 minutes ; les documents sont forcés en téléchargement.
 
+### Notifications sur le téléphone (Web Push)
+
+Chaque utilisateur active les notifications sur ses appareils dans **Paramètres → Notifications**, puis choisit, événement par événement, la colonne « Téléphone » (par défaut : les mêmes événements que l'e-mail). Le site est installable (`manifest.webmanifest`, `public/sw.js`) : sur iPhone (iOS 16.4 ou plus récent), il faut d'abord l'ajouter à l'écran d'accueil depuis Safari. Les clés VAPID sont générées une fois et conservées en base (`app_settings`), ou fournies par `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` et `VAPID_SUBJECT`. Seuls les services de notification d'Apple, Google, Mozilla et Microsoft sont acceptés ; le contenu est chiffré de bout en bout ; les abonnements expirés sont supprimés automatiquement.
+
 ### Tâches planifiées
 
 | Route | Fréquence | Rôle |

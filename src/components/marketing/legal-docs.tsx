@@ -389,6 +389,10 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
         </li>
         <li>Facturation : abonnement, paiements, factures (les données de carte sont traitées exclusivement par Whop et ses prestataires de paiement).</li>
         <li>Communications : messages échangés, pièces jointes, demandes de support et de contact, incidents.</li>
+        <li>
+          Notifications sur le téléphone (si vous les activez) : adresse d&apos;abonnement de l&apos;appareil fournie par votre navigateur et type de navigateur ;
+          vous pouvez les désactiver à tout moment dans vos paramètres.
+        </li>
         <li>Préparateurs : informations professionnelles, adresses de réception, disponibilités, capacité.</li>
       </ul>
       <h2>3. Finalités et bases légales</h2>
@@ -421,6 +425,10 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
           <Fill value={ctx.legal.hostName} label="hébergeur" /> — hébergement de l&apos;application et de la base de données.
         </li>
         <li>Resend — envoi des e-mails transactionnels.</li>
+        <li>
+          Service de notification de votre navigateur (Apple, Google, Mozilla ou Microsoft) — uniquement si vous activez les notifications sur un appareil : il
+          achemine les notifications, dont le contenu est chiffré et illisible pour lui.
+        </li>
         <li>
           Google (Gemini) ou Anthropic (Claude) — uniquement si une IA de secours est activée, et seulement quand la lecture automatique de Packio ne parvient pas
           à lire une page de ventes Vinted ou Vestiaire Collective : les données personnelles (acheteurs, adresses, téléphones, e-mails) sont masquées avant

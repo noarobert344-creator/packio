@@ -47,7 +47,7 @@ export async function savePreferencesAction(_prev: ActionState, formData: FormDa
     const types = Object.keys(NOTIFICATION_TYPES) as NotificationType[];
     const prefs = types
       .filter((t) => formData.has(`present:${t}`))
-      .map((t) => ({ type: t, inApp: formData.get(`inApp:${t}`) === "on", email: formData.get(`email:${t}`) === "on" }));
+      .map((t) => ({ type: t, inApp: formData.get(`inApp:${t}`) === "on", email: formData.get(`email:${t}`) === "on", push: formData.get(`push:${t}`) === "on" }));
     await savePreferences(actor.userId, prefs);
     return { ok: true, message: "Préférences enregistrées." };
   });
