@@ -108,7 +108,8 @@ export function Cgu({ ctx }: { ctx: LegalContext }) {
       <p>
         Les présentes conditions générales d&apos;utilisation (CGU) encadrent l&apos;accès et l&apos;utilisation de la plateforme Packio, éditée par <Company ctx={ctx} />,
         accessible à l&apos;adresse {ctx.appUrl}. Packio met en relation des vendeurs (les « Clients ») avec des préparateurs de commandes indépendants ou salariés
-        (les « Préparateurs ») chargés de réceptionner, stocker, préparer et expédier les articles des Clients.
+        (les « Préparateurs ») chargés de réceptionner, stocker, préparer et expédier les articles des Clients. Packio fournit la plateforme et ne manipule pas les
+        colis : la réception, la préparation et l&apos;envoi sont assurés par le Préparateur.
       </p>
       <h2>2. Comptes et rôles</h2>
       <ul>
@@ -116,7 +117,9 @@ export function Cgu({ ctx }: { ctx: LegalContext }) {
           <strong>Client</strong> : crée son compte librement, souscrit un abonnement et gère ses commandes, son stock, ses expéditions, ses crédits et sa messagerie.
         </li>
         <li>
-          <strong>Préparateur</strong> : compte créé sur invitation de Packio ; il n&apos;accède qu&apos;aux Clients qui lui sont attribués et aux opérations les concernant.
+          <strong>Préparateur</strong> : compte créé sur invitation de Packio ; il reçoit, prépare et envoie les colis des Clients qui lui sont attribués et
+          n&apos;accède qu&apos;à leurs opérations. Il renseigne à son inscription son téléphone, son adresse de réception et, s&apos;il le souhaite, des lockers
+          (Mondial Relay, Vinted Go, Chronopost), communiqués aux Clients après validation par Packio.
         </li>
         <li>
           <strong>Administration Packio</strong> : gère la plateforme selon des permissions définies, chaque action sensible étant journalisée.
@@ -242,6 +245,10 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
           {monthly} {purchased}
         </li>
         <li>Si le solde est insuffisant, l&apos;expédition reste en attente et reprend automatiquement après recharge.</li>
+        <li>
+          Le Préparateur peut retirer des crédits pour une prestation particulière (par exemple un emballage spécial) : le motif est obligatoirement communiqué au
+          Client dans la messagerie et figure dans son historique de crédits. Le Client peut contester un retrait auprès du support Packio.
+        </li>
       </ul>
       <h2>6. Stockage</h2>
       <ul>
@@ -295,7 +302,8 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
       <p>
         Lorsqu&apos;un article est déjà vendu, le Client peut le commander auprès de son fournisseur en livraison vers le Préparateur et déclarer la commande en
         dropshipping, avec le bordereau d&apos;expédition de la vente ou l&apos;adresse de l&apos;acheteur. À la réception, le Préparateur contrôle l&apos;article et
-        l&apos;expédie à l&apos;acheteur dans le délai prévu à l&apos;article 7 ; les crédits de préparation s&apos;appliquent selon la catégorie du colis. Le Client reste
+        l&apos;expédie à l&apos;acheteur dans le délai prévu à l&apos;article 7. Un article en dropshipping n&apos;occupe aucune place de stock, mais les crédits de
+        préparation s&apos;appliquent selon la taille du colis. Le Client reste
         le vendeur : il est seul responsable de la relation avec son acheteur (description, délais annoncés, retours, litiges), de l&apos;exactitude du bordereau
         et des informations transmises, ainsi que du respect des règles de la plateforme de vente.
       </p>
@@ -334,10 +342,19 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
       </p>
       <h2>13. Responsabilité</h2>
       <p>
-        Packio s&apos;engage à mettre en œuvre les moyens nécessaires à la bonne exécution du service. Sa responsabilité ne saurait être engagée pour les retards,
-        pertes ou avaries imputables aux fournisseurs ou aux transporteurs, ni pour le contenu des articles achetés par le Client. Les incidents survenus pendant la garde
-        du préparateur sont traités au cas par cas, sur la base des photos et de l&apos;historique des mouvements. La responsabilité de Packio est limitée au montant
-        payé par le Client au cours des trois derniers mois, sauf faute lourde ou dolosive.
+        Packio fournit la plateforme qui met en relation le Client et son Préparateur ; la réception, la préparation, l&apos;emballage et l&apos;envoi des colis sont
+        assurés par le Préparateur. Packio s&apos;engage à mettre en œuvre les moyens nécessaires à la bonne exécution du service.
+      </p>
+      <p>
+        <strong>Packio n&apos;est pas responsable de la perte, du vol ou de l&apos;avarie d&apos;un colis</strong>, notamment pendant son acheminement par un
+        fournisseur ou un transporteur. Les réclamations relatives au transport sont adressées au transporteur ou, pour un bordereau généré par une plateforme de
+        vente (Vinted, Vestiaire Collective…), à cette plateforme, selon ses conditions. Les incidents survenus pendant la garde du Préparateur sont signalés via la
+        plateforme et traités entre le Client et le Préparateur, Packio facilitant leur résolution à partir des photos et de l&apos;historique des mouvements. Packio
+        n&apos;est pas non plus responsable du contenu des articles achetés par le Client.
+      </p>
+      <p>
+        En tout état de cause, et dans les limites permises par la loi, la responsabilité de Packio est limitée au montant payé par le Client au cours des trois
+        derniers mois, sauf faute lourde ou dolosive.
       </p>
       <h2>14. Réclamations et médiation</h2>
       <p>

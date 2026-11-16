@@ -1,23 +1,23 @@
-import { Camera, Home, PlugZap, Timer, Zap } from "lucide-react";
+import { Camera, Home, PackageCheck, PlugZap, Zap } from "lucide-react";
 import { Container, SectionHeading } from "./section";
 
 /** Services complémentaires inclus dans l'offre (présentation, sans chiffres inventés). */
 export function Services({ shippingHours, returnCredits }: { shippingHours: number; returnCredits: number }) {
   const services = [
     {
-      icon: Timer,
-      title: `Expédition sous ${shippingHours} h`,
-      text: `Chaque colis est déposé chez le transporteur dans les ${shippingHours} heures suivant votre demande.`,
+      icon: PackageCheck,
+      title: "Envoi depuis votre stock",
+      text: `Chaque article est photographié, parfumé, emballé de façon protégée et expédié sous ${shippingHours} h.`,
     },
     {
       icon: Zap,
       title: "Dropshipping Vinted",
-      text: "Article vendu mais pas encore reçu ? Commandez-le sur Temu, SHEIN ou AliExpress : il part chez l'acheteur dès réception.",
+      text: "Article vendu mais pas encore reçu ? Commandez-le sur Temu, SHEIN ou AliExpress : il part chez l'acheteur dès réception. Aucune place de stock utilisée ; les crédits dépendent de la taille du colis.",
     },
     {
       icon: Camera,
-      title: "Photos pour vos annonces",
-      text: "Votre préparateur photographie vos articles : publiez vos annonces sans les avoir sous la main.",
+      title: "Photos pro pour vos annonces",
+      text: "Votre préparateur photographie vos articles comme un professionnel : publiez vos annonces sans les avoir sous la main.",
     },
     {
       icon: Home,

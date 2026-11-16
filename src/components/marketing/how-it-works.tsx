@@ -30,12 +30,12 @@ const STEPS = [
   {
     icon: PackageCheck,
     title: "Réception, contrôle et mise en stock",
-    text: "Votre préparateur vérifie, photographie et range chaque article. Les photos sont prêtes pour vos annonces.",
+    text: "Votre préparateur vérifie chaque article, le photographie de façon professionnelle et le range. Les photos sont prêtes pour vos annonces.",
   },
   {
     icon: Truck,
     title: "Demandez une expédition",
-    text: "Choisissez les articles et le destinataire : le colis part sous 48 h, les crédits sont débités au dépôt.",
+    text: "Choisissez les articles et le destinataire : le colis, parfumé et emballé protégé, part sous 48 h ; les crédits sont débités au dépôt.",
   },
 ];
 

@@ -55,6 +55,10 @@ export function Faq({ ctx }: { ctx: FaqContext }) {
           : `Chaque article dispose de ${durationLabel(r.includedDays)} de stockage incluses, prolongées par périodes de ${durationLabel(r.extensionDays)}.`,
     },
     {
+      q: "Puis-je utiliser Packio depuis l'étranger ?",
+      a: "Oui. Votre stock reste en France chez votre préparateur : vous achetez, vendez et suivez vos colis depuis votre téléphone, où que vous soyez. Packio est une solution pour s'expatrier ou voyager tout en continuant l'achat-revente.",
+    },
+    {
       q: "Les frais de port sont-ils inclus ?",
       a: "Non. Les crédits couvrent la préparation ; l'affranchissement est distinct : vous fournissez votre propre étiquette (celle de Vinted, par exemple), ou les frais vous sont indiqués séparément.",
     },

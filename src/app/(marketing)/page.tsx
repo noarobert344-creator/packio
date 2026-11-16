@@ -1,6 +1,7 @@
 import { db } from "@/server/db";
 import { getSetting } from "@/server/services/settings";
 import { Hero } from "@/components/marketing/hero";
+import { Expat } from "@/components/marketing/expat";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { Preparers } from "@/components/marketing/preparers";
 import { Services } from "@/components/marketing/services";
@@ -31,6 +32,7 @@ export default async function HomePage() {
     <>
       <MotionEffects />
       <Hero shippingHours={shipping.slaHours} />
+      <Expat />
       <section id="fonctionnement" className="scroll-mt-20 py-24 sm:py-28">
         <Container className="space-y-14">
           <SectionHeading
