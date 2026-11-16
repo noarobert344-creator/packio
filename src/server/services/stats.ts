@@ -64,7 +64,13 @@ export async function getAdminOverview(now = new Date()) {
       db.incident.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
       db.creditTransaction.aggregate({ where: { type: "CAPTURE", createdAt: { gte: monthStart } }, _sum: { reservedDelta: true } }),
       listPreparerCapacities(),
-      db.customerProfile.count({ where: { createdAt: { gte: monthStart } } }),
+      // Nouveaux clients = premier paiement d'abonnement ce mois-ci (les inscrits sans paiement ne comptent pas).
+      db.payment.groupBy({
+        by: ["customerId"],
+        where: { kind: "SUBSCRIPTION", status: { in: ["SUCCEEDED", "PARTIALLY_REFUNDED", "REFUNDED"] } },
+        _min: { createdAt: true },
+        having: { createdAt: { _min: { gte: monthStart } } },
+      }),
     ]);
   // Revenu récurrent mensuel : formule annuelle ramenée au mois, offres remplacées exclues.
   const mrrCents = activeSubs
@@ -90,7 +96,7 @@ export async function getAdminOverview(now = new Date()) {
     openIncidents,
     creditsConsumedMonth: -(consumedMonth._sum.reservedDelta ?? 0),
     preparers,
-    newCustomers,
+    newCustomers: newCustomers.length,
   };
 }
 

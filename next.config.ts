@@ -6,8 +6,13 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Version du site (commit déployé), comparée par le navigateur pour annoncer
   // les mises à jour (voir src/components/shared/update-watcher.tsx).
+  // Valeur fixe en développement : une valeur changeante relancerait la compilation en boucle.
   env: {
-    APP_VERSION: (process.env.RENDER_GIT_COMMIT || process.env.VERCEL_GIT_COMMIT_SHA || `local-${Date.now().toString(36)}`).slice(0, 12),
+    APP_VERSION: (
+      process.env.RENDER_GIT_COMMIT ||
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      (process.env.NODE_ENV === "production" ? `local-${Date.now().toString(36)}` : "dev")
+    ).slice(0, 12),
   },
   serverExternalPackages: ["@prisma/client", "pg"],
   turbopack: {

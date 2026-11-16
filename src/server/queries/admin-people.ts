@@ -6,11 +6,37 @@ import { WAITING_STATES } from "@/server/services/assignments";
 export const PAGE_SIZE = 20;
 
 /** Liste des clients pour le back-office (recherche, filtres, pagination). */
-export async function listCustomersForAdmin(opts: { q?: string; status?: CustomerStatus; assignment?: AssignmentState; page: number }) {
+/**
+ * Vues de la liste des clients. Par défaut, seuls les vrais clients actifs
+ * (abonnement payé) sont affichés ; les inscrits sans paiement ont leur onglet.
+ */
+export const CUSTOMER_VIEWS = {
+  actifs: { label: "Clients actifs", statuses: ["ACTIVE"] },
+  retard: { label: "Paiement en retard", statuses: ["PAST_DUE"] },
+  "sans-paiement": { label: "Inscrits sans paiement", statuses: ["PENDING_PAYMENT"] },
+  anciens: { label: "Résiliés ou suspendus", statuses: ["CANCELED", "SUSPENDED"] },
+  tous: { label: "Tous", statuses: null },
+} as const satisfies Record<string, { label: string; statuses: readonly CustomerStatus[] | null }>;
+export type CustomerView = keyof typeof CUSTOMER_VIEWS;
+
+/** Nombre de clients par vue (onglets de la liste). */
+export async function countCustomersByView(): Promise<Record<CustomerView, number>> {
+  const groups = await db.customerProfile.groupBy({ by: ["status"], _count: true });
+  const by = Object.fromEntries(groups.map((g) => [g.status, g._count])) as Partial<Record<CustomerStatus, number>>;
+  return Object.fromEntries(
+    Object.entries(CUSTOMER_VIEWS).map(([key, v]) => [
+      key,
+      v.statuses ? v.statuses.reduce((sum, st) => sum + (by[st] ?? 0), 0) : Object.values(by).reduce((a, b) => a + (b ?? 0), 0),
+    ]),
+  ) as Record<CustomerView, number>;
+}
+
+export async function listCustomersForAdmin(opts: { q?: string; view: CustomerView; assignment?: AssignmentState; page: number }) {
   const q = opts.q?.trim();
   const contains = q ? { contains: q, mode: "insensitive" as const } : undefined;
+  const statuses = CUSTOMER_VIEWS[opts.view].statuses;
   const where: Prisma.CustomerProfileWhereInput = {
-    ...(opts.status ? { status: opts.status } : {}),
+    ...(statuses ? { status: { in: [...statuses] } } : {}),
     ...(opts.assignment ? { assignmentState: opts.assignment } : {}),
     ...(contains
       ? {

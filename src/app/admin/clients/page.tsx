@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Download, Users } from "lucide-react";
 import { requireAdmin } from "@/server/auth/current";
-import { listCustomersForAdmin, PAGE_SIZE } from "@/server/queries/admin-people";
+import { countCustomersByView, CUSTOMER_VIEWS, listCustomersForAdmin, PAGE_SIZE, type CustomerView } from "@/server/queries/admin-people";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatusFrom } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
-import { FilterSelect, Pagination, SearchInput } from "@/components/shared/list-controls";
+import { FilterSelect, FilterTabs, Pagination, SearchInput } from "@/components/shared/list-controls";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AssignmentStateBadge, DemoBadge, TableWrap } from "@/components/admin/people/display";
@@ -16,7 +16,7 @@ import { one, oneOf, parsePage, type SearchParams } from "@/lib/params";
 
 export const metadata: Metadata = { title: "Clients — Administration" };
 
-const STATUSES = Object.keys(CUSTOMER_STATUS) as (keyof typeof CUSTOMER_STATUS)[];
+const VIEWS = Object.keys(CUSTOMER_VIEWS).filter((v) => v !== "actifs") as CustomerView[];
 const STATES = Object.keys(ASSIGNMENT_STATE) as (keyof typeof ASSIGNMENT_STATE)[];
 
 export default async function AdminCustomersPage({ searchParams }: { searchParams: SearchParams }) {
@@ -24,15 +24,16 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
   const sp = await searchParams;
   const page = parsePage(sp.page);
   const q = one(sp.q);
-  const status = oneOf(sp.statut, STATUSES);
+  // Sans paramètre : vrais clients actifs uniquement.
+  const view: CustomerView = oneOf(sp.vue, VIEWS) ?? "actifs";
   const assignment = oneOf(sp.attribution, STATES);
-  const { rows, total } = await listCustomersForAdmin({ q, status, assignment, page });
+  const [{ rows, total }, counts] = await Promise.all([listCustomersForAdmin({ q, view, assignment, page }), countCustomersByView()]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Clients"
-        description="Comptes clients, abonnements, attributions et soldes de crédits."
+        description="Clients avec un abonnement payé et actif. Les inscrits qui n'ont pas payé sont dans l'onglet « Inscrits sans paiement »."
         actions={
           <Button asChild variant="outline">
             <a href="/api/admin/export/clients" download>
@@ -42,16 +43,29 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
         }
       />
       <Section contentClassName="p-0">
-        <div className="flex flex-col gap-2 border-b p-4 sm:flex-row sm:items-center">
-          <SearchInput placeholder="Nom, e-mail, code client, société…" />
-          <div className="flex flex-wrap gap-2">
-            <FilterSelect className="min-w-0 flex-1 sm:flex-none" param="statut" placeholder="Tous les statuts" options={STATUSES.map((s) => ({ value: s, label: CUSTOMER_STATUS[s].label }))} />
-            <FilterSelect className="min-w-0 flex-1 sm:flex-none" param="attribution" placeholder="Toutes les attributions" options={STATES.map((s) => ({ value: s, label: ASSIGNMENT_STATE[s].label }))} />
+        <div className="space-y-3 border-b p-4">
+          <FilterTabs
+            param="vue"
+            options={(Object.keys(CUSTOMER_VIEWS) as CustomerView[]).map((v) => ({ value: v === "actifs" ? "" : v, label: CUSTOMER_VIEWS[v].label, count: counts[v] }))}
+          />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <SearchInput placeholder="Nom, e-mail, code client, société…" />
+            <FilterSelect className="min-w-0 sm:flex-none" param="attribution" placeholder="Toutes les attributions" options={STATES.map((s) => ({ value: s, label: ASSIGNMENT_STATE[s].label }))} />
           </div>
         </div>
         {rows.length === 0 ? (
           <div className="p-5">
-            <EmptyState icon={Users} title="Aucun client" description={q || status || assignment ? "Aucun client ne correspond à ces filtres." : "Les clients apparaîtront ici après leur inscription."} />
+            <EmptyState
+              icon={Users}
+              title={view === "actifs" ? "Aucun client actif" : "Aucun client"}
+              description={
+                q || assignment
+                  ? "Aucun client ne correspond à ces filtres."
+                  : view === "actifs"
+                    ? "Vos clients apparaîtront ici dès leur premier paiement."
+                    : "Aucun client dans cette catégorie."
+              }
+            />
           </div>
         ) : (
           <div className="px-5">
@@ -111,7 +125,7 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
           </div>
         )}
         <div className="px-5 pb-4">
-          <Pagination page={page} pageSize={PAGE_SIZE} total={total} basePath="/admin/clients" params={{ q, statut: status, attribution: assignment }} />
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} basePath="/admin/clients" params={{ q, vue: view === "actifs" ? undefined : view, attribution: assignment }} />
         </div>
       </Section>
     </div>
