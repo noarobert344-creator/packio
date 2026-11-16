@@ -8,13 +8,13 @@ Ce dossier `store/` n'est pas inclus dans le paquet de l'extension.
 
 ## 1. Paquet
 
-Fichier à envoyer : `dist/packio-connect-0.1.0.zip`, créé par :
+Fichier à envoyer : `dist/packio-connect-<version>.zip` (actuellement 0.2.0), créé par :
 
 ```bash
 npm run extension:build -- https://packio.onrender.com
 ```
 
-Pour chaque nouvelle version : augmentez `version` dans `extension/manifest.json` (par exemple `0.1.1`), reconstruisez le paquet, puis envoyez-le avec **Importer un nouveau package**.
+Pour chaque nouvelle version : augmentez `version` dans `extension/manifest.json` (par exemple `0.2.1`), reconstruisez le paquet, puis envoyez-le avec **Importer un nouveau package**.
 
 ---
 

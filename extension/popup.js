@@ -25,7 +25,7 @@ function render(report) {
     if (info?.status === "ok") {
       const detail = document.createElement("p");
       detail.className = "muted";
-      detail.textContent = `${info.listings} annonce(s), ${info.newSales} nouvelle(s) vente(s), ${info.shipments} expédition(s), ${info.labels} bordereau(x)`;
+      detail.textContent = `${info.listings} annonce(s), ${info.newSales} nouvelle(s) vente(s), ${info.shipments} expédition(s), ${info.labels} bordereau(x)${info.assisted ? " · lecture assistée par IA" : ""}`;
       box.append(detail);
     } else if (info?.message) {
       const detail = document.createElement("p");

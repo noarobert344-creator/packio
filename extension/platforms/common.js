@@ -15,6 +15,20 @@ export class NotLoggedInError extends Error {
  * `anonymousStatuses` : codes à traiter comme « pas de session » (certaines
  * API répondent 404 au lieu de 401 quand personne n'est connecté).
  */
+/** Taille maximale d'un extrait envoyé à l'assistance IA de Packio. */
+const AI_MAX_CHARS = 150000;
+
+/**
+ * Réponse illisible (structure modifiée par la plateforme) : l'extrait est
+ * confié à l'assistance IA de Packio, qui renvoie les ventes au bon format.
+ * Sans assistance disponible, l'erreur d'origine est remontée.
+ */
+export async function readWithAi(config, data, what) {
+  if (typeof config?.ai !== "function") throw new Error(`Réponse ${what} illisible : la plateforme a peut-être changé.`);
+  const raw = typeof data === "string" ? data : JSON.stringify(data);
+  return config.ai(raw.slice(0, AI_MAX_CHARS));
+}
+
 export async function getJson(url, init = {}, anonymousStatuses = []) {
   const res = await fetch(url, {
     credentials: "include",

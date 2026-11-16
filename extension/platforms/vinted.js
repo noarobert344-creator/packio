@@ -1,4 +1,4 @@
-import { NotLoggedInError, currencyOf, getJson, toCents, toIso } from "./common.js";
+import { NotLoggedInError, currencyOf, getJson, readWithAi, toCents, toIso } from "./common.js";
 
 /**
  * Adaptateur Vinted.
@@ -51,10 +51,15 @@ async function wardrobe(base, userId) {
  * Ventes. À VÉRIFIER : /api/v2/my_orders?type=sold&status=all, clé de liste
  * (my_orders), identifiants (transaction_id, item_id) et nom de l'acheteur.
  */
-async function soldOrders(base) {
+async function soldOrders(base, config) {
   const res = await getJson(`${base}/api/v2/my_orders?type=sold&status=all&page=1&per_page=50`);
   if (res.unauthorized) return [];
-  const orders = res.data?.my_orders ?? res.data?.orders ?? [];
+  const orders = res.data?.my_orders ?? res.data?.orders;
+  if (!Array.isArray(orders)) {
+    // Structure inconnue : lecture assistée par l'IA de Packio.
+    const sales = await readWithAi(config, res.data, "des ventes Vinted");
+    return sales.map((s) => ({ ...s, labelRef: { transactionId: s.externalOrderId, url: s.labelUrl ?? null } }));
+  }
   return orders
     .filter((o) => !/cancel|annul/i.test(String(o.status ?? o.transaction_user_status ?? "")))
     .map((o) => {
@@ -78,7 +83,7 @@ export async function collect(config) {
   const base = `https://${config.vintedDomain || "www.vinted.fr"}`;
   const user = await currentUser(base);
   if (!user) throw new NotLoggedInError("Vinted");
-  const [listings, sales] = await Promise.all([wardrobe(base, user.id), soldOrders(base)]);
+  const [listings, sales] = await Promise.all([wardrobe(base, user.id), soldOrders(base, config)]);
   return { account: { externalUserId: user.id, username: user.login ?? undefined }, listings, sales };
 }
 
@@ -90,6 +95,14 @@ export async function collect(config) {
  */
 export async function fetchLabel(labelRef, config) {
   const base = `https://${config.vintedDomain || "www.vinted.fr"}`;
+  // URL du bordereau déjà connue (lecture assistée par l'IA).
+  if (labelRef.url) {
+    const direct = await fetch(labelRef.url, { credentials: "include" });
+    const kind = direct.headers.get("content-type") || "";
+    if (direct.ok && /pdf|image\//i.test(kind)) {
+      return { buffer: await direct.arrayBuffer(), filename: `bordereau-vinted-${labelRef.transactionId}.${/pdf/i.test(kind) ? "pdf" : "png"}` };
+    }
+  }
   const tx = await getJson(`${base}/api/v2/transactions/${encodeURIComponent(labelRef.transactionId)}`);
   if (tx.unauthorized) return null;
   const shipmentId = tx.data?.transaction?.shipment?.id ?? tx.data?.shipment?.id;

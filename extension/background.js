@@ -76,16 +76,24 @@ async function syncAll(trigger) {
       continue;
     }
     try {
-      const data = await platform.adapter.collect(cfg);
-      // La référence du bordereau reste interne à l'extension.
+      let assisted = false;
+      // Secours : extrait illisible confié à l'assistance IA de Packio (côté serveur).
+      const ai = async (raw) => {
+        assisted = true;
+        const res = await packio(cfg, "/api/extension/ai-extract", { platform: platform.key, content: raw });
+        return res.sales || [];
+      };
+      const data = await platform.adapter.collect({ ...cfg, ai });
+      // La référence et l'URL du bordereau restent internes à l'extension.
       const sales = data.sales.map((sale) => {
         const copy = { ...sale };
         delete copy.labelRef;
+        delete copy.labelUrl;
         return copy;
       });
       const res = await packio(cfg, "/api/extension/sync", { platform: platform.key, account: data.account, listings: data.listings, sales });
       const labels = await uploadLabels(cfg, platform, data.sales);
-      report.platforms[platform.key] = { status: "ok", listings: res.listings, newSales: res.newSales, shipments: res.shipmentsCreated, labels };
+      report.platforms[platform.key] = { status: "ok", listings: res.listings, newSales: res.newSales, shipments: res.shipmentsCreated, labels, assisted };
     } catch (err) {
       report.platforms[platform.key] = err instanceof NotLoggedInError ? { status: "logged_out", message: err.message } : { status: "error", message: String(err && err.message ? err.message : err) };
     }

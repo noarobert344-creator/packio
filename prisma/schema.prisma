@@ -221,6 +221,7 @@ model CustomerProfile {
   marketplaceListings MarketplaceListing[]
   marketplaceSales    MarketplaceSale[]
   extensionTokens     ExtensionToken[]
+  aiUsages            AiUsage[]
 
   @@index([assignmentState, assignmentDueAt])
   @@index([status])
@@ -1663,4 +1664,28 @@ model ContactRequest {
 
   @@index([status, createdAt])
   @@map("contact_requests")
+}
+
+/// Appels à l'IA (Claude) de secours de Packio Connect : suivi du coût estimé,
+/// plafond quotidien par client et budget mensuel. Le contenu envoyé n'est pas
+/// conservé.
+model AiUsage {
+  id           String              @id @default(cuid())
+  customerId   String
+  platform     MarketplacePlatform
+  model        String
+  inputTokens  Int                 @default(0)
+  outputTokens Int                 @default(0)
+  /// Coût estimé en millionièmes de dollar.
+  costMicros   Int                 @default(0)
+  succeeded    Boolean             @default(false)
+  error        String?
+  salesFound   Int                 @default(0)
+  createdAt    DateTime            @default(now())
+
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, createdAt])
+  @@index([createdAt])
+  @@map("ai_usages")
 }

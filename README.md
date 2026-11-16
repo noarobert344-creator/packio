@@ -242,6 +242,22 @@ Extension Chrome (Manifest V3) fournie dans le dossier `extension/` — installa
 - **Toutes les ventes** des comptes liés s'affichent dans `Ventes et comptes liés` (filtres : toutes, à traiter, vendues avec Packio). Une vente d'une annonce rattachée à un article du stock (SKU cité dans l'annonce, ou rattachement manuel) part automatiquement chez le préparateur. Sous chaque autre vente : **Vendu avec Packio** (choix de l'article, expédition sous 48 h avec le bordereau) ou **Supprimer** (article expédié par le client lui-même : nom de l'acheteur et bordereau effacés, la vente n'est plus recréée ni son bordereau conservé). Les traitements sont idempotents (une vente rejouée ne crée rien de plus).
 - Les plateformes ne proposent pas d'API officielle : la lecture des données dépend de leur site et doit être **validée avec de vrais comptes** ; le client l'utilise sur ses propres comptes et reste responsable du respect de leurs conditions d'utilisation.
 
+### Stock et dropshipping séparés, préparateurs, statistiques
+
+- **Ventes** (client) : sous chaque vente Vinted / Vestiaire, trois boutons : **Vendu avec Packio** (expédié depuis le stock), **Vendu en dropshipping** (commande fournisseur préremplie et liée à la vente, bordereau repris automatiquement, même s'il arrive après) et **Supprimer**. Filtres Toutes / À traiter / Ventes Packio / Ventes dropshipping, étape du colis et lien de suivi du transporteur.
+- **Préparateur** : navigation en deux blocs, *Stock — envois normaux* (Réceptions, Stock, Ventes normales avec bordereaux, Colis à envoyer, Photos à vendre) et *Dropshipping* (Ventes dropshipping avec bordereaux à télécharger, Colis dropshipping). Questionnaire de bienvenue à la première connexion (photo, téléphone, adresse, lockers Mondial Relay / Vinted Go / Chronopost facultatifs, à valider par Packio). Accès aux crédits de ses clients, avec retrait de 1 à 20 crédits motivé : le motif est envoyé au client dans la messagerie (type `PREPARER_DEBIT`).
+- **Administrateur préparateur** : Admin → Paramètres → Compte → **Activer mon espace préparateur** ; un seul compte, bascule entre les deux espaces depuis le menu du compte (aucune permission d'administration en mode préparateur). **Changer de préparateur** est accessible depuis la liste des clients.
+- **Messagerie** : notes vocales (micro), vidéos (40 Mo), audio, images, PDF, Word, Excel, PowerPoint, ZIP, texte ; type réel vérifié côté serveur, lecture partielle (Range) pour les médias.
+- **Statistiques et comptabilité** : pages Statistiques du client et du préparateur (par mois, exports CSV `/api/exports/...`) et comptabilité mensuelle de la plateforme dans Admin → Statistiques.
+
+### Assistance IA de Packio Connect (Claude, facultatif)
+
+Les adresses Vinted et Vestiaire Collective lues par l'extension ne sont pas documentées et peuvent changer. Quand l'extension ne reconnaît plus la liste des ventes, elle envoie l'extrait à `POST /api/extension/ai-extract` : le serveur demande à **Claude** (modèle `claude-opus-5-5`, effort `low`, sortie structurée validée par un schéma, repli automatique en cas de refus) d'en extraire les ventes, puis l'extension reprend la synchronisation normale. Le résultat est revalidé (identifiants, prix, dates, URL de bordereau limitée au domaine de la plateforme).
+
+- Activée seulement si `ANTHROPIC_API_KEY` est définie côté serveur (jamais dans l'extension ni dans le navigateur).
+- Garde-fous : `AI_DAILY_CALLS_PER_CUSTOMER` appels par client et par jour (6 par défaut), budget mensuel `AI_MONTHLY_BUDGET_USD` (15 $ par défaut) estimé à partir des jetons consommés ; chaque appel est enregistré (`ai_usages`) et la consommation du mois est affichée dans **Admin → Statistiques**. L'extrait envoyé n'est pas conservé.
+- Obtenir une clé : [console.anthropic.com](https://console.anthropic.com) → **Settings → API Keys → Create Key** ; les crédits disponibles apparaissent dans **Settings → Billing**. L'abonnement Claude (Pro / Max) utilisé sur claude.ai est distinct de la facturation de l'API.
+
 ## Sécurité et RGPD
 
 - Sessions en base : jeton aléatoire de 256 bits dans un cookie `httpOnly`, `SameSite=Lax`, `Secure` en HTTPS ; seul le **hash SHA-256** est stocké. Mots de passe hachés avec **scrypt**.
@@ -334,7 +350,7 @@ npm run extension:build -- https://packio.onrender.com
 ```
 
 2. Ouvrez un compte développeur sur la [console du Chrome Web Store](https://chrome.google.com/webstore/devconsole) (5 $, une fois), au nom de l'éditeur de Packio.
-3. **Nouvel élément** : envoyez `dist/packio-connect-0.1.0.zip`, puis remplissez la fiche avec les textes et images de [`extension/store/`](extension/store/fiche-chrome-web-store.md) et soumettez-la à l'examen (quelques jours en général).
+3. **Nouvel élément** : envoyez `dist/packio-connect-<version>.zip` (version 0.2.0 actuellement), puis remplissez la fiche avec les textes et images de [`extension/store/`](extension/store/fiche-chrome-web-store.md) et soumettez-la à l'examen (quelques jours en général).
 4. Une fois l'extension publiée, ajoutez `EXTENSION_STORE_URL` (adresse de la fiche) dans **packio → Environment**, puis redéployez : les clients voient le bouton **Installer depuis le Chrome Web Store**, puis **Connecter l'extension**, dans **Ventes et comptes liés**.
 
 ## Déploiement (Vercel)

@@ -421,6 +421,11 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
           <Fill value={ctx.legal.hostName} label="hébergeur" /> — hébergement de l&apos;application et de la base de données.
         </li>
         <li>Resend — envoi des e-mails transactionnels.</li>
+        <li>
+          Anthropic (Claude) — uniquement si l&apos;assistance IA est activée : lecture de secours des pages de ventes Vinted ou Vestiaire Collective que
+          l&apos;extension Packio Connect ne parvient pas à lire ; l&apos;extrait n&apos;est pas conservé par Packio et n&apos;est pas utilisé pour entraîner les
+          modèles.
+        </li>
         <li>L&apos;hébergeur ci-dessus ou un prestataire de stockage compatible S3 — conservation privée des photos et documents.</li>
         <li>Transporteurs — données du destinataire figurant sur l&apos;étiquette d&apos;expédition.</li>
       </ul>

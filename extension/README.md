@@ -6,7 +6,7 @@ Packio Connect relie les comptes **Vinted** et **Vestiaire Collective** d'un cli
 - chaque **vente** détectée sur un article stocké crée l'expédition chez le préparateur ;
 - le **bordereau** généré par la plateforme est transmis automatiquement et joint à l'expédition : le préparateur n'a plus qu'à l'imprimer.
 
-Version 0.1.0 : extension Chrome (Manifest V3), sans étape de compilation.
+Version 0.2.0 : extension Chrome (Manifest V3), sans étape de compilation. Si une plateforme change la structure de ses ventes, l'extension confie l'extrait illisible à l'assistance IA de Packio (côté serveur, voir le README principal).
 
 ## Installation pour les clients (version publique)
 
@@ -65,7 +65,7 @@ Vinted et Vestiaire Collective ne proposent pas d'API ouverte aux vendeurs parti
 | `platforms/common.js` | Requêtes avec la session du navigateur, conversions de prix et de dates |
 | `popup.*`, `options.*`, `styles.css` | Interface de l'extension |
 
-API Packio utilisée (authentification `Authorization: Bearer pkx_…`) : `GET /api/extension/status`, `DELETE /api/extension/status` (déconnexion : révoque le jeton présenté), `POST /api/extension/sync`, `POST /api/extension/label`.
+API Packio utilisée (authentification `Authorization: Bearer pkx_…`) : `GET /api/extension/status`, `DELETE /api/extension/status` (déconnexion : révoque le jeton présenté), `POST /api/extension/sync`, `POST /api/extension/label`, `POST /api/extension/ai-extract` (lecture assistée par IA, en secours).
 
 ## À valider avec un vrai compte avant la mise en production
 

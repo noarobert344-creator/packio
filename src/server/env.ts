@@ -28,6 +28,25 @@ export const env = {
     }
     return mode;
   },
+  /**
+   * IA de secours de Packio Connect (Claude). Activée seulement si
+   * ANTHROPIC_API_KEY est définie (lue directement par le SDK, jamais exposée).
+   */
+  ai: {
+    get enabled() {
+      return !!process.env.ANTHROPIC_API_KEY;
+    },
+    /** Budget mensuel en dollars (estimation à partir des jetons consommés). */
+    get monthlyBudgetUsd() {
+      const n = Number(process.env.AI_MONTHLY_BUDGET_USD);
+      return Number.isFinite(n) && n >= 0 ? n : 15;
+    },
+    /** Nombre maximal d'appels par client et par jour. */
+    get dailyCallsPerCustomer() {
+      const n = Number.parseInt(process.env.AI_DAILY_CALLS_PER_CUSTOMER ?? "", 10);
+      return Number.isFinite(n) && n >= 0 ? n : 6;
+    },
+  },
   whop: {
     /** Clé API du compte Whop (Developer → API keys). */
     get apiKey() {

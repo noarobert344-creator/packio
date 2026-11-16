@@ -51,7 +51,10 @@ describe("Bordereaux et À vendre", () => {
 
     expect((await listLabelBoard({ customerId: client.customerId })).openCount).toBe(1);
     expect((await listLabelBoard({ preparerId: other.preparer.id })).openCount).toBe(0);
-    expect((await navBadges(prep.actor)).bordereaux).toBe(1);
+    // Stock et dropshipping séparés : ce bordereau figure dans « Ventes dropshipping ».
+    expect((await listLabelBoard({ preparerId: prep.preparer.id }, { dropship: true })).openCount).toBe(1);
+    expect((await listLabelBoard({ preparerId: prep.preparer.id }, { dropship: false })).openCount).toBe(0);
+    expect(await navBadges(prep.actor)).toMatchObject({ dropship: 1, dropshipColis: 1, bordereaux: 0, expeditions: 0 });
   });
 
   it("À vendre : article à photographier, puis publié avec ses photos pour le client", async () => {

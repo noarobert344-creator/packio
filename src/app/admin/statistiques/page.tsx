@@ -5,6 +5,7 @@ import { requireAdmin } from "@/server/auth/current";
 import { db } from "@/server/db";
 import { getOperationsSeries, getRevenueSeries } from "@/server/services/stats";
 import { getAccountingSeries } from "@/server/queries/stats";
+import { aiUsageThisMonth } from "@/server/services/ai-extract";
 import { CsvLink } from "@/components/shared/stats-ui";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { assignmentSlaStats, creditsConsumedTotal, shipmentsBySize, topPreparers } from "@/server/queries/admin-ops";
@@ -24,7 +25,7 @@ function monthLabel(key: string) {
 
 export default async function AdminStatsPage() {
   await requireAdmin("stats.read");
-  const [revenue, operations, sla, sizes, consumed, top, planMix, accounting] = await Promise.all([
+  const [revenue, operations, sla, sizes, consumed, top, planMix, accounting, ai] = await Promise.all([
     getRevenueSeries(6),
     getOperationsSeries(30),
     assignmentSlaStats(90),
@@ -33,6 +34,7 @@ export default async function AdminStatsPage() {
     topPreparers(5),
     db.subscription.groupBy({ by: ["planId"], where: { status: { in: ["ACTIVE", "TRIALING"] } }, _count: true }),
     getAccountingSeries(6),
+    aiUsageThisMonth(),
   ]);
   const plans = await db.plan.findMany({ where: { id: { in: planMix.map((p) => p.planId) } }, select: { id: true, name: true, sortOrder: true } });
   const revenueTotal = revenue.reduce((s, r) => s + r.subscriptions + r.credits, 0);
@@ -54,6 +56,12 @@ export default async function AdminStatsPage() {
         />
         <StatCard label="Crédits consommés (total)" value={consumed} icon={Coins} hint="Débits définitifs au dépôt" />
       </div>
+      <p className="-mt-3 mb-6 text-xs text-muted-foreground">
+        Assistance IA (Packio Connect) :{" "}
+        {ai.enabled
+          ? `${ai.calls} appel(s) ce mois, ${ai.salesFound} vente(s) récupérée(s), ${ai.costUsd.toFixed(2)} $ sur un budget de ${ai.budgetUsd} $.`
+          : "désactivée (clé ANTHROPIC_API_KEY absente)."}
+      </p>
       <div className="grid gap-6 xl:grid-cols-2">
         <Section>
           <StackedColumns

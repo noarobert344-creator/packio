@@ -1,4 +1,4 @@
-import { NotLoggedInError, currencyOf, getJson, toCents, toIso } from "./common.js";
+import { NotLoggedInError, currencyOf, getJson, readWithAi, toCents, toIso } from "./common.js";
 
 /**
  * Adaptateur Vestiaire Collective.
@@ -44,10 +44,15 @@ async function products(userId) {
 }
 
 /** À VÉRIFIER : ventes du membre (/orders/sales ou équivalent). */
-async function sales() {
+async function sales(config) {
   const res = await getJson(`${API}/orders/sales?limit=50&offset=0`);
   if (res.unauthorized) return [];
-  const list = res.data?.data ?? res.data?.items ?? [];
+  const list = res.data?.data ?? res.data?.items;
+  if (!Array.isArray(list)) {
+    // Structure inconnue : lecture assistée par l'IA de Packio.
+    const found = await readWithAi(config, res.data, "des ventes Vestiaire Collective");
+    return found.map((s) => ({ ...s, labelRef: s.labelUrl ? { url: s.labelUrl, orderId: s.externalOrderId } : null }));
+  }
   return list.map((o) => ({
     externalOrderId: String(o.id ?? o.orderId),
     externalItemId: o.product?.id ? String(o.product.id) : undefined,
@@ -60,10 +65,10 @@ async function sales() {
   }));
 }
 
-export async function collect() {
+export async function collect(config) {
   const user = await currentUser();
   if (!user) throw new NotLoggedInError("Vestiaire Collective");
-  const [listings, soldList] = await Promise.all([products(user.id), sales()]);
+  const [listings, soldList] = await Promise.all([products(user.id), sales(config)]);
   return { account: { externalUserId: user.id, username: user.name ?? undefined }, listings, sales: soldList };
 }
 
