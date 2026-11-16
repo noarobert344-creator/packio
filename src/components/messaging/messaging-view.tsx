@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format, isSameDay, isToday, isYesterday } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Archive, ArrowLeft, Check, CheckCheck, Eye, FileText, Headset, Link2, Loader2, MessagesSquare, Paperclip, Plus, Search, Send, ShieldCheck, Truck, X, Package } from "lucide-react";
+import { Archive, ArrowLeft, Check, CheckCheck, Eye, FileText, Headset, Link2, Loader2, MessagesSquare, Mic, Paperclip, Plus, Search, Send, ShieldCheck, Truck, X, Package } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { createSupportRequestAction } from "@/server/actions/account";
 import { markConversationReadAction, searchMessagesAction, sendMessageAction, setSupportStatusAction } from "@/server/actions/messaging";
+import { VoiceRecorder } from "./voice-recorder";
 import type { ConversationSummary, SelectedConversation, ThreadMessage } from "./types";
 
 type ApiMessage = Omit<ThreadMessage, "sender"> & {
@@ -223,6 +224,23 @@ function Thread({ selected, me, basePath, orderHref, shipmentHref, adminControls
     if (fileInput.current) fileInput.current.value = "";
   }
 
+  async function sendVoice(file: File) {
+    setUploading(true);
+    try {
+      const up = await uploadToPackio(file, "MESSAGE_ATTACHMENT");
+      const res = await sendMessageAction({ conversationId: selected.id, body: "", attachmentIds: [up.id], supplierOrderId: null, shipmentId: null });
+      if (!res.ok) toast.error(res.error);
+      else {
+        await refresh();
+        router.refresh();
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Note vocale non envoyée");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function send() {
     if (sending || uploading || (!body.trim() && !attachments.length)) return;
     setSending(true);
@@ -334,8 +352,17 @@ function Thread({ selected, me, basePath, orderHref, shipmentHref, adminControls
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={`/api/files/${a.id}`} alt={a.filename} className="max-h-48 max-w-full object-cover" loading="lazy" />
                               </a>
+                            ) : a.mimeType.startsWith("audio/") ? (
+                              <span key={a.id} className="flex flex-col gap-1">
+                                <span className={cn("inline-flex items-center gap-1 text-[0.7rem]", mine ? "text-white/80" : "text-muted-foreground")}>
+                                  <Mic className="size-3" /> {a.filename.startsWith("note-vocale") ? "Note vocale" : a.filename}
+                                </span>
+                                <audio controls preload="metadata" src={`/api/files/${a.id}`} className="h-10 w-64 max-w-full" />
+                              </span>
+                            ) : a.mimeType.startsWith("video/") ? (
+                              <video key={a.id} controls preload="metadata" playsInline src={`/api/files/${a.id}`} className="max-h-72 max-w-full rounded-lg bg-black" />
                             ) : (
-                              <a key={a.id} href={`/api/files/${a.id}`} target="_blank" rel="noreferrer" className={cn("inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs", mine ? "bg-white/15" : "bg-muted")}>
+                              <a key={a.id} href={`/api/files/${a.id}${a.mimeType === "application/pdf" ? "" : "?telecharger"}`} target="_blank" rel="noreferrer" className={cn("inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs", mine ? "bg-white/15" : "bg-muted")}>
                                 <FileText className="size-3.5" />
                                 {a.filename}
                               </a>
@@ -393,9 +420,10 @@ function Thread({ selected, me, basePath, orderHref, shipmentHref, adminControls
           )}
           <div className="flex items-end gap-2">
             <div className="flex gap-0.5 pb-0.5">
-              <Button type="button" variant="ghost" size="icon" onClick={() => fileInput.current?.click()} disabled={uploading} aria-label="Joindre un fichier">
+              <Button type="button" variant="ghost" size="icon" onClick={() => fileInput.current?.click()} disabled={uploading} aria-label="Joindre une photo, une vidéo ou un fichier">
                 {uploading ? <Loader2 className="animate-spin" /> : <Paperclip />}
               </Button>
+              <VoiceRecorder disabled={uploading || sending} onRecorded={sendVoice} />
               {(selected.linkables.orders.length > 0 || selected.linkables.shipments.length > 0) && (
                 <Button type="button" variant="ghost" size="icon" onClick={() => setShowLinks((s) => !s)} aria-label="Associer une commande ou une expédition">
                   <Plus />
@@ -411,7 +439,7 @@ function Thread({ selected, me, basePath, orderHref, shipmentHref, adminControls
                   send();
                 }
               }}
-              placeholder="Écrire un message…"
+              placeholder="Écrire un message, ou envoyer une note vocale…"
               rows={1}
               className="max-h-40 min-h-10 resize-none"
               aria-label="Message"
@@ -420,7 +448,15 @@ function Thread({ selected, me, basePath, orderHref, shipmentHref, adminControls
               {sending ? <Loader2 className="animate-spin" /> : <Send />}
             </Button>
           </div>
-          <input ref={fileInput} type="file" accept="image/*,application/pdf" multiple className="sr-only" onChange={(e) => attach(e.target.files)} tabIndex={-1} />
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.zip,.txt,.csv"
+            multiple
+            className="sr-only"
+            onChange={(e) => attach(e.target.files)}
+            tabIndex={-1}
+          />
         </div>
       ) : (
         <p className="border-t bg-muted/40 px-4 py-3 text-center text-xs text-muted-foreground">

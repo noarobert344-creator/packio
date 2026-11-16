@@ -20,10 +20,11 @@ export function proxy(request: NextRequest) {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("Permissions-Policy", "camera=(self), geolocation=(), microphone=()");
+  response.headers.set("Permissions-Policy", "camera=(self), geolocation=(), microphone=(self)");
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|icon.svg|favicon.ico|robots.txt|sitemap.xml|api/webhooks).*)"],
+  // api/uploads : authentifié dans la route ; exclu pour ne pas tronquer les vidéos (> 10 Mo).
+  matcher: ["/((?!_next/static|_next/image|icon.svg|favicon.ico|robots.txt|sitemap.xml|api/webhooks|api/uploads).*)"],
 };

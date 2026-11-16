@@ -8,9 +8,36 @@ import { storage } from "@/server/storage";
 import { getConversationAccess } from "./messaging";
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+/** Messagerie : vidéos jusqu'à 40 Mo, notes vocales et audio jusqu'à 15 Mo. */
+export const MAX_VIDEO_BYTES = 40 * 1024 * 1024;
+export const MAX_AUDIO_BYTES = 15 * 1024 * 1024;
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"] as const;
 const DOC_TYPES = ["application/pdf"] as const;
+const AUDIO_TYPES = ["audio/webm", "audio/ogg", "audio/mpeg", "audio/mp4", "audio/wav"] as const;
+const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"] as const;
+const OFFICE_TYPES = [
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/msword",
+  "application/vnd.ms-excel",
+  "application/vnd.ms-powerpoint",
+  "application/zip",
+  "text/plain",
+  "text/csv",
+] as const;
+
+/** Types affichés directement dans le navigateur ; les autres sont toujours téléchargés. */
+export const INLINE_TYPES: readonly string[] = [...IMAGE_TYPES, ...DOC_TYPES, ...AUDIO_TYPES, ...VIDEO_TYPES];
+
+export function maxBytesFor(mime: string) {
+  if (mime.startsWith("video/")) return MAX_VIDEO_BYTES;
+  if (mime.startsWith("audio/")) return MAX_AUDIO_BYTES;
+  return MAX_UPLOAD_BYTES;
+}
 
 const ALLOWED_BY_PURPOSE: Record<FilePurpose, readonly string[]> = {
   AVATAR: ["image/jpeg", "image/png", "image/webp"],
@@ -19,7 +46,7 @@ const ALLOWED_BY_PURPOSE: Record<FilePurpose, readonly string[]> = {
   RECEPTION_PHOTO: IMAGE_TYPES,
   PREPARATION_PHOTO: IMAGE_TYPES,
   SHIPPING_LABEL: [...DOC_TYPES, ...IMAGE_TYPES],
-  MESSAGE_ATTACHMENT: [...IMAGE_TYPES, ...DOC_TYPES],
+  MESSAGE_ATTACHMENT: [...IMAGE_TYPES, ...DOC_TYPES, ...AUDIO_TYPES, ...VIDEO_TYPES, ...OFFICE_TYPES],
   INCIDENT_ATTACHMENT: [...IMAGE_TYPES, ...DOC_TYPES],
 };
 
@@ -35,7 +62,53 @@ export function sniffMime(buf: Buffer): string | null {
     const brand = buf.subarray(8, 12).toString("ascii");
     if (["heic", "heix", "hevc", "heim", "heis"].includes(brand)) return "image/heic";
     if (["mif1", "msf1"].includes(brand)) return "image/heif";
+    if (["M4A ", "M4B "].includes(brand)) return "audio/mp4";
+    if (brand === "qt  ") return "video/quicktime";
+    if (["isom", "iso2", "iso4", "iso5", "iso6", "mp41", "mp42", "avc1", "dash", "M4V ", "3gp4", "3gp5", "3g2a", "MSNV"].includes(brand)) return "video/mp4";
   }
+  if (buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) return "video/webm";
+  if (buf.subarray(0, 4).toString("ascii") === "OggS") return "audio/ogg";
+  if (buf.subarray(0, 3).toString("ascii") === "ID3" || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0)) return "audio/mpeg";
+  if (buf.subarray(0, 4).toString("ascii") === "RIFF" && buf.subarray(8, 12).toString("ascii") === "WAVE") return "audio/wav";
+  if (buf[0] === 0x50 && buf[1] === 0x4b && buf[2] === 0x03 && buf[3] === 0x04) return "application/zip";
+  if (buf.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]))) return "application/x-cfb";
+  return null;
+}
+
+const ZIP_BY_EXT: Record<string, string> = {
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  odt: "application/vnd.oasis.opendocument.text",
+  ods: "application/vnd.oasis.opendocument.spreadsheet",
+  zip: "application/zip",
+};
+const CFB_BY_EXT: Record<string, string> = { doc: "application/msword", xls: "application/vnd.ms-excel", ppt: "application/vnd.ms-powerpoint" };
+
+/** Texte brut : UTF-8 valide, sans octet nul (les 64 premiers Ko sont vérifiés). */
+function isPlainText(buf: Buffer) {
+  const head = buf.subarray(0, 65536);
+  if (head.includes(0)) return false;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(head.length === buf.length ? head : head.subarray(0, head.length - 4));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Type réel d'un fichier : signature binaire, précisée par l'extension pour
+ * les conteneurs ambigus (ZIP bureautique, WebM audio ou vidéo, texte).
+ */
+export function detectType(buf: Buffer, filename: string, declaredType?: string | null): string | null {
+  const ext = filename.toLowerCase().split(".").pop() ?? "";
+  const sniffed = sniffMime(buf);
+  if (sniffed === "video/webm" && (declaredType?.startsWith("audio/") || ext === "weba" || filename.toLowerCase().startsWith("note-vocale"))) return "audio/webm";
+  if (sniffed === "application/zip") return ZIP_BY_EXT[ext] ?? null;
+  if (sniffed === "application/x-cfb") return CFB_BY_EXT[ext] ?? null;
+  if (sniffed) return sniffed;
+  if ((ext === "txt" || ext === "csv") && buf.length && isPlainText(buf)) return ext === "csv" ? "text/csv" : "text/plain";
   return null;
 }
 
@@ -45,6 +118,25 @@ function cleanFilename(name: string) {
 }
 
 const EXT: Record<string, string> = {
+  "audio/webm": "weba",
+  "audio/ogg": "ogg",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/wav": "wav",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+  "application/vnd.oasis.opendocument.text": "odt",
+  "application/vnd.oasis.opendocument.spreadsheet": "ods",
+  "application/msword": "doc",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.ms-powerpoint": "ppt",
+  "application/zip": "zip",
+  "text/plain": "txt",
+  "text/csv": "csv",
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
@@ -54,13 +146,19 @@ const EXT: Record<string, string> = {
   "application/pdf": "pdf",
 };
 
-export async function uploadFile(actor: Actor, input: { purpose: FilePurpose; filename: string; data: Buffer; customerId?: string | null }) {
+export async function uploadFile(actor: Actor, input: { purpose: FilePurpose; filename: string; data: Buffer; customerId?: string | null; declaredType?: string | null }) {
   if (input.data.length === 0) throw new DomainError("EMPTY", "Fichier vide.");
-  if (input.data.length > MAX_UPLOAD_BYTES) throw new DomainError("TOO_LARGE", "Fichier trop volumineux (10 Mo maximum).");
-  const mime = sniffMime(input.data);
+  const mime = input.purpose === "MESSAGE_ATTACHMENT" ? detectType(input.data, input.filename, input.declaredType) : sniffMime(input.data);
   if (!mime || !ALLOWED_BY_PURPOSE[input.purpose].includes(mime)) {
-    throw new DomainError("TYPE", "Format non autorisé. Formats acceptés : JPEG, PNG, WebP, HEIC" + (ALLOWED_BY_PURPOSE[input.purpose].includes("application/pdf") ? ", PDF." : "."));
+    throw new DomainError(
+      "TYPE",
+      input.purpose === "MESSAGE_ATTACHMENT"
+        ? "Format non autorisé. Formats acceptés : images, vidéos (MP4, MOV, WebM), audio, PDF, Word, Excel, PowerPoint, ZIP, texte."
+        : "Format non autorisé. Formats acceptés : JPEG, PNG, WebP, HEIC" + (ALLOWED_BY_PURPOSE[input.purpose].includes("application/pdf") ? ", PDF." : "."),
+    );
   }
+  const max = input.purpose === "MESSAGE_ATTACHMENT" ? maxBytesFor(mime) : MAX_UPLOAD_BYTES;
+  if (input.data.length > max) throw new DomainError("TOO_LARGE", `Fichier trop volumineux (${Math.round(max / 1024 / 1024)} Mo maximum).`);
 
   let customerId: string | null = null;
   let preparerId: string | null = null;

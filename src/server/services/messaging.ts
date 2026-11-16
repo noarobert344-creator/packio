@@ -197,10 +197,19 @@ export async function sendMessage(
     const shipment = await db.outboundShipment.findUnique({ where: { id: input.shipmentId }, select: { customerId: true } });
     if (!shipment || shipment.customerId !== conversation.customerId) throw new DomainError("INVALID_LINK", "Expédition invalide pour cette conversation.");
   }
+  let attachmentLabel = "Pièce jointe";
   if (attachmentIds.length) {
     const files = await db.file.findMany({ where: { id: { in: attachmentIds } } });
     const valid = files.filter((f) => f.uploadedById === actor.userId && f.purpose === "MESSAGE_ATTACHMENT" && !f.messageId && !f.deletedAt);
     if (valid.length !== attachmentIds.length) throw new DomainError("INVALID_ATTACHMENT", "Pièce jointe invalide.");
+    const types = valid.map((f) => f.mimeType);
+    attachmentLabel = types.some((t) => t.startsWith("audio/"))
+      ? "Note vocale"
+      : types.some((t) => t.startsWith("video/"))
+        ? "Vidéo"
+        : types.every((t) => t.startsWith("image/"))
+          ? "Photo"
+          : "Pièce jointe";
   }
 
   return withEffects(async (tx, fx) => {
@@ -230,7 +239,7 @@ export async function sendMessage(
       where: { conversationId: conversation.id, userId: { not: actor.userId }, leftAt: null },
       include: { user: { select: { id: true, role: true } } },
     });
-    const preview = body ? (body.length > 140 ? `${body.slice(0, 140)}…` : body) : "Pièce jointe";
+    const preview = body ? (body.length > 140 ? `${body.slice(0, 140)}…` : body) : attachmentLabel;
     const senderName = `${actor.firstName} ${actor.lastName.charAt(0)}.`;
     // Le préparateur de la conversation peut être un administrateur (mode préparateur).
     const preparerUserId = conversation.preparerId
