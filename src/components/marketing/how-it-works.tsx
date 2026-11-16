@@ -25,7 +25,7 @@ const STEPS = [
   {
     icon: ShoppingBag,
     title: "Commandez vers son point de réception",
-    text: "ZenMarket, Vinted ou Vestiaire pour votre stock ; Temu, SHEIN ou AliExpress en dropshipping.",
+    text: "ZenMarket, Vinted, Vestiaire ou Whatnot pour votre stock ; Temu, SHEIN ou AliExpress en dropshipping ; ou n'importe quelle autre boutique.",
   },
   {
     icon: PackageCheck,

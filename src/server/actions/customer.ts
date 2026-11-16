@@ -134,6 +134,7 @@ const orderSchema = z.object({
   buyerCountry: optionalText(2),
   labelFileIds: stringArray(),
   marketplaceSaleId: optionalText(40),
+  arrivalNote: optionalText(500),
 });
 
 export async function createOrderAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

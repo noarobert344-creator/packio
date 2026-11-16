@@ -4,7 +4,7 @@ import { db, type Tx } from "@/server/db";
 import { DomainError, ForbiddenError, NotFoundError } from "@/server/errors";
 import { assertCustomer, assertPreparer, can, type Actor } from "@/server/auth/actor";
 import { reference } from "@/server/lib/ids";
-import { checkCompatibility } from "@/lib/compatibility";
+import { ARRIVAL_OTHER, checkCompatibility } from "@/lib/compatibility";
 import { SUPPLIER_ORDER_STATUS } from "@/lib/labels";
 import { withEffects, type Effects } from "./notifications";
 import { assertCustomerOperational } from "./customers";
@@ -137,7 +137,15 @@ export type CreateOrderInput = {
    * reçu ou à venir).
    */
   marketplaceSaleId?: string | null;
+  /**
+   * Lieu d'arrivée indiqué par le client : précision libre (casier, point
+   * relais choisi à l'achat…). Avec `locationId` = ARRIVAL_OTHER, le colis
+   * arrive à un autre point que ceux du préparateur : la précision est alors
+   * obligatoire.
+   */
+  arrivalNote?: string | null;
 };
+
 
 function validateDropship(input: CreateOrderInput) {
   if (input.mode !== "DROPSHIP") return;
@@ -158,7 +166,15 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
     const customer = await assertCustomerOperational(tx, customerId);
     const preparerId = customer.currentPreparerId!;
     const supplier = await tx.supplier.findUnique({ where: { id: input.supplierId } });
-    const location = await tx.preparerLocation.findUnique({ where: { id: input.locationId } });
+    // « Autre point » : rattaché au point principal du préparateur, précision obligatoire.
+    const arrivalOther = input.locationId === ARRIVAL_OTHER;
+    const arrivalNote = input.arrivalNote?.trim() || null;
+    if (arrivalOther && (!arrivalNote || arrivalNote.length < 5)) {
+      throw new DomainError("ARRIVAL", "Indiquez où arrivera le colis (nom et adresse du point relais ou du locker).", { fieldErrors: { arrivalNote: "Précisez le point d'arrivée" } });
+    }
+    const location = arrivalOther
+      ? await tx.preparerLocation.findFirst({ where: { preparerId, isActive: true, validatedAt: { not: null } }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] })
+      : await tx.preparerLocation.findUnique({ where: { id: input.locationId } });
     if (!supplier || !supplier.isActive) throw new DomainError("SUPPLIER", "Fournisseur invalide.", { fieldErrors: { supplierId: "Fournisseur invalide" } });
     if (!supplier.orderModes.includes(dropship ? "DROPSHIP" : "STOCK")) {
       throw new DomainError("SUPPLIER_MODE", dropship ? `${supplier.name} n'est pas proposé pour le dropshipping.` : `${supplier.name} n'est pas proposé pour les commandes vers le stock.`, {
@@ -168,7 +184,7 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
     if (!location || location.preparerId !== preparerId || !location.isActive || !location.validatedAt) {
       throw new DomainError("LOCATION", "Ce point de réception n'est pas disponible.", { fieldErrors: { locationId: "Point de réception invalide" } });
     }
-    const compat = checkCompatibility(supplier, location);
+    const compat = arrivalOther ? { ok: true as const, reason: "" } : checkCompatibility(supplier, location);
     if (!compat.ok) throw new DomainError("INCOMPATIBLE", compat.reason, { fieldErrors: { locationId: compat.reason } });
     if (supplier.code === "OTHER" && !input.compatibilityConfirmed) {
       throw new DomainError("CONFIRM_COMPAT", "Confirmez que ce fournisseur livre bien à ce point de réception.", {
@@ -240,6 +256,8 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
         trackingNumber: input.trackingNumber?.trim() || null,
         carrier: input.carrier || null,
         description: input.description.trim(),
+        arrivalOther,
+        arrivalNote: arrivalNote?.slice(0, 500) ?? null,
         quantity: input.quantity,
         expectedArrivalAt: input.expectedArrivalAt ?? null,
         instructions: input.instructions?.trim() || null,
@@ -275,8 +293,8 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
       type: "ORDER_CREATED",
       title: dropship ? "Commande en dropshipping (expédition express)" : "Nouvelle commande enregistrée",
       body: dropship
-        ? `${actor.firstName} ${actor.lastName} a vendu « ${order.description} » : à réceptionner à ${location.label}, puis à expédier à l'acheteur sous 48 h.`
-        : `${actor.firstName} ${actor.lastName} attend « ${order.description} » (${supplier.code === "OTHER" ? order.supplierLabel : supplier.name}) à ${location.label}.`,
+        ? `${actor.firstName} ${actor.lastName} a vendu « ${order.description} » : à réceptionner ${arrivalOther ? `à un autre point (${arrivalNote})` : `à ${location.label}`}, puis à expédier à l'acheteur sous 48 h.`
+        : `${actor.firstName} ${actor.lastName} attend « ${order.description} » (${supplier.code === "OTHER" ? order.supplierLabel : supplier.name}) ${arrivalOther ? `à un autre point : ${arrivalNote}` : `à ${location.label}${arrivalNote ? ` (${arrivalNote})` : ""}`}.`,
       link: `/preparateur/receptions/${order.id}`,
     });
     if (storage.credits > 0) {

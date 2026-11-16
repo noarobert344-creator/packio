@@ -100,7 +100,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         </div>
         <div className="space-y-6">
           <Section title="Détails" contentClassName="space-y-3 text-sm">
-            <Detail label="Point de réception" value={`${order.location.label} (${LOCATION_TYPE[order.location.type]})`} />
+            <Detail
+              label="Arrivée du colis"
+              value={order.arrivalOther ? `Autre point : ${order.arrivalNote}` : `${order.location.label} (${LOCATION_TYPE[order.location.type]})${order.arrivalNote ? ` · ${order.arrivalNote}` : ""}`}
+            />
             {order.supplierOrderNumber && <Detail label="N° de commande fournisseur" value={order.supplierOrderNumber} />}
             <Detail
               label="Suivi"

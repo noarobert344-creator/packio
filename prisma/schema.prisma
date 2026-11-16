@@ -686,6 +686,10 @@ model SupplierOrder {
   status                 SupplierOrderStatus  @default(REGISTERED)
   statusChangedAt        DateTime             @default(now())
   compatibilityConfirmed Boolean              @default(false)
+  /// Lieu d'arrivée indiqué par le client : « autre point » (hors points
+  /// enregistrés du préparateur) et précision libre (casier, point relais…).
+  arrivalOther           Boolean              @default(false)
+  arrivalNote            String?
   mode                   OrderMode            @default(STOCK)
   /// Dropshipping : plateforme et référence de la vente, destinataire final.
   salePlatform           MarketplacePlatform?

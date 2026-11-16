@@ -109,7 +109,7 @@ export const DEFAULT_SUPPLIERS = [
     acceptedNetworks: [],
     requiresPickupCode: false,
     orderModes: DROPSHIP,
-    sortOrder: 4,
+    sortOrder: 5,
     compatibilityNotes: "Livraison à l'adresse professionnelle de votre préparateur. Les délais de livraison varient : tenez-en compte dans le délai annoncé à votre acheteur.",
   },
   {
@@ -120,7 +120,7 @@ export const DEFAULT_SUPPLIERS = [
     acceptedNetworks: ["MONDIAL_RELAY", "RELAIS_COLIS"],
     requiresPickupCode: false,
     orderModes: DROPSHIP,
-    sortOrder: 5,
+    sortOrder: 6,
     compatibilityNotes: "La livraison en point relais n'est pas proposée pour toutes les commandes : vérifiez l'option au moment du paiement.",
   },
   {
@@ -131,8 +131,20 @@ export const DEFAULT_SUPPLIERS = [
     acceptedNetworks: [],
     requiresPickupCode: false,
     orderModes: DROPSHIP,
-    sortOrder: 6,
+    sortOrder: 7,
     compatibilityNotes: "Livraison à l'adresse professionnelle du préparateur recommandée. Les options de retrait varient selon le vendeur et ne sont pas activées par défaut.",
+  },
+  {
+    code: "WHATNOT",
+    name: "Whatnot",
+    websiteUrl: "https://www.whatnot.com/fr-FR",
+    acceptedLocationTypes: ALL,
+    acceptedNetworks: ["MONDIAL_RELAY", "INPOST", "RELAIS_COLIS", "CHRONOPOST_PICKUP", "LA_POSTE", "OTHER"],
+    requiresPickupCode: false,
+    orderModes: STOCK,
+    sortOrder: 4,
+    compatibilityNotes:
+      "Achats en direct (enchères et ventes en live). Les modes de livraison dépendent du vendeur : indiquez au paiement l'adresse ou le point de retrait de votre préparateur, avec le nom de destinataire et votre code client.",
   },
   {
     code: "OTHER",
@@ -141,8 +153,8 @@ export const DEFAULT_SUPPLIERS = [
     acceptedLocationTypes: ALL,
     acceptedNetworks: ["MONDIAL_RELAY", "INPOST", "RELAIS_COLIS", "VINTED_GO", "CHRONOPOST_PICKUP", "LA_POSTE", "UPS_ACCESS_POINT", "DPD_PICKUP", "GLS_RELAY", "AMAZON_LOCKER", "OTHER"],
     requiresPickupCode: false,
-    /** Non proposé aux clients par défaut ; activable dans le back-office. */
-    orderModes: [] as OrderMode[],
+    /** « Autre » : le client précise où il a acheté l'article (stock ou dropshipping). */
+    orderModes: ["STOCK", "DROPSHIP"] as OrderMode[],
     sortOrder: 99,
     compatibilityNotes: "Vous devez confirmer que la boutique livre bien vers le point de réception choisi.",
   },

@@ -5,7 +5,7 @@ import { Container } from "./section";
 import { ProductMock } from "./product-mock";
 
 /** Plateformes et fournisseurs pris en charge (bandeau défilant). */
-const PLATFORMS = ["Vinted", "Vestiaire Collective", "ZenMarket", "Temu", "SHEIN", "AliExpress"];
+const PLATFORMS = ["Vinted", "Vestiaire Collective", "Whatnot", "ZenMarket", "Temu", "SHEIN", "AliExpress"];
 
 export function Hero({ shippingHours }: { shippingHours: number }) {
   return (

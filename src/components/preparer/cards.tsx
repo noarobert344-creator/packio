@@ -69,6 +69,8 @@ export type OrderCardData = {
   expectedArrivalAt: Date | null;
   statusChangedAt: Date;
   supplierLabel: string | null;
+  arrivalOther: boolean;
+  arrivalNote: string | null;
   supplier: { name: string; code: string };
   customer: CustomerRef;
   location: { label: string; relayName: string | null; city: string };
@@ -94,9 +96,11 @@ export function OrderCard({ order }: { order: OrderCardData }) {
         <span className="flex items-center gap-1.5">
           <Store className="size-3.5 shrink-0" /> {order.supplier.code === "OTHER" ? (order.supplierLabel ?? "Autre fournisseur") : order.supplier.name}
         </span>
-        <span className="flex min-w-0 items-center gap-1.5">
+        <span className={order.arrivalOther ? "flex min-w-0 items-center gap-1.5 font-medium text-warning sm:col-span-2" : "flex min-w-0 items-center gap-1.5"}>
           <MapPin className="size-3.5 shrink-0" />
-          <span className="truncate">{order.location.relayName ?? order.location.label}</span>
+          <span className="truncate">
+            {order.arrivalOther ? `Autre point : ${order.arrivalNote}` : `${order.location.relayName ?? order.location.label}${order.arrivalNote ? ` · ${order.arrivalNote}` : ""}`}
+          </span>
         </span>
         {order.trackingNumber && (
           <span className="flex min-w-0 items-center gap-1.5">

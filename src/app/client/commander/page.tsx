@@ -54,7 +54,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
     <div className="space-y-8">
       <PageHeader
         title="Commander des articles"
-        description="Achetez sur ZenMarket, Vinted ou Vestiaire Collective pour votre stock, ou sur Temu, SHEIN et AliExpress en dropshipping, en vous faisant livrer au point de réception de votre préparateur. Déclarez ensuite la commande ici."
+        description="Achetez sur ZenMarket, Vinted, Vestiaire Collective ou Whatnot pour votre stock, sur Temu, SHEIN et AliExpress en dropshipping, ou ailleurs (choisissez « Autre »), en vous faisant livrer chez votre préparateur. Déclarez ensuite la commande ici, en indiquant où arrive le colis."
         actions={
           <Button asChild>
             <a href="#nouvelle-commande">Nouvelle commande</a>
@@ -89,7 +89,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
 
       {(
         [
-          { mode: "STOCK", title: "Commander pour mon stock", description: "ZenMarket, Vinted et Vestiaire Collective : l'article est réceptionné et stocké chez votre préparateur." },
+          { mode: "STOCK", title: "Commander pour mon stock", description: "ZenMarket, Vinted, Vestiaire Collective et Whatnot : l'article est réceptionné et stocké chez votre préparateur." },
           { mode: "DROPSHIP", title: "Dropshipping", description: "Temu, SHEIN et AliExpress : l'article déjà vendu est expédié à votre acheteur dès sa réception, sous 48 h." },
         ] as const
       ).map((group) => {

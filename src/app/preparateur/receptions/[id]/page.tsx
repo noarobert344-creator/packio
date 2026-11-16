@@ -83,7 +83,14 @@ export default async function ReceptionPage({ params }: { params: Promise<{ id: 
             {!directDelivery && (order.pickupCode || ["REGISTERED", "SUPPLIER_CONFIRMED", "IN_TRANSIT", "AT_LOCKER"].includes(order.status)) && <PickupCode code={order.pickupCode} />}
           </Section>
 
-          <Section title="Point de réception" contentClassName="space-y-3 text-sm">
+          <Section title="Où arrive le colis" contentClassName="space-y-3 text-sm">
+            {(order.arrivalOther || order.arrivalNote) && (
+              <p className={order.arrivalOther ? "rounded-xl bg-warning-soft p-3 text-warning" : "rounded-xl bg-muted/60 p-3"}>
+                <span className="font-medium">{order.arrivalOther ? "Autre point indiqué par le client : " : "Précision du client : "}</span>
+                {order.arrivalNote}
+              </p>
+            )}
+            {!order.arrivalOther && (
             <div className="flex items-start gap-3">
               <MapPin className="mt-0.5 size-4 shrink-0 text-brand" />
               <div className="min-w-0 flex-1">
@@ -97,6 +104,7 @@ export default async function ReceptionPage({ params }: { params: Promise<{ id: 
               </div>
               <CopyButton value={address} label="Adresse" />
             </div>
+            )}
           </Section>
 
           <Section title="Détails de la commande" contentClassName="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">

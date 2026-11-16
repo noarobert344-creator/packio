@@ -21,3 +21,6 @@ export function checkCompatibility(supplier: SupplierCompat, location: LocationC
   }
   return { ok: true };
 }
+
+/** Valeur du point d'arrivée « un autre point relais ou locker (à préciser) ». */
+export const ARRIVAL_OTHER = "AUTRE";
