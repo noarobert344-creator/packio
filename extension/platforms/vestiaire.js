@@ -61,6 +61,11 @@ async function sales(config) {
     currency: currencyOf(o.price),
     buyerName: o.buyer?.firstname ?? undefined,
     soldAt: toIso(o.createdAt ?? o.date),
+    // À VÉRIFIER : taille, photo, date limite d'envoi et état (annulée, envoyée…).
+    size: typeof o.product?.size === "string" ? o.product.size.slice(0, 40) : (o.product?.size?.label ?? undefined),
+    photoUrl: typeof o.product?.pictures?.[0]?.url === "string" && o.product.pictures[0].url.startsWith("https://") ? o.product.pictures[0].url : undefined,
+    shipBy: o.shippingDeadline ?? o.shipBefore ?? undefined,
+    status: o.status ? String(o.status).slice(0, 60) : undefined,
     labelRef: o.shippingLabelUrl ? { url: o.shippingLabelUrl, orderId: String(o.id ?? o.orderId) } : null,
   }));
 }

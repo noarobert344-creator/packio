@@ -79,7 +79,7 @@ describe("Comptes liés Vinted / Vestiaire et extension", () => {
     };
 
     const first = await syncFromExtension(client.customerId, payload);
-    expect(first).toEqual({ listings: 2, linkedListings: 1, newSales: 1, shipmentsCreated: 1 });
+    expect(first).toEqual({ listings: 2, linkedListings: 1, newSales: 1, shipmentsCreated: 1, cancelled: 0, shipped: 0 });
     const second = await syncFromExtension(client.customerId, payload);
     expect(second).toMatchObject({ newSales: 0, shipmentsCreated: 0, linkedListings: 0 });
 
@@ -205,7 +205,7 @@ describe("Comptes liés Vinted / Vestiaire et extension", () => {
     expect(await db.auditLog.count({ where: { action: "marketplace.sale_deleted", entityId: client.customerId } })).toBe(1);
     const overview = await listMarketplaceOverview(client.customerId);
     expect(overview.sales).toHaveLength(0);
-    expect(overview.saleCounts).toEqual({ toutes: 0, "a-traiter": 0, packio: 0, dropshipping: 0 });
+    expect(overview.saleCounts).toEqual({ toutes: 0, "a-traiter": 0, packio: 0, dropshipping: 0, annulees: 0 });
 
     // Nouvelle synchronisation et nouveau bordereau : rien n'est recréé ni conservé.
     expect((await syncFromExtension(client.customerId, { platform: "VINTED", account: { externalUserId: "u9" }, sales: [sale] })).newSales).toBe(0);

@@ -57,6 +57,8 @@ export type ExtractedSale = {
   buyerName?: string;
   soldAt: string;
   labelUrl?: string;
+  /** « cancelled » : Packio bloque l'expédition d'une vente annulée. */
+  status?: string;
 };
 
 export type ReadMethod = "auto" | "gemini" | "claude";
@@ -314,7 +316,7 @@ function normalize(platform: "VINTED" | "VESTIAIRE", sales: RawSale[]): Extracte
   const out: ExtractedSale[] = [];
   for (const s of sales) {
     const id = s.externalOrderId?.trim().slice(0, 80);
-    if (!id || s.cancelled || seen.has(id)) continue;
+    if (!id || seen.has(id)) continue;
     seen.add(id);
     let labelUrl: string | undefined;
     if (s.labelUrl) {
@@ -334,7 +336,9 @@ function normalize(platform: "VINTED" | "VESTIAIRE", sales: RawSale[]): Extracte
       currency: s.currency && /^[a-z]{3}$/i.test(s.currency) ? s.currency.toLowerCase() : undefined,
       buyerName: buyer && !buyer.includes("masqué") ? buyer.slice(0, 120) : undefined,
       soldAt: s.soldAt && !Number.isNaN(Date.parse(s.soldAt)) ? new Date(s.soldAt).toISOString() : new Date().toISOString(),
-      labelUrl,
+      // Vente annulée : transmise pour que l'expédition soit bloquée, sans bordereau.
+      labelUrl: s.cancelled ? undefined : labelUrl,
+      status: s.cancelled ? "cancelled" : undefined,
     });
   }
   return out.slice(0, 200);

@@ -482,11 +482,28 @@ export async function stockOrder(
       );
     }
     const total = created.reduce((s, i) => s + i.quantityAvailable, 0);
-    order = await setStatus(tx, order, "IN_STOCK", actor.userId, dropship ? `${total} article(s) reçu(s) : expédition express créée` : `${total} article(s) mis en stock`);
+    const cancelledSale = dropship ? await tx.marketplaceSale.findFirst({ where: { dropshipOrderId: order.id, status: "CANCELLED" }, select: { id: true, title: true } }) : null;
+    order = await setStatus(
+      tx,
+      order,
+      "IN_STOCK",
+      actor.userId,
+      cancelledSale ? `${total} article(s) reçu(s) : vente annulée, rien n'est expédié` : dropship ? `${total} article(s) reçu(s) : expédition express créée` : `${total} article(s) mis en stock`,
+    );
     await tx.preparerProfile.update({ where: { id: order.preparerId }, data: { parcelsProcessed: { increment: 1 } } });
 
     let shipment = null;
-    if (dropship) {
+    // Vente annulée sur la plateforme pendant l'acheminement : rien n'est expédié,
+    // l'article attend chez le préparateur que le client choisisse (stock ou retour fournisseur).
+    if (cancelledSale) {
+      fx.notify(await customerUserId(tx, order.customerId), {
+        type: "MARKETPLACE_SALE_CANCELLED",
+        title: `Article reçu, vente annulée : « ${cancelledSale.title} »`,
+        body: `${order.reference} est arrivé chez votre préparateur. La vente ayant été annulée, rien n'est expédié : choisissez de garder l'article en stock ou de le renvoyer au fournisseur.`,
+        link: "/client/ventes?ventes=annulees",
+      });
+    }
+    if (dropship && !cancelledSale) {
       // Dropshipping : expédition à l'acheteur créée immédiatement (délai 48 h).
       const label = await tx.file.findFirst({ where: { supplierOrderId: order.id, purpose: "SHIPPING_LABEL", shipmentId: null, deletedAt: null }, orderBy: { createdAt: "desc" } });
       const platform = order.salePlatform === "VINTED" ? "Vinted" : order.salePlatform === "VESTIAIRE" ? "Vestiaire Collective" : null;

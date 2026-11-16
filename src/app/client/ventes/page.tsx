@@ -6,6 +6,7 @@ import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { FilterTabs } from "@/components/shared/list-controls";
 import { SalesList } from "@/components/client/sales-list";
+import { ManualSaleDialog } from "@/components/client/manual-sale-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ActionButton } from "@/components/shared/action-dialog";
 import { ExtensionTokenForm } from "@/components/client/extension-token-form";
@@ -38,13 +39,6 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
   const filter: SaleFilter = (SALE_FILTERS as readonly string[]).includes(requested ?? "") ? (requested as SaleFilter) : "toutes";
   const limit = Math.min(Math.max(Number.parseInt(one(sp.n) ?? "", 10) || PAGE, PAGE), 300);
   const { accounts, tokens, sales, salesFilter, hasMoreSales, saleCounts, stockItems } = await listMarketplaceOverview(customer.id, { salesFilter: filter, salesLimit: limit });
-  // Deux articles du même nom : on précise la date d'arrivée pour les distinguer.
-  const names = new Map<string, number>();
-  for (const i of stockItems) names.set(i.name, (names.get(i.name) ?? 0) + 1);
-  const itemOptions = stockItems.map((i) => ({
-    value: i.id,
-    label: `${i.name}${(names.get(i.name) ?? 0) > 1 ? ` · arrivé le ${formatDate(i.receivedAt)}` : ""} (${i.quantityAvailable} dispo.)`,
-  }));
   const activeTokens = tokens.filter((t) => !t.revokedAt);
 
   return (
@@ -69,7 +63,8 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
 
       <Section
         title="Toutes mes ventes"
-        description="Sous chaque article vendu, choisissez : « Vente normale » (l'article est dans votre stock, votre préparateur l'expédie), « Vente dropshipping » (commandé chez le fournisseur, expédié dès réception) ou « Supprimer » (vous l'expédiez vous-même)."
+        description="Sous chaque article vendu, choisissez : « Vente normale » (l'article est dans votre stock, votre préparateur l'expédie), « Vente dropshipping » (commandé chez le fournisseur, expédié dès réception) ou « Supprimer » (vous l'expédiez vous-même). Les annulations et les colis déjà partis sont suivis tout seuls."
+        actions={<ManualSaleDialog />}
       >
         <div className="space-y-4">
           <FilterTabs
@@ -79,11 +74,12 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
               { value: "a-traiter", label: "À traiter", count: saleCounts["a-traiter"] },
               { value: "packio", label: "Ventes normales", count: saleCounts.packio },
               { value: "dropshipping", label: "Ventes dropshipping", count: saleCounts.dropshipping },
+              ...(saleCounts.annulees ? [{ value: "annulees", label: "Annulées", count: saleCounts.annulees }] : []),
             ]}
           />
           {sales.length ? (
             <>
-              <SalesList sales={sales} itemOptions={itemOptions} />
+              <SalesList sales={sales} stock={stockItems} />
               {hasMoreSales && (
                 <div className="flex justify-center">
                   <Button asChild variant="outline">
@@ -104,9 +100,11 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
                     ? "Aucune vente normale"
                     : salesFilter === "dropshipping"
                       ? "Aucune vente en dropshipping"
-                      : "Aucune vente pour l'instant"
+                      : salesFilter === "annulees"
+                        ? "Aucune vente annulée"
+                        : "Aucune vente pour l'instant"
               }
-              description="Installez l'extension et restez connecté à Vinted ou Vestiaire Collective : vos ventes apparaîtront ici."
+              description="Installez l'extension et restez connecté à Vinted ou Vestiaire Collective : vos ventes apparaîtront ici. Vous pouvez aussi en ajouter une à la main."
             />
           )}
         </div>

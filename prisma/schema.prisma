@@ -828,15 +828,16 @@ model InventoryItem {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
-  customer      CustomerProfile      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  preparer      PreparerProfile      @relation(fields: [preparerId], references: [id], onDelete: Restrict)
-  supplierOrder SupplierOrder?       @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+  customer      CustomerProfile       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer      PreparerProfile       @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  supplierOrder SupplierOrder?        @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
   movements     InventoryMovement[]
   shipmentItems ShipmentItem[]
   files         File[]
   incidents     Incident[]
   listings      MarketplaceListing[]
   sales         MarketplaceSale[]
+  saleLines     MarketplaceSaleLine[]
 
   @@index([customerId, status])
   @@index([preparerId, status])
@@ -1540,7 +1541,10 @@ enum MarketplaceSaleStatus {
   /// Vendu en dropshipping : commande fournisseur passée vers le préparateur.
   DROPSHIP
   IGNORED
+  /// Annulée sur la plateforme (acheteur ou vendeur) : l'expédition est bloquée avant le dépôt.
   CANCELLED
+  /// Expédiée en dehors de Packio (la plateforme indique le colis parti).
+  SHIPPED_ELSEWHERE
 }
 
 /// Jeton de l'extension navigateur (seul le hash est stocké).
@@ -1571,7 +1575,8 @@ model MarketplaceAccount {
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
-  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customer CustomerProfile   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  sales    MarketplaceSale[]
 
   @@unique([customerId, platform, externalUserId])
   @@map("marketplace_accounts")
@@ -1595,9 +1600,10 @@ model MarketplaceListing {
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
-  customer      CustomerProfile   @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  inventoryItem InventoryItem?    @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  customer      CustomerProfile       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  inventoryItem InventoryItem?        @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
   sales         MarketplaceSale[]
+  saleLines     MarketplaceSaleLine[]
 
   @@unique([customerId, platform, externalId])
   @@index([inventoryItemId])
@@ -1606,35 +1612,78 @@ model MarketplaceListing {
 
 /// Vente détectée sur un compte lié ; déclenche l'expédition avec le bordereau.
 model MarketplaceSale {
-  id              String                @id @default(cuid())
-  customerId      String
-  platform        MarketplacePlatform
-  externalOrderId String
-  listingId       String?
-  title           String
-  priceCents      Int?
-  currency        String                @default("eur")
-  buyerName       String?
-  soldAt          DateTime
-  status          MarketplaceSaleStatus @default(NEW)
-  inventoryItemId String?
-  shipmentId      String?               @unique
+  id                String                @id @default(cuid())
+  customerId        String
+  platform          MarketplacePlatform
+  externalOrderId   String
+  listingId         String?
+  title             String
+  priceCents        Int?
+  currency          String                @default("eur")
+  buyerName         String?
+  soldAt            DateTime
+  status            MarketplaceSaleStatus @default(NEW)
+  inventoryItemId   String?
+  shipmentId        String?               @unique
   /// Commande en dropshipping passée pour cette vente.
-  dropshipOrderId String?               @unique
-  notes           String?
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  dropshipOrderId   String?               @unique
+  notes             String?
+  /// Compte de la plateforme d'où vient la vente (plusieurs comptes Vinted possibles).
+  accountId         String?
+  /// Taille de l'article (évite de confondre deux articles identiques).
+  size              String?
+  /// Photo de l'article vendu (URL de la plateforme).
+  photoUrl          String?
+  /// Date limite d'envoi : transmise par la plateforme, sinon estimée.
+  shipBy            DateTime?
+  shipByEstimated   Boolean               @default(false)
+  /// Annulation repérée sur la plateforme.
+  cancelledAt       DateTime?
+  /// Colis indiqué parti par la plateforme.
+  platformShippedAt DateTime?
+  /// Vente ajoutée à la main par le client (sans l'extension).
+  manual            Boolean               @default(false)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
 
-  customer      CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  listing       MarketplaceListing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
-  inventoryItem InventoryItem?      @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
-  shipment      OutboundShipment?   @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
-  dropshipOrder SupplierOrder?      @relation("SaleDropshipOrder", fields: [dropshipOrderId], references: [id], onDelete: SetNull)
+  customer      CustomerProfile       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  account       MarketplaceAccount?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  lines         MarketplaceSaleLine[]
+  listing       MarketplaceListing?   @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  inventoryItem InventoryItem?        @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  shipment      OutboundShipment?     @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  dropshipOrder SupplierOrder?        @relation("SaleDropshipOrder", fields: [dropshipOrderId], references: [id], onDelete: SetNull)
   files         File[]
 
   @@unique([customerId, platform, externalOrderId])
   @@index([customerId, status])
+  @@index([accountId])
   @@map("marketplace_sales")
+}
+
+/// Vente en lot : plusieurs articles pour un même acheteur, un seul carton et
+/// un seul bordereau. Une vente d'un seul article n'a pas de lignes.
+model MarketplaceSaleLine {
+  id              String   @id @default(cuid())
+  saleId          String
+  position        Int
+  externalItemId  String?
+  title           String
+  size            String?
+  photoUrl        String?
+  priceCents      Int?
+  listingId       String?
+  /// Article du stock choisi pour cette ligne.
+  inventoryItemId String?
+  createdAt       DateTime @default(now())
+
+  sale          MarketplaceSale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  listing       MarketplaceListing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  inventoryItem InventoryItem?      @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+
+  @@unique([saleId, position])
+  @@index([inventoryItemId])
+  @@map("marketplace_sale_lines")
 }
 
 // -----------------------------------------------------------------------------

@@ -35,6 +35,7 @@ export const NOTIFICATION_TYPES = {
   PRODUCT_PHOTOS: { label: "Photos d'article disponibles", audience: ["CUSTOMER"], email: false },
   SHIPMENT_LATE: { label: "Expédition en retard (48 h)", audience: ["PREPARER", "ADMIN"], email: true },
   MARKETPLACE_SALE: { label: "Vente détectée sur un compte lié", audience: ["CUSTOMER"], email: true },
+  MARKETPLACE_SALE_CANCELLED: { label: "Vente annulée sur la plateforme", audience: ["CUSTOMER"], email: true },
   PREPARER_ABSENCE: { label: "Absence du préparateur", audience: ["CUSTOMER", "ADMIN"], email: true },
   ADMIN_ASSIGNMENT_REQUEST: { label: "Nouvelle demande d'attribution", audience: ["ADMIN"], email: true },
   ADMIN_ASSIGNMENT_LATE: { label: "Délai d'attribution dépassé", audience: ["ADMIN"], email: true },

@@ -41,7 +41,8 @@ async function uploadLabels(cfg, platform, sales) {
   for (const sale of sales) {
     if (uploaded >= MAX_LABELS_PER_SYNC) break;
     const key = `${platform.key}:${sale.externalOrderId}`;
-    if (!sale.labelRef || uploadedLabels[key]) continue;
+    // Vente annulée ou colis déjà parti : pas de bordereau à transmettre.
+    if (!sale.labelRef || uploadedLabels[key] || /cancel|annul|refund|rembours|shipped|sent|envoy|deliver|livr|complet|termin/i.test(sale.status || "")) continue;
     try {
       const label = await platform.adapter.fetchLabel(sale.labelRef, cfg);
       if (!label) continue;
@@ -100,7 +101,16 @@ async function syncAll(trigger) {
       });
       const res = await packio(cfg, "/api/extension/sync", { platform: platform.key, account: data.account, listings: data.listings, sales });
       const labels = await uploadLabels(cfg, platform, data.sales);
-      report.platforms[platform.key] = { status: "ok", listings: res.listings, newSales: res.newSales, shipments: res.shipmentsCreated, labels, assisted };
+      report.platforms[platform.key] = {
+        status: "ok",
+        listings: res.listings,
+        newSales: res.newSales,
+        shipments: res.shipmentsCreated,
+        cancelled: res.cancelled ?? 0,
+        shipped: res.shipped ?? 0,
+        labels,
+        assisted,
+      };
     } catch (err) {
       report.platforms[platform.key] = err instanceof NotLoggedInError ? { status: "logged_out", message: err.message } : { status: "error", message: String(err && err.message ? err.message : err) };
     }

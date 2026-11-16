@@ -162,7 +162,8 @@ export const MARKETPLACE_SALE_STATUS: Record<MarketplaceSaleStatus, Labeled> = {
   SHIPMENT_CREATED: { label: "Vente normale", tone: "success" },
   DROPSHIP: { label: "Vente dropshipping", tone: "brand" },
   IGNORED: { label: "Supprimée", tone: "neutral" },
-  CANCELLED: { label: "Annulée", tone: "neutral" },
+  CANCELLED: { label: "Annulée par l'acheteur", tone: "danger" },
+  SHIPPED_ELSEWHERE: { label: "Expédiée hors Packio", tone: "neutral" },
 };
 
 export const ASSIGNMENT_STATE: Record<AssignmentState, Labeled> = {

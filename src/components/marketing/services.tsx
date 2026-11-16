@@ -1,4 +1,5 @@
-import { Camera, Home, PackageCheck, PlugZap, Zap } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Camera, Home, PackageCheck, PlugZap, Zap } from "lucide-react";
 import { Container, SectionHeading } from "./section";
 
 /** Services complémentaires inclus dans l'offre (présentation, sans chiffres inventés). */
@@ -67,11 +68,17 @@ export function Services({ shippingHours, returnCredits }: { shippingHours: numb
                 </p>
               </div>
             </div>
-            <ul className="grid gap-1.5 text-sm text-muted-foreground lg:min-w-56">
-              <li>Vente détectée automatiquement</li>
-              <li>Bordereau joint à l&apos;expédition</li>
-              <li>Comptes Vinted et Vestiaire Collective</li>
-            </ul>
+            <div className="grid gap-3 lg:min-w-56">
+              <ul className="grid gap-1.5 text-sm text-muted-foreground">
+                <li>Vente détectée automatiquement</li>
+                <li>Annulation : expédition bloquée</li>
+                <li>Ventes en lot : un seul carton</li>
+                <li>Plusieurs comptes, un seul espace</li>
+              </ul>
+              <Link href="/synchronisation-ventes" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline">
+                Tout savoir sur la synchronisation <ArrowRight className="size-3.5" />
+              </Link>
+            </div>
           </div>
         </div>
       </Container>

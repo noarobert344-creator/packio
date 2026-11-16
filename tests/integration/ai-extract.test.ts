@@ -37,17 +37,19 @@ const RENAMED = JSON.stringify({
 describe("Lecture de secours de Packio Connect", () => {
   beforeEach(resetDb);
 
-  it("lecture automatique gratuite : retrouve les ventes malgré des clés renommées, écarte les annulations, sans IA", async () => {
+  it("lecture automatique gratuite : retrouve les ventes malgré des clés renommées, signale les annulations, sans IA", async () => {
     const { customerId } = await createCustomer();
     const calls: string[] = [];
     const res = await extractSalesWithAI(customerId, { platform: "VINTED", content: RENAMED }, { caller: fake([], calls) });
     expect(res.method).toBe("auto");
     expect(calls).toHaveLength(0);
-    expect(res.sales.map((s) => [s.externalOrderId, s.externalItemId, s.title, s.priceCents, s.currency, s.buyerName])).toEqual([
-      ["901", "55", "Robe longue", 1250, "eur", "julie_b"],
-      ["903", "57", "Jean", 1800, undefined, undefined],
+    // Les annulations sont transmises : Packio bloque l'expédition au lieu d'ignorer la vente.
+    expect(res.sales.map((s) => [s.externalOrderId, s.externalItemId, s.title, s.priceCents, s.currency, s.buyerName, s.status])).toEqual([
+      ["901", "55", "Robe longue", 1250, "eur", "julie_b", undefined],
+      ["902", "56", "Sac", 3000, "eur", undefined, "cancelled"],
+      ["903", "57", "Jean", 1800, undefined, undefined, undefined],
     ]);
-    expect(await db.aiUsage.findFirstOrThrow({ where: { customerId } })).toMatchObject({ model: "lecture-auto", costMicros: 0, salesFound: 2 });
+    expect(await db.aiUsage.findFirstOrThrow({ where: { customerId } })).toMatchObject({ model: "lecture-auto", costMicros: 0, salesFound: 3 });
 
     // Page HTML contenant un bloc JSON.
     const html = `<html><body><script id="__NEXT_DATA__" type="application/json">${RENAMED}</script></body></html>`;
@@ -68,8 +70,12 @@ describe("Lecture de secours de Packio Connect", () => {
     expect(res.method).toBe("gemini");
     expect(seen[0]).not.toMatch(/acheteur@example\.com|Marie Dupont|06 12 34 56 78/);
     expect(seen[0]).toContain("Veste en jean");
-    expect(res.sales.map((s) => s.externalOrderId)).toEqual(["T-1", "T-3"]);
-    expect(res.sales[1]).toMatchObject({ labelUrl: undefined, priceCents: undefined, buyerName: undefined });
+    expect(res.sales.map((s) => [s.externalOrderId, s.status])).toEqual([
+      ["T-1", undefined],
+      ["T-2", "cancelled"],
+      ["T-3", undefined],
+    ]);
+    expect(res.sales[2]).toMatchObject({ labelUrl: undefined, priceCents: undefined, buyerName: undefined });
     expect(redactPersonalData('{"user":{"login":"x"},"title":"Pull"}')).toBe('{"user":"[masqué]","title":"Pull"}');
   });
 

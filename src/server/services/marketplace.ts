@@ -10,7 +10,8 @@ import { MARKETPLACE_PLATFORM } from "@/lib/labels";
 import { audit } from "./audit";
 import { sniffMime } from "./files";
 import { withEffects, type Effects } from "./notifications";
-import { createShipmentTx } from "./shipments";
+import { cancelShipmentForPlatform, createShipmentTx, markDroppedOffByPlatform } from "./shipments";
+import { addBusinessDays, exactStockMatch, saleStateFrom } from "@/lib/match-title";
 
 /**
  * COMPTES DE VENTE LIÉS (Vinted, Vestiaire Collective)
@@ -106,6 +107,15 @@ const optionalText = (max: number) =>
   z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), z.string().trim().max(max).optional());
 const cents = z.number().int().min(0).max(100_000_000).optional();
 
+/** Champs facultatifs venant des plateformes : un format inattendu est ignoré, jamais bloquant. */
+const optionalDate = z.preprocess((v) => {
+  if (v === null || v === undefined || v === "") return undefined;
+  const d = new Date(typeof v === "number" && v < 1e12 ? v * 1000 : (v as string));
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}, z.date().optional());
+const looseText = (max: number) => z.preprocess((v) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined), z.string().optional());
+const optionalId = z.preprocess((v) => (v === null || v === undefined || v === "" ? undefined : String(v)), z.string().trim().max(80).optional());
+
 export const syncPayloadSchema = z.object({
   platform: z.enum(["VINTED", "VESTIAIRE"]),
   account: z.object({ externalUserId: z.coerce.string().trim().min(1).max(80), username: optionalText(120) }),
@@ -128,12 +138,33 @@ export const syncPayloadSchema = z.object({
     .array(
       z.object({
         externalOrderId: z.coerce.string().trim().min(1).max(80),
-        externalItemId: z.preprocess((v) => (v === null || v === undefined || v === "" ? undefined : String(v)), z.string().trim().max(80).optional()),
+        externalItemId: optionalId,
         title: z.string().trim().min(1).max(300),
         priceCents: cents,
         currency: optionalText(3),
         buyerName: optionalText(120),
         soldAt: z.coerce.date(),
+        /** Taille de l'article. */
+        size: looseText(40),
+        photoUrl: looseText(1000),
+        /** Date limite d'envoi indiquée par la plateforme. */
+        shipBy: optionalDate,
+        /** État de la vente sur la plateforme (texte libre : annulée, envoyée…). */
+        status: looseText(60),
+        /** Vente en lot : un article par ligne (un seul carton, un seul bordereau). */
+        items: z
+          .array(
+            z.object({
+              externalItemId: optionalId,
+              title: z.preprocess((v) => (typeof v === "string" ? v.slice(0, 300) : v), z.string().trim().min(1)),
+              size: looseText(40),
+              photoUrl: looseText(1000),
+              priceCents: cents,
+            }),
+          )
+          .max(30)
+          .optional()
+          .catch(undefined),
       }),
     )
     .max(200)
@@ -142,10 +173,25 @@ export const syncPayloadSchema = z.object({
 
 export type SyncPayload = z.input<typeof syncPayloadSchema>;
 
+/** Délai d'envoi Vinted (jours ouvrés) utilisé quand la plateforme ne transmet pas la date limite. */
+const VINTED_SHIP_DAYS = 5;
+
 function findSkus(...texts: (string | undefined)[]) {
   const out = new Set<string>();
   for (const t of texts) for (const m of t?.matchAll(SKU_RE) ?? []) out.add(m[0].toUpperCase());
   return [...out];
+}
+
+const httpsOnly = (url: string | undefined | null) => (url && url.startsWith("https://") ? url : null);
+
+/** Articles du stock disponibles pour une prise automatique (hors dropshipping). */
+async function availableStock(tx: Tx, customerId: string) {
+  return tx.inventoryItem.findMany({
+    where: { customerId, dropship: false, quantityAvailable: { gt: 0 } },
+    select: { id: true, name: true, quantityAvailable: true },
+    orderBy: { receivedAt: "asc" },
+    take: 1000,
+  });
 }
 
 /** Données transmises par l'extension (idempotent : un rejeu ne crée rien de nouveau). */
@@ -153,15 +199,15 @@ export async function syncFromExtension(customerId: string, payload: unknown) {
   const data = syncPayloadSchema.parse(payload);
   const platform = data.platform as MarketplacePlatform;
   const now = new Date();
-  const result = { listings: 0, linkedListings: 0, newSales: 0, shipmentsCreated: 0 };
+  const result = { listings: 0, linkedListings: 0, newSales: 0, shipmentsCreated: 0, cancelled: 0, shipped: 0 };
 
-  await db.marketplaceAccount.upsert({
+  const account = await db.marketplaceAccount.upsert({
     where: { customerId_platform_externalUserId: { customerId, platform, externalUserId: data.account.externalUserId } },
     create: { customerId, platform, externalUserId: data.account.externalUserId, username: data.account.username ?? null, lastSyncAt: now },
     update: { username: data.account.username ?? undefined, lastSyncAt: now },
   });
 
-  // Annonces (rattachement automatique par SKU Packio cité dans l'annonce).
+  // Annonces (rattachement automatique par SKU Packio cité dans l'annonce, pour les anciennes annonces).
   const skus = findSkus(...data.listings.flatMap((l) => [l.title, l.description]));
   const items = skus.length ? await db.inventoryItem.findMany({ where: { customerId, sku: { in: skus } }, select: { id: true, sku: true } }) : [];
   const itemBySku = new Map(items.map((i) => [i.sku.toUpperCase(), i.id]));
@@ -196,19 +242,61 @@ export async function syncFromExtension(customerId: string, payload: unknown) {
 
   // Ventes.
   for (const s of data.sales) {
+    const state = saleStateFrom(s.status);
+    const bundle = s.items && s.items.length > 1 ? s.items : null;
     const created = await withEffects(async (tx, fx) => {
       const existing = await tx.marketplaceSale.findUnique({ where: { customerId_platform_externalOrderId: { customerId, platform, externalOrderId: s.externalOrderId } } });
-      if (existing) return null;
-      const listing = s.externalItemId
-        ? await tx.marketplaceListing.findUnique({ where: { customerId_platform_externalId: { customerId, platform, externalId: s.externalItemId } } })
-        : null;
-      const item = listing?.inventoryItemId ? await tx.inventoryItem.findUnique({ where: { id: listing.inventoryItemId } }) : null;
+      if (existing) {
+        // Détails arrivés après coup (taille, date limite, compte) : complétés sans rien écraser.
+        const patch: Prisma.MarketplaceSaleUpdateInput = {};
+        if (!existing.accountId) patch.account = { connect: { id: account.id } };
+        if (!existing.size && s.size) patch.size = s.size;
+        if (!existing.photoUrl && httpsOnly(s.photoUrl ?? s.items?.[0]?.photoUrl)) patch.photoUrl = httpsOnly(s.photoUrl ?? s.items?.[0]?.photoUrl);
+        if (s.shipBy && (!existing.shipBy || existing.shipByEstimated)) {
+          patch.shipBy = s.shipBy;
+          patch.shipByEstimated = false;
+        }
+        if (Object.keys(patch).length) await tx.marketplaceSale.update({ where: { id: existing.id }, data: patch });
+        return null;
+      }
+      const listingOf = async (externalItemId?: string) =>
+        externalItemId ? tx.marketplaceListing.findUnique({ where: { customerId_platform_externalId: { customerId, platform, externalId: externalItemId } } }) : null;
+      const stock = state === "active" ? await availableStock(tx, customerId) : [];
+      // Prise sur le stock : annonce déjà associée à un article, sinon nom identique (un seul article possible).
+      const left = new Map(stock.map((i) => [i.id, i.quantityAvailable]));
+      const pick = (listingItemId: string | null | undefined, title: string, size?: string | null) => {
+        const candidates = stock.filter((i) => (left.get(i.id) ?? 0) > 0);
+        const id = (listingItemId && (left.get(listingItemId) ?? 0) > 0 ? listingItemId : null) ?? exactStockMatch(title, size, candidates)?.id ?? null;
+        if (id) left.set(id, (left.get(id) ?? 0) - 1);
+        return id;
+      };
+      const listing = bundle ? null : await listingOf(s.externalItemId);
+      const lineRows = [];
+      if (bundle) {
+        for (const [position, line] of bundle.entries()) {
+          const l = await listingOf(line.externalItemId);
+          lineRows.push({
+            position,
+            externalItemId: line.externalItemId ?? null,
+            title: line.title,
+            size: line.size ?? null,
+            photoUrl: httpsOnly(line.photoUrl),
+            priceCents: line.priceCents ?? null,
+            listingId: l?.id ?? null,
+            inventoryItemId: state === "active" ? pick(l?.inventoryItemId, line.title, line.size) : null,
+          });
+        }
+      }
+      const singleItemId = bundle ? null : state === "active" ? pick(listing?.inventoryItemId, s.title, s.size) : null;
+      const matched = bundle ? lineRows.every((l) => l.inventoryItemId) : !!singleItemId;
+      const shipBy = s.shipBy ?? (platform === "VINTED" ? addBusinessDays(s.soldAt, VINTED_SHIP_DAYS) : null);
       let sale: MarketplaceSale;
       try {
         sale = await tx.marketplaceSale.create({
           data: {
             customerId,
             platform,
+            accountId: account.id,
             externalOrderId: s.externalOrderId,
             listingId: listing?.id ?? null,
             title: s.title,
@@ -216,33 +304,128 @@ export async function syncFromExtension(customerId: string, payload: unknown) {
             currency: (s.currency ?? "eur").toLowerCase(),
             buyerName: s.buyerName ?? null,
             soldAt: s.soldAt,
-            status: item ? "MATCHED" : "NEW",
-            inventoryItemId: item?.id ?? null,
+            size: s.size ?? null,
+            photoUrl: httpsOnly(s.photoUrl ?? bundle?.[0]?.photoUrl ?? listing?.photoUrl),
+            shipBy,
+            shipByEstimated: !s.shipBy && !!shipBy,
+            // Ventes déjà annulées ou déjà parties au moment où Packio les découvre : rangées, sans alerte.
+            status: state === "cancelled" ? "CANCELLED" : state === "shipped" ? "SHIPPED_ELSEWHERE" : matched ? "MATCHED" : "NEW",
+            cancelledAt: state === "cancelled" ? now : null,
+            platformShippedAt: state === "shipped" ? now : null,
+            inventoryItemId: singleItemId,
+            lines: lineRows.length ? { create: lineRows } : undefined,
           },
         });
       } catch (err) {
         if (isUniqueViolation(err)) return null;
         throw err;
       }
-      if (listing && listing.status !== "sold") await tx.marketplaceListing.update({ where: { id: listing.id }, data: { status: "sold" } });
+      for (const id of [listing?.id, ...lineRows.map((l) => l.listingId)]) {
+        if (id) await tx.marketplaceListing.updateMany({ where: { id, status: { not: "sold" } }, data: { status: "sold" } });
+      }
+      if (state !== "active") return sale;
       const customer = await tx.customerProfile.findUniqueOrThrow({ where: { id: customerId }, select: { userId: true } });
       const price = sale.priceCents !== null ? ` (${(sale.priceCents / 100).toLocaleString("fr-FR", { style: "currency", currency: sale.currency.toUpperCase() })})` : "";
+      const what = bundle ? `Lot de ${bundle.length} articles vendu${price}` : `Vendu${price}`;
       fx.notify(customer.userId, {
         type: "MARKETPLACE_SALE",
         title: `Vente ${platformLabel(platform)} : « ${sale.title} »`,
-        body: item
-          ? `Vendu${price}. L'article « ${item.name} » de votre stock est envoyé à votre préparateur ; le bordereau sera joint dès qu'il sera généré sur ${platformLabel(platform)}.`
-          : `Vendu${price}. Dans « Toutes mes ventes », choisissez : vente normale, vente dropshipping ou supprimer.`,
+        body: matched
+          ? `${what}. Pris dans votre stock : votre préparateur l'expédie ; le bordereau sera joint dès qu'il sera généré sur ${platformLabel(platform)}.`
+          : `${what}. Dans « Toutes mes ventes », choisissez : vente normale, vente dropshipping ou supprimer.`,
         link: "/client/ventes",
         forceEmail: true,
       });
       return sale;
     });
-    if (!created) continue;
-    result.newSales++;
-    if (created.status === "MATCHED" && (await tryCreateSaleShipment(created.id))) result.shipmentsCreated++;
+    if (created) {
+      if (created.status !== "CANCELLED" && created.status !== "SHIPPED_ELSEWHERE") result.newSales++;
+      if (created.status === "MATCHED" && (await tryCreateSaleShipment(created.id))) result.shipmentsCreated++;
+      continue;
+    }
+    // Vente déjà connue : l'annulation ou le départ du colis est suivi.
+    const known = await db.marketplaceSale.findUnique({ where: { customerId_platform_externalOrderId: { customerId, platform, externalOrderId: s.externalOrderId } }, select: { id: true } });
+    if (!known) continue;
+    if (state === "cancelled" && (await handlePlatformCancellation(known.id))) result.cancelled++;
+    if (state === "shipped" && (await handlePlatformShipped(known.id))) result.shipped++;
   }
   return result;
+}
+
+/** Statuts d'une commande en dropshipping encore attendue chez le préparateur. */
+const DROPSHIP_ORDER_PENDING = ["REGISTERED", "SUPPLIER_CONFIRMED", "IN_TRANSIT", "AT_LOCKER", "PICKED_UP", "RECEIVED", "QUALITY_CHECK"];
+
+/**
+ * Vente annulée sur la plateforme : l'expédition est bloquée si le colis n'est
+ * pas encore déposé, l'article reste en stock, client et préparateur sont
+ * prévenus. Renvoie true si l'annulation vient d'être prise en compte.
+ */
+export async function handlePlatformCancellation(saleId: string): Promise<boolean> {
+  return withEffects(async (tx, fx) => {
+    const sale = await lockSale(tx, saleId);
+    if (sale.cancelledAt || sale.status === "IGNORED" || sale.status === "SHIPPED_ELSEWHERE") return false;
+    const platform = platformLabel(sale.platform);
+    const order = sale.dropshipOrderId ? await tx.supplierOrder.findUnique({ where: { id: sale.dropshipOrderId } }) : null;
+    const shipmentId = sale.shipmentId ?? order?.dropshipShipmentId ?? null;
+    const outcome = shipmentId ? await cancelShipmentForPlatform(tx, fx, shipmentId, `Vente ${platform} n° ${sale.externalOrderId} annulée`) : null;
+    const dropshipPending = !!order && DROPSHIP_ORDER_PENDING.includes(order.status);
+    const dropshipInStock = !!order && order.status === "IN_STOCK" && outcome !== "too_late";
+    const body =
+      outcome === "too_late"
+        ? `Le colis était déjà parti : voyez avec l'acheteur et ${platform} pour le retour.`
+        : dropshipPending
+          ? `Votre commande en dropshipping ${order.reference} est en route : annulez-la chez le fournisseur si c'est encore possible. À son arrivée, vous choisirez de garder l'article en stock ou de le renvoyer au fournisseur.`
+          : dropshipInStock
+            ? "L'expédition est bloquée. L'article est chez votre préparateur : choisissez de le garder en stock ou de le renvoyer au fournisseur."
+            : outcome === "cancelled"
+              ? "L'expédition a été bloquée avant le dépôt : l'article reste dans votre stock chez votre préparateur."
+              : "Rien à faire : elle est retirée de vos ventes à traiter.";
+    await tx.marketplaceSale.update({
+      where: { id: sale.id },
+      data: { status: "CANCELLED", cancelledAt: new Date(), notes: outcome === "too_late" ? "Annulée après le dépôt du colis : retour à voir avec l'acheteur." : null },
+    });
+    if (dropshipPending) {
+      const prep = await tx.preparerProfile.findUniqueOrThrow({ where: { id: order.preparerId }, select: { userId: true } });
+      fx.notify(prep.userId, {
+        type: "ORDER_UPDATED",
+        title: "Vente annulée : ne pas expédier",
+        body: `${order.reference} : la vente ${platform} a été annulée. À réception, mettez l'article en stock sans l'expédier ; le client choisira quoi en faire.`,
+        link: `/preparateur/receptions/${order.id}`,
+      });
+    }
+    const customer = await tx.customerProfile.findUniqueOrThrow({ where: { id: sale.customerId }, select: { userId: true } });
+    fx.notify(customer.userId, {
+      type: "MARKETPLACE_SALE_CANCELLED",
+      title: `Vente annulée : « ${sale.title} »`,
+      body: `${platform} indique que la vente n° ${sale.externalOrderId} est annulée. ${body}`,
+      link: "/client/ventes?ventes=annulees",
+      forceEmail: true,
+    });
+    await audit({ actor: { userId: customer.userId, role: "CUSTOMER" }, action: "marketplace.sale_cancelled", entityType: "customer", entityId: sale.customerId, summary: `Vente ${platform} n° ${sale.externalOrderId} annulée (${outcome ?? "sans expédition"})` }, tx);
+    return true;
+  });
+}
+
+/**
+ * La plateforme indique le colis parti : l'expédition Packio est marquée
+ * déposée si le préparateur ne l'a pas encore fait ; une vente jamais traitée
+ * a été expédiée par le client lui-même (« Expédiée hors Packio »).
+ */
+export async function handlePlatformShipped(saleId: string): Promise<boolean> {
+  return withEffects(async (tx, fx) => {
+    const sale = await lockSale(tx, saleId);
+    if (sale.platformShippedAt || ["IGNORED", "CANCELLED", "SHIPPED_ELSEWHERE"].includes(sale.status)) return false;
+    const now = new Date();
+    const order = sale.dropshipOrderId ? await tx.supplierOrder.findUnique({ where: { id: sale.dropshipOrderId } }) : null;
+    const shipmentId = sale.shipmentId ?? order?.dropshipShipmentId ?? null;
+    if (!shipmentId && !order) {
+      await tx.marketplaceSale.update({ where: { id: sale.id }, data: { status: "SHIPPED_ELSEWHERE", platformShippedAt: now, notes: null } });
+      return true;
+    }
+    if (shipmentId) await markDroppedOffByPlatform(tx, fx, shipmentId, platformLabel(sale.platform));
+    await tx.marketplaceSale.update({ where: { id: sale.id }, data: { platformShippedAt: now } });
+    return true;
+  });
 }
 
 /**
@@ -254,10 +437,21 @@ async function tryCreateSaleShipment(saleId: string): Promise<boolean> {
   try {
     return await withEffects(async (tx, fx) => {
       const sale = await lockSale(tx, saleId);
-      if (sale.status !== "MATCHED" || sale.shipmentId || !sale.inventoryItemId) return false;
-      const item = await tx.inventoryItem.findUniqueOrThrow({ where: { id: sale.inventoryItemId } });
+      if (sale.status !== "MATCHED" || sale.shipmentId) return false;
+      const lines = await tx.marketplaceSaleLine.findMany({ where: { saleId }, orderBy: { position: "asc" } });
+      const ids = lines.length ? lines.map((l) => l.inventoryItemId) : [sale.inventoryItemId];
+      if (ids.some((id) => !id)) return false;
+      const counts = new Map<string, number>();
+      for (const id of ids as string[]) counts.set(id, (counts.get(id) ?? 0) + 1);
+      const items = await tx.inventoryItem.findMany({ where: { id: { in: [...counts.keys()] } } });
       const label = await tx.file.findFirst({ where: { marketplaceSaleId: sale.id, purpose: "SHIPPING_LABEL", shipmentId: null, deletedAt: null }, orderBy: { createdAt: "desc" } });
-      return createSaleShipmentTx(tx, fx, sale, item, label?.id ?? null);
+      return createSaleShipmentTx(
+        tx,
+        fx,
+        sale,
+        items.map((item) => ({ item, quantity: counts.get(item.id)! })),
+        label?.id ?? null,
+      );
     });
   } catch (err) {
     if (!(err instanceof DomainError)) throw err;
@@ -273,22 +467,33 @@ async function lockSale(tx: Tx, saleId: string) {
   return sale;
 }
 
-async function createSaleShipmentTx(tx: Tx, fx: Effects, sale: MarketplaceSale, item: InventoryItem, labelFileId: string | null): Promise<boolean> {
+async function createSaleShipmentTx(tx: Tx, fx: Effects, sale: MarketplaceSale, picks: { item: InventoryItem; quantity: number }[], labelFileId: string | null): Promise<boolean> {
   const customer = await tx.customerProfile.findUniqueOrThrow({ where: { id: sale.customerId }, select: { userId: true, currentPreparerId: true } });
   if (!customer.currentPreparerId) {
     throw new DomainError("NO_PREPARER", "Aucun préparateur n'est attribué à votre compte.");
   }
-  if (item.customerId !== sale.customerId) throw new ForbiddenError();
-  if (item.quantityAvailable < 1) {
-    throw new DomainError("STOCK", `« ${item.name} » n'est plus disponible en stock.`);
+  if (!picks.length) throw new DomainError("NO_ITEMS", "Choisissez l'article vendu.");
+  for (const { item, quantity } of picks) {
+    if (item.customerId !== sale.customerId) throw new ForbiddenError();
+    if (item.quantityAvailable < quantity) throw new DomainError("STOCK", `« ${item.name} » n'est plus disponible en stock.`);
   }
   const platform = platformLabel(sale.platform);
+  const account = sale.accountId ? await tx.marketplaceAccount.findUnique({ where: { id: sale.accountId }, select: { username: true, externalUserId: true } }) : null;
+  const count = picks.reduce((s, p) => s + p.quantity, 0);
+  const details = [
+    `Vente ${platform} n° ${sale.externalOrderId}`,
+    account ? `compte ${account.username ?? account.externalUserId}` : null,
+    count > 1 ? `lot de ${count} articles dans un seul carton` : null,
+    sale.size ? `taille ${sale.size}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const shipment = await createShipmentTx(tx, fx, {
     customerId: sale.customerId,
     actorUserId: customer.userId,
     system: true,
     kind: "SALE",
-    items: [{ itemId: item.id, quantity: 1 }],
+    items: picks.map((p) => ({ itemId: p.item.id, quantity: p.quantity })),
     recipientName: sale.buyerName ?? `Acheteur ${platform}`,
     addressLine1: "Adresse indiquée sur le bordereau",
     postalCode: "",
@@ -296,7 +501,8 @@ async function createSaleShipmentTx(tx: Tx, fx: Effects, sale: MarketplaceSale, 
     country: "FR",
     labelMode: labelFileId ? "CUSTOMER_PROVIDED" : "PREPARER_PROVIDED",
     labelFileId,
-    instructions: `Vente ${platform} n° ${sale.externalOrderId}${labelFileId ? "" : " : bordereau joint automatiquement dès sa génération par le client"}`,
+    dueAt: sale.shipBy,
+    instructions: `${details}${labelFileId ? "" : " : bordereau joint automatiquement dès sa génération par le client"}`,
   });
   await tx.marketplaceSale.update({ where: { id: sale.id }, data: { status: "SHIPMENT_CREATED", shipmentId: shipment.id, notes: null } });
   return true;
@@ -421,18 +627,42 @@ export async function linkListingToItem(actor: Actor, input: { listingId: string
 
 /** Associe une vente à un article du stock, puis crée l'expédition. */
 export async function matchSaleToItem(actor: Actor, input: { saleId: string; itemId: string }) {
+  return matchSaleToItems(actor, { saleId: input.saleId, itemIds: [input.itemId] });
+}
+
+/**
+ * « Vente normale » : le client indique le ou les articles vendus (un par
+ * article du lot) ; l'expédition part en un seul carton, avec un seul bordereau.
+ */
+export async function matchSaleToItems(actor: Actor, input: { saleId: string; itemIds: string[] }) {
   const customerId = assertCustomer(actor);
-  const sale = await db.marketplaceSale.findUnique({ where: { id: input.saleId } });
+  const sale = await db.marketplaceSale.findUnique({ where: { id: input.saleId }, include: { lines: { orderBy: { position: "asc" } } } });
   if (!sale || sale.customerId !== customerId) throw new NotFoundError("Vente introuvable.");
   if (sale.shipmentId || sale.status === "SHIPMENT_CREATED") throw new DomainError("ALREADY_SHIPPED", "Une expédition existe déjà pour cette vente.");
   if (sale.status === "CANCELLED") throw new DomainError("CANCELLED", "Cette vente a été annulée.");
+  if (sale.status === "SHIPPED_ELSEWHERE") throw new DomainError("SHIPPED_ELSEWHERE", "Ce colis est déjà parti en dehors de Packio.");
   if (sale.status === "IGNORED") throw new DomainError("DELETED", "Cette vente a été supprimée.");
   if (sale.status === "DROPSHIP" || sale.dropshipOrderId) throw new DomainError("DROPSHIP", "Cette vente est déjà traitée en dropshipping.");
-  const item = await ownItem(customerId, input.itemId);
-  if (item.quantityAvailable < 1) throw new DomainError("STOCK", `« ${item.name} » n'est plus disponible en stock.`);
-  await db.marketplaceSale.update({ where: { id: sale.id }, data: { inventoryItemId: item.id, status: "MATCHED", notes: null } });
-  if (sale.listingId) {
-    await db.marketplaceListing.updateMany({ where: { id: sale.listingId, inventoryItemId: null }, data: { inventoryItemId: item.id } });
+  const wanted = sale.lines.length || 1;
+  const ids = input.itemIds.filter(Boolean);
+  if (ids.length !== wanted) {
+    throw new DomainError("ITEMS", wanted > 1 ? `Choisissez un article de votre stock pour chacun des ${wanted} articles du lot.` : "Choisissez l'article vendu.");
+  }
+  const counts = new Map<string, number>();
+  for (const id of ids) counts.set(id, (counts.get(id) ?? 0) + 1);
+  for (const [id, qty] of counts) {
+    const item = await ownItem(customerId, id);
+    if (item.quantityAvailable < qty) throw new DomainError("STOCK", `« ${item.name} » n'est plus disponible en stock (${item.quantityAvailable} disponible(s)).`);
+  }
+  if (sale.lines.length) {
+    for (const [i, line] of sale.lines.entries()) {
+      await db.marketplaceSaleLine.update({ where: { id: line.id }, data: { inventoryItemId: ids[i] } });
+      if (line.listingId) await db.marketplaceListing.updateMany({ where: { id: line.listingId, inventoryItemId: null }, data: { inventoryItemId: ids[i] } });
+    }
+    await db.marketplaceSale.update({ where: { id: sale.id }, data: { status: "MATCHED", notes: null } });
+  } else {
+    await db.marketplaceSale.update({ where: { id: sale.id }, data: { inventoryItemId: ids[0], status: "MATCHED", notes: null } });
+    if (sale.listingId) await db.marketplaceListing.updateMany({ where: { id: sale.listingId, inventoryItemId: null }, data: { inventoryItemId: ids[0] } });
   }
   const created = await tryCreateSaleShipment(sale.id);
   if (!created) {
@@ -440,6 +670,79 @@ export async function matchSaleToItem(actor: Actor, input: { saleId: string; ite
     throw new DomainError("SHIPMENT", after.notes ?? "L'expédition n'a pas pu être créée.");
   }
   return db.marketplaceSale.findUniqueOrThrow({ where: { id: sale.id } });
+}
+
+export type ManualSaleInput = {
+  platform: MarketplacePlatform;
+  title: string;
+  externalOrderId?: string | null;
+  priceCents?: number | null;
+  buyerName?: string | null;
+  size?: string | null;
+  shipBy?: Date | null;
+  labelFileId?: string | null;
+};
+
+/**
+ * Vente ajoutée à la main (sans l'extension) : elle rejoint « Toutes mes
+ * ventes » avec les mêmes boutons. Le bordereau éventuel suit l'expédition.
+ */
+export async function createManualSale(actor: Actor, input: ManualSaleInput) {
+  const customerId = assertCustomer(actor);
+  const externalOrderId = input.externalOrderId?.trim() || `MANUEL-${randomBytes(4).toString("hex").toUpperCase()}`;
+  const label = input.labelFileId ? await db.file.findUnique({ where: { id: input.labelFileId } }) : null;
+  if (input.labelFileId) {
+    const owned = label && (label.customerId ? label.customerId === customerId : label.uploadedById === actor.userId);
+    if (!label || !owned || label.shipmentId || label.marketplaceSaleId || label.deletedAt || !LABEL_TYPES.includes(label.mimeType)) {
+      throw new DomainError("LABEL", "Bordereau invalide.", { fieldErrors: { labelFileIds: "Bordereau invalide" } });
+    }
+  }
+  const sale = await withEffects(async (tx) => {
+    const stock = await availableStock(tx, customerId);
+    const itemId = exactStockMatch(input.title, input.size, stock)?.id ?? null;
+    let created: MarketplaceSale;
+    try {
+      created = await tx.marketplaceSale.create({
+        data: {
+          customerId,
+          platform: input.platform,
+          externalOrderId,
+          title: input.title.trim(),
+          priceCents: input.priceCents ?? null,
+          buyerName: input.buyerName?.trim() || null,
+          size: input.size?.trim() || null,
+          shipBy: input.shipBy ?? null,
+          soldAt: new Date(),
+          manual: true,
+          status: itemId ? "MATCHED" : "NEW",
+          inventoryItemId: itemId,
+        },
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) throw new DomainError("DUPLICATE", "Cette vente existe déjà dans Packio.", { fieldErrors: { externalOrderId: "Déjà enregistrée" } });
+      throw err;
+    }
+    if (label) await tx.file.update({ where: { id: label.id }, data: { marketplaceSaleId: created.id, customerId, purpose: "SHIPPING_LABEL" } });
+    await audit({ actor, action: "marketplace.sale_added", entityType: "customer", entityId: customerId, summary: `Vente ${platformLabel(input.platform)} ajoutée à la main : ${created.title}` }, tx);
+    return created;
+  });
+  if (sale.status === "MATCHED") await tryCreateSaleShipment(sale.id);
+  return db.marketplaceSale.findUniqueOrThrow({ where: { id: sale.id } });
+}
+
+/**
+ * Vente annulée alors que l'article (commandé en dropshipping) est déjà chez
+ * le préparateur : le client le garde dans son stock (il occupe alors une
+ * place). Pour le renvoyer au fournisseur, il passe par une expédition.
+ */
+export async function keepCancelledSaleItems(actor: Actor, saleId: string) {
+  const customerId = assertCustomer(actor);
+  const sale = await db.marketplaceSale.findUnique({ where: { id: saleId } });
+  if (!sale || sale.customerId !== customerId) throw new NotFoundError("Vente introuvable.");
+  if (sale.status !== "CANCELLED" || !sale.dropshipOrderId) throw new DomainError("STATE", "Rien à garder en stock pour cette vente.");
+  const res = await db.inventoryItem.updateMany({ where: { customerId, supplierOrderId: sale.dropshipOrderId, dropship: true, quantityAvailable: { gt: 0 } }, data: { dropship: false } });
+  await audit({ actor, action: "marketplace.cancelled_kept", entityType: "customer", entityId: customerId, summary: `${res.count} article(s) gardé(s) en stock après annulation de la vente ${sale.externalOrderId}` });
+  return { kept: res.count };
 }
 
 /**
@@ -486,15 +789,16 @@ export async function deleteSale(actor: Actor, saleId: string) {
 // Lectures
 // -----------------------------------------------------------------------------
 
-export const SALE_FILTERS = ["toutes", "a-traiter", "packio", "dropshipping"] as const;
+export const SALE_FILTERS = ["toutes", "a-traiter", "packio", "dropshipping", "annulees"] as const;
 export type SaleFilter = (typeof SALE_FILTERS)[number];
 
 const PENDING_SALE: Prisma.MarketplaceSaleWhereInput = { status: { in: ["NEW", "MATCHED"] }, shipmentId: null, dropshipOrderId: null };
 const saleFilterWhere: Record<SaleFilter, Prisma.MarketplaceSaleWhereInput> = {
   toutes: { status: { not: "IGNORED" } },
   "a-traiter": PENDING_SALE,
-  packio: { shipmentId: { not: null }, status: { notIn: ["IGNORED", "DROPSHIP"] } },
+  packio: { shipmentId: { not: null }, status: { notIn: ["IGNORED", "DROPSHIP", "CANCELLED"] } },
   dropshipping: { status: "DROPSHIP" },
+  annulees: { status: "CANCELLED" },
 };
 
 export async function listMarketplaceOverview(customerId: string, opts: { salesFilter?: SaleFilter; salesLimit?: number } = {}) {
@@ -524,9 +828,13 @@ export async function listMarketplaceOverview(customerId: string, opts: { salesF
             carrier: true,
             trackingNumber: true,
             dropshipShipment: { select: { id: true, reference: true, status: true, carrier: true, trackingNumber: true } },
+            // Vente annulée : articles reçus en dropshipping qui attendent le choix du client.
+            inventoryItems: { where: { dropship: true, quantityAvailable: { gt: 0 } }, select: { id: true, name: true } },
           },
         },
         listing: { select: { url: true, photoUrl: true } },
+        account: { select: { username: true, externalUserId: true } },
+        lines: { orderBy: { position: "asc" }, include: { inventoryItem: { select: { id: true, name: true } } } },
         _count: { select: { files: { where: { purpose: "SHIPPING_LABEL", deletedAt: null } } } },
       },
     }),

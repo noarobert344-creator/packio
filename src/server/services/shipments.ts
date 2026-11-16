@@ -113,7 +113,14 @@ export async function requestShipment(actor: Actor, input: ShipmentRequestInput)
 export async function createShipmentTx(
   tx: Tx,
   fx: Effects,
-  input: Omit<ShipmentRequestInput, "kind"> & { kind: ShipmentKind; customerId: string; actorUserId: string | null; system?: boolean },
+  input: Omit<ShipmentRequestInput, "kind"> & {
+    kind: ShipmentKind;
+    customerId: string;
+    actorUserId: string | null;
+    system?: boolean;
+    /** Date limite imposée (ex. : date limite d'envoi de la plateforme), si plus proche que le délai Packio. */
+    dueAt?: Date | null;
+  },
 ) {
   const lines = validateLines(input);
   if (input.kind === "RETURN_TO_CUSTOMER" && (input.labelMode !== "CUSTOMER_PROVIDED" || !input.labelFileId)) {
@@ -146,6 +153,7 @@ export async function createShipmentTx(
   }
 
   const now = new Date();
+  const slaDue = await shipmentDueAt(tx, now);
   const shipment = await tx.outboundShipment.create({
     data: {
       reference: reference("EXP", 7),
@@ -153,7 +161,7 @@ export async function createShipmentTx(
       preparerId,
       status: "REQUESTED",
       kind: input.kind,
-      dueAt: await shipmentDueAt(tx, now),
+      dueAt: input.dueAt && input.dueAt < slaDue ? input.dueAt : slaDue,
       recipientName: input.recipientName.trim(),
       recipientCompany: input.recipientCompany?.trim() || null,
       recipientPhone: input.recipientPhone?.trim() || null,
@@ -570,38 +578,129 @@ export async function cancelShipment(actor: Actor, input: { shipmentId: string; 
     } else {
       throw new ForbiddenError("Contactez le client ou l'administration pour annuler une expédition.");
     }
-    const { released } = await releaseCredits(tx, {
-      customerId: shipment.customerId,
-      shipmentId: shipment.id,
-      description: `Annulation de ${shipment.reference}`,
-    });
-    const items = await lockItems(tx, shipment.items.map((i) => i.inventoryItemId));
-    for (const line of shipment.items) {
-      const item = items.find((i) => i.id === line.inventoryItemId)!;
-      await applyMovement(tx, item, "RESERVATION_RELEASE", { quantityAvailable: line.quantity, quantityReserved: -line.quantity }, {
-        actorId: actor.userId,
-        shipmentId: shipment.id,
-        reason: `Annulation ${shipment.reference}`,
-      });
-    }
-    let updated = await tx.outboundShipment.update({
-      where: { id: shipment.id },
-      data: { cancelledAt: new Date(), cancelReason: input.reason.trim() || null, creditState: released ? "RELEASED" : shipment.creditState === "INSUFFICIENT" ? "NONE" : shipment.creditState },
-    });
-    updated = await setStatus(tx, updated, "CANCELLED", actor.userId, input.reason, { releasedCredits: released });
-    await audit({ actor, action: "shipment.cancelled", entityType: "shipment", entityId: shipment.id, summary: input.reason, metadata: { releasedCredits: released } }, tx);
-    const prep = await tx.preparerProfile.findUniqueOrThrow({ where: { id: shipment.preparerId }, select: { userId: true } });
-    fx.notify(prep.userId, { type: "SHIPMENT_UPDATED", title: "Expédition annulée", body: `${shipment.reference} a été annulée.`, link: `/preparateur/expeditions/${shipment.id}` });
-    if (actor.role === "ADMIN") {
-      fx.notify(await customerUser(tx, shipment.customerId), {
-        type: "SHIPMENT_UPDATED",
-        title: "Expédition annulée",
-        body: `${shipment.reference} a été annulée par l'équipe Packio${released ? ` ; ${released} crédit(s) libéré(s)` : ""}.`,
-        link: `/client/expeditions/${shipment.id}`,
-      });
-    }
-    return { shipment: updated, releasedCredits: released };
+    const res = await cancelShipmentTx(tx, fx, shipment, { reason: input.reason, actorUserId: actor.userId, by: actor.role === "ADMIN" ? "admin" : "customer" });
+    await audit({ actor, action: "shipment.cancelled", entityType: "shipment", entityId: shipment.id, summary: input.reason, metadata: { releasedCredits: res.releasedCredits } }, tx);
+    return res;
   });
+}
+
+/** Statuts où le colis n'est pas encore déposé : l'expédition peut encore être bloquée. */
+export const SHIPMENT_BEFORE_DROP_OFF: ShipmentStatus[] = ["REQUESTED", "AWAITING_CLASSIFICATION", "CLASSIFIED", "AWAITING_CREDITS", "PREPARING", "READY", "LABEL_READY"];
+
+/**
+ * Annule une expédition verrouillée : crédits réservés libérés, articles remis
+ * en stock disponible, préparateur prévenu. « system » : vente annulée sur la
+ * plateforme (le client est prévenu par la vente elle-même).
+ */
+export async function cancelShipmentTx(
+  tx: Tx,
+  fx: Effects,
+  shipment: Awaited<ReturnType<typeof lockShipment>>,
+  opts: { reason: string; actorUserId: string | null; by: "customer" | "admin" | "system" },
+) {
+  const { released } = await releaseCredits(tx, {
+    customerId: shipment.customerId,
+    shipmentId: shipment.id,
+    description: `Annulation de ${shipment.reference}`,
+  });
+  const items = await lockItems(tx, shipment.items.map((i) => i.inventoryItemId));
+  for (const line of shipment.items) {
+    const item = items.find((i) => i.id === line.inventoryItemId)!;
+    await applyMovement(tx, item, "RESERVATION_RELEASE", { quantityAvailable: line.quantity, quantityReserved: -line.quantity }, {
+      actorId: opts.actorUserId,
+      shipmentId: shipment.id,
+      reason: `Annulation ${shipment.reference}`,
+    });
+  }
+  let updated = await tx.outboundShipment.update({
+    where: { id: shipment.id },
+    data: { cancelledAt: new Date(), cancelReason: opts.reason.trim() || null, creditState: released ? "RELEASED" : shipment.creditState === "INSUFFICIENT" ? "NONE" : shipment.creditState },
+  });
+  updated = await setStatus(tx, updated, "CANCELLED", opts.actorUserId, opts.reason, { releasedCredits: released });
+  const prep = await tx.preparerProfile.findUniqueOrThrow({ where: { id: shipment.preparerId }, select: { userId: true } });
+  fx.notify(
+    prep.userId,
+    opts.by === "system"
+      ? {
+          type: "SHIPMENT_UPDATED",
+          title: "Ne pas expédier : vente annulée",
+          body: `${shipment.reference} : ${opts.reason}. L'expédition est bloquée ; remettez l'article à sa place dans le stock.`,
+          link: `/preparateur/expeditions/${shipment.id}`,
+        }
+      : { type: "SHIPMENT_UPDATED", title: "Expédition annulée", body: `${shipment.reference} a été annulée.`, link: `/preparateur/expeditions/${shipment.id}` },
+  );
+  if (opts.by === "admin") {
+    fx.notify(await customerUser(tx, shipment.customerId), {
+      type: "SHIPMENT_UPDATED",
+      title: "Expédition annulée",
+      body: `${shipment.reference} a été annulée par l'équipe Packio${released ? ` ; ${released} crédit(s) libéré(s)` : ""}.`,
+      link: `/client/expeditions/${shipment.id}`,
+    });
+  }
+  return { shipment: updated, releasedCredits: released };
+}
+
+/** Vente annulée sur la plateforme : bloque l'expédition si le colis n'est pas encore déposé. */
+export async function cancelShipmentForPlatform(tx: Tx, fx: Effects, shipmentId: string, reason: string): Promise<"cancelled" | "too_late" | "already"> {
+  const shipment = await lockShipment(tx, shipmentId);
+  if (shipment.status === "CANCELLED") return "already";
+  if (!SHIPMENT_BEFORE_DROP_OFF.includes(shipment.status)) return "too_late";
+  await cancelShipmentTx(tx, fx, shipment, { reason, actorUserId: null, by: "system" });
+  return "cancelled";
+}
+
+/**
+ * La plateforme indique le colis parti alors que le préparateur n'a pas encore
+ * confirmé le dépôt : l'expédition est marquée déposée (crédits débités, stock
+ * expédié). Seulement une fois la taille classée : sinon, le préparateur et
+ * l'administration sont prévenus et confirment eux-mêmes.
+ */
+export async function markDroppedOffByPlatform(tx: Tx, fx: Effects, shipmentId: string, platform: string): Promise<"done" | "already" | "manual"> {
+  const shipment = await lockShipment(tx, shipmentId);
+  if (!SHIPMENT_BEFORE_DROP_OFF.includes(shipment.status)) return "already";
+  const prep = await tx.preparerProfile.findUniqueOrThrow({ where: { id: shipment.preparerId }, select: { userId: true } });
+  if (!["CLASSIFIED", "PREPARING", "READY", "LABEL_READY"].includes(shipment.status)) {
+    fx.notify(prep.userId, {
+      type: "SHIPMENT_UPDATED",
+      title: `${platform} indique le colis parti`,
+      body: `${shipment.reference} : ${platform} indique que le colis est parti. Classez la taille puis confirmez le dépôt.`,
+      link: `/preparateur/expeditions/${shipment.id}`,
+    });
+    return "manual";
+  }
+  let debited = 0;
+  if (shipment.creditCost && shipment.creditCost > 0) {
+    const res = await captureCredits(tx, { customerId: shipment.customerId, shipmentId: shipment.id, description: `Débit définitif ${shipment.reference} (colis parti d'après ${platform})` });
+    debited = res.amount;
+  }
+  const items = await lockItems(tx, shipment.items.map((i) => i.inventoryItemId));
+  for (const line of shipment.items) {
+    const item = items.find((i) => i.id === line.inventoryItemId)!;
+    await applyMovement(tx, item, "SHIPMENT", { quantityReserved: -line.quantity, quantityShipped: line.quantity }, {
+      actorId: null,
+      shipmentId: shipment.id,
+      reason: `Expédié — ${shipment.reference} (d'après ${platform})`,
+    });
+  }
+  const updated = await tx.outboundShipment.update({
+    where: { id: shipment.id },
+    data: { droppedOffAt: new Date(), creditState: shipment.creditCost ? "CAPTURED" : shipment.creditState },
+  });
+  await setStatus(tx, updated, "DROPPED_OFF", null, `Colis indiqué parti par ${platform}`, { debited });
+  await tx.preparerProfile.update({ where: { id: shipment.preparerId }, data: { parcelsProcessed: { increment: 1 } } });
+  fx.notify(prep.userId, {
+    type: "SHIPMENT_UPDATED",
+    title: "Colis marqué déposé",
+    body: `${shipment.reference} : ${platform} indique que le colis est parti, il est marqué déposé.`,
+    link: `/preparateur/expeditions/${shipment.id}`,
+  });
+  fx.notify(await customerUser(tx, shipment.customerId), {
+    type: "SHIPMENT_SHIPPED",
+    title: "Colis expédié",
+    body: `${shipment.reference} est parti (d'après ${platform}).${debited ? ` ${debited} crédit(s) débité(s).` : ""}`,
+    link: `/client/expeditions/${shipment.id}`,
+  });
+  return "done";
 }
 
 /** Contestation de classification par le client → incident traité par l'admin. */

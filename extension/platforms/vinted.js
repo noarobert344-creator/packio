@@ -60,22 +60,59 @@ async function soldOrders(base, config) {
     const sales = await readWithAi(config, res.data, "des ventes Vinted");
     return sales.map((s) => ({ ...s, labelRef: { transactionId: s.externalOrderId, url: s.labelUrl ?? null } }));
   }
-  return orders
-    .filter((o) => !/cancel|annul/i.test(String(o.status ?? o.transaction_user_status ?? "")))
-    .map((o) => {
-      const transactionId = o.transaction_id ?? o.id;
-      return {
-        externalOrderId: String(transactionId),
-        externalItemId: o.item_id ? String(o.item_id) : o.item?.id ? String(o.item.id) : undefined,
-        title: String(o.title ?? o.item?.title ?? "Article vendu").slice(0, 300),
-        priceCents: toCents(o.price ?? o.total_item_price),
-        currency: currencyOf(o.price),
-        buyerName: o.opposite_user?.login ?? o.buyer?.login ?? o.user?.login ?? undefined,
-        soldAt: toIso(o.date ?? o.created_at ?? o.updated_at),
-        // Interne à l'extension (non transmis à Packio) : sert à récupérer le bordereau.
-        labelRef: { transactionId: String(transactionId) },
-      };
-    });
+  // Les ventes annulées et les colis déjà partis sont transmis : Packio bloque
+  // l'expédition d'une vente annulée et marque expédié un colis déjà parti.
+  return orders.map((o) => {
+    const transactionId = o.transaction_id ?? o.id;
+    const items = bundleItems(o);
+    return {
+      externalOrderId: String(transactionId),
+      externalItemId: o.item_id ? String(o.item_id) : o.item?.id ? String(o.item.id) : undefined,
+      title: String(o.title ?? o.item?.title ?? items?.[0]?.title ?? "Article vendu").slice(0, 300),
+      priceCents: toCents(o.price ?? o.total_item_price),
+      currency: currencyOf(o.price),
+      buyerName: o.opposite_user?.login ?? o.buyer?.login ?? o.user?.login ?? undefined,
+      soldAt: toIso(o.date ?? o.created_at ?? o.updated_at),
+      size: sizeOf(o.item ?? o) ?? undefined,
+      photoUrl: photoOf(o.item ?? o) ?? undefined,
+      shipBy: dateOrUndefined(o.shipment_deadline ?? o.shipping_deadline ?? o.transaction?.shipment_deadline ?? o.shipment?.deadline),
+      status: String(o.status ?? o.transaction_user_status ?? o.status_title ?? "").slice(0, 60) || undefined,
+      items: items && items.length > 1 ? items : undefined,
+      // Interne à l'extension (non transmis à Packio) : sert à récupérer le bordereau.
+      labelRef: { transactionId: String(transactionId) },
+    };
+  });
+}
+
+/** À VÉRIFIER : taille de l'article (size_title / size). */
+function sizeOf(o) {
+  const v = o?.size_title ?? o?.size?.title ?? o?.size;
+  return typeof v === "string" && v.trim() ? v.trim().slice(0, 40) : null;
+}
+
+/** À VÉRIFIER : photo principale (photo.url, photos[0].url). */
+function photoOf(o) {
+  const url = o?.photo?.url ?? o?.photos?.[0]?.url ?? o?.photo?.full_size_url;
+  return typeof url === "string" && url.startsWith("https://") ? url : null;
+}
+
+function dateOrUndefined(v) {
+  if (!v) return undefined;
+  const d = new Date(typeof v === "number" && v < 1e12 ? v * 1000 : v);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+/** À VÉRIFIER : ventes en lot (plusieurs articles pour un même acheteur). */
+function bundleItems(o) {
+  const list = o.items ?? o.order?.items ?? o.transaction?.items;
+  if (!Array.isArray(list) || list.length < 2) return null;
+  return list.slice(0, 30).map((it) => ({
+    externalItemId: it.id ?? it.item_id ? String(it.id ?? it.item_id) : undefined,
+    title: String(it.title ?? "Article").slice(0, 300),
+    size: sizeOf(it) ?? undefined,
+    photoUrl: photoOf(it) ?? undefined,
+    priceCents: toCents(it.price),
+  }));
 }
 
 /** Collecte complète pour la synchronisation. */

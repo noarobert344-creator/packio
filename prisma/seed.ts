@@ -52,9 +52,27 @@ async function demoMarketplaceSales(customerId: string, figurineSku: string) {
     ],
     sales: [
       { externalOrderId: "DEMO-VT-5001", externalItemId: "DEMO-L-1", title: "Figurine One Piece édition limitée", priceCents: 4500, buyerName: "Sarah B. (démo)", soldAt: subHours(new Date(), 5) },
-      { externalOrderId: "DEMO-VT-5002", externalItemId: "DEMO-L-2", title: "Pull en laine beige — M", priceCents: 1800, buyerName: "Thomas L. (démo)", soldAt: subHours(new Date(), 26) },
-      { externalOrderId: "DEMO-VT-5003", externalItemId: "DEMO-L-3", title: "Sac à main en cuir noir", priceCents: 3500, buyerName: "Inès M. (démo)", soldAt: subHours(new Date(), 50) },
+      { externalOrderId: "DEMO-VT-5002", externalItemId: "DEMO-L-2", title: "Pull en laine beige", size: "M", priceCents: 1800, buyerName: "Thomas L. (démo)", soldAt: subHours(new Date(), 26) },
+      { externalOrderId: "DEMO-VT-5003", externalItemId: "DEMO-L-3", title: "Sac à main en cuir noir", priceCents: 3500, buyerName: "Inès M. (démo)", soldAt: subHours(new Date(), 50), shipBy: addHours(new Date(), 30) },
+      {
+        externalOrderId: "DEMO-VT-5004",
+        title: "Lot : jean droit + ceinture",
+        priceCents: 2600,
+        buyerName: "Malik D. (démo)",
+        soldAt: subHours(new Date(), 3),
+        items: [
+          { externalItemId: "DEMO-L-4", title: "Jean droit", size: "38", priceCents: 1800 },
+          { externalItemId: "DEMO-L-5", title: "Ceinture en cuir", priceCents: 800 },
+        ],
+      },
+      { externalOrderId: "DEMO-VT-5005", title: "Veste en velours", size: "S", priceCents: 2200, buyerName: "Chloé R. (démo)", soldAt: subHours(new Date(), 40), status: "Transaction annulée" },
     ],
+  });
+  // Second compte Vinted : chaque vente rappelle le compte d'origine.
+  await syncFromExtension(customerId, {
+    platform: "VINTED",
+    account: { externalUserId: "demo-lea-vinted-2", username: "lea.sneakers (démo)" },
+    sales: [{ externalOrderId: "DEMO-VT-6001", title: "Baskets blanches", size: "39", priceCents: 4000, buyerName: "Nora K. (démo)", soldAt: subHours(new Date(), 8) }],
   });
 }
 

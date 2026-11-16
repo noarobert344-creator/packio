@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ArrowRight, Download, FileText, ImageOff, Printer, Timer } from "lucide-react";
+import { ArrowRight, Download, FileText, Flame, ImageOff, Layers, Printer, Ruler, Store, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusFrom } from "@/components/shared/status-badge";
 import { MARKETPLACE_PLATFORM, SHIPMENT_STATUS } from "@/lib/labels";
@@ -33,6 +33,11 @@ export function LabelBoard({ shipments, role, now }: { shipments: LabelBoardShip
         const isImage = label?.mimeType.startsWith("image/");
         const due = s.dueAt && SLA_OPEN.includes(s.status) ? s.dueAt : null;
         const late = !!due && due.getTime() < now;
+        // Urgent : à déposer dans les 24 h (les colis sont triés par échéance, les plus urgents en premier).
+        const urgent = !!due && !late && due.getTime() - now < 24 * 3_600_000;
+        const account = s.marketplaceSale?.account ?? s.dropshipOrder?.marketplaceSale?.account ?? null;
+        const size = s.marketplaceSale?.size ?? s.dropshipOrder?.marketplaceSale?.size ?? null;
+        const bundle = s.marketplaceSale?._count.lines ?? 0;
         return (
           <article key={s.id} className="overflow-hidden rounded-2xl border bg-card shadow-soft">
             <header className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/30 px-4 py-2.5">
@@ -42,8 +47,28 @@ export function LabelBoard({ shipments, role, now }: { shipments: LabelBoardShip
                 {role === "PREPARER" && (
                   <span className="rounded-md bg-foreground px-1.5 py-0.5 font-mono text-[0.7rem] font-semibold text-background">{s.customer.referenceCode}</span>
                 )}
+                {account && (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title="Compte d'où vient la vente">
+                    <Store className="size-3.5" /> {account.username ?? `Compte ${account.externalUserId}`}
+                  </span>
+                )}
+                {size && (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Ruler className="size-3.5" /> Taille {size}
+                  </span>
+                )}
+                {bundle > 1 && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-brand">
+                    <Layers className="size-3.5" /> Lot de {bundle} : un seul carton
+                  </span>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {urgent && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">
+                    <Flame className="size-3.5" /> Urgent
+                  </span>
+                )}
                 {due && (
                   <span className={cn("inline-flex items-center gap-1 text-xs", late ? "font-medium text-danger" : "text-muted-foreground")}>
                     <Timer className="size-3.5" />
