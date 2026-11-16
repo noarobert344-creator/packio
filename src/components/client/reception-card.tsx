@@ -1,11 +1,11 @@
-import { Building2, Clock, KeyRound, MapPin, Store } from "lucide-react";
+import { Building2, Clock, IdCard, KeyRound, Mail, MapPin, Store } from "lucide-react";
 import { CopyButton } from "@/components/shared/copy-button";
 import { LOCATION_TYPE, networkLabel } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 export type ReceptionLocation = {
   id: string;
-  type: "BUSINESS_ADDRESS" | "LOCKER" | "RELAY_POINT";
+  type: "BUSINESS_ADDRESS" | "LOCKER" | "RELAY_POINT" | "POST_OFFICE";
   label: string;
   network: string | null;
   relayName: string | null;
@@ -26,6 +26,7 @@ export function formatReceptionAddress(l: ReceptionLocation, clientCode: string)
   return [
     l.recipientName,
     l.type === "BUSINESS_ADDRESS" ? `Réf. client ${clientCode}` : null,
+    l.type === "POST_OFFICE" ? "POSTE RESTANTE" : null,
     l.recipientPhone ? `Tél. ${l.recipientPhone}` : null,
     l.relayName,
     l.addressLine1,
@@ -39,8 +40,8 @@ export function formatReceptionAddress(l: ReceptionLocation, clientCode: string)
 
 /** Coordonnées de réception validées, prêtes à être copiées dans le formulaire du fournisseur. */
 export function ReceptionCard({ location: l, clientCode }: { location: ReceptionLocation; clientCode: string }) {
-  const Icon = l.type === "BUSINESS_ADDRESS" ? Building2 : l.type === "LOCKER" ? KeyRound : Store;
-  const isPickup = l.type !== "BUSINESS_ADDRESS";
+  const Icon = l.type === "BUSINESS_ADDRESS" ? Building2 : l.type === "LOCKER" ? KeyRound : l.type === "POST_OFFICE" ? Mail : Store;
+  const isPickup = l.type === "LOCKER" || l.type === "RELAY_POINT";
   return (
     <div className={cn("flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-soft", l.isPrimary && "border-brand/40")}>
       <div className="flex items-start gap-3">
@@ -84,7 +85,15 @@ export function ReceptionCard({ location: l, clientCode }: { location: Reception
           </div>
         )}
       </dl>
-      {isPickup ? (
+      {l.type === "POST_OFFICE" ? (
+        <p className="flex gap-2 rounded-xl bg-info-soft p-3 text-xs text-info">
+          <IdCard className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            Recopiez l&apos;adresse telle quelle, avec « POSTE RESTANTE » sous le nom : le colis attend au bureau de poste et votre préparateur le retire avec sa pièce
+            d&apos;identité. Rien à lui transmettre.
+          </span>
+        </p>
+      ) : isPickup ? (
         <p className="flex gap-2 rounded-xl bg-warning-soft p-3 text-xs text-warning">
           <KeyRound className="mt-0.5 size-3.5 shrink-0" />
           Dès que le colis est disponible, transmettez le code de retrait à votre préparateur depuis la page de la commande.
@@ -99,7 +108,7 @@ export function ReceptionCard({ location: l, clientCode }: { location: Reception
       )}
       {l.instructions && <p className="text-xs text-muted-foreground">{l.instructions}</p>}
       <div className="mt-auto flex flex-wrap gap-2">
-        <CopyButton value={formatReceptionAddress(l, clientCode)} label={isPickup ? "Copier l'adresse du locker" : "Copier l'adresse du préparateur"} variant="default" />
+        <CopyButton value={formatReceptionAddress(l, clientCode)} label={l.type === "POST_OFFICE" ? "Copier l'adresse (poste restante)" : isPickup ? "Copier l'adresse du locker" : "Copier l'adresse de réception"} variant="default" />
         <CopyButton value={l.recipientName} label="Copier le destinataire" />
         <CopyButton value={clientCode} label="Copier mon code client" />
       </div>

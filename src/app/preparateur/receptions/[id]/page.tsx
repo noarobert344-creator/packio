@@ -31,6 +31,8 @@ export default async function ReceptionPage({ params }: { params: Promise<{ id: 
   const tracking = trackingUrl(order.carrier, order.trackingNumber);
   const flowStatus = SUPPLIER_ORDER_FLOW.includes(order.status) ? order.status : order.status === "INCIDENT" ? "QUALITY_CHECK" : "IN_STOCK";
   const directDelivery = loc.type === "BUSINESS_ADDRESS";
+  // Code de retrait : lockers et points relais. Poste restante : pièce d'identité.
+  const needsCode = loc.type === "LOCKER" || loc.type === "RELAY_POINT";
 
   return (
     <div className="space-y-6">
@@ -80,7 +82,10 @@ export default async function ReceptionPage({ params }: { params: Promise<{ id: 
               <ClientCode customer={order.customer} className="text-sm" />
             </div>
             <p className="text-sm text-muted-foreground">Le code client figure en complément du nom du destinataire sur le colis.</p>
-            {!directDelivery && (order.pickupCode || ["REGISTERED", "SUPPLIER_CONFIRMED", "IN_TRANSIT", "AT_LOCKER"].includes(order.status)) && <PickupCode code={order.pickupCode} />}
+            {needsCode && (order.pickupCode || ["REGISTERED", "SUPPLIER_CONFIRMED", "IN_TRANSIT", "AT_LOCKER"].includes(order.status)) && <PickupCode code={order.pickupCode} />}
+            {loc.type === "POST_OFFICE" && (
+              <p className="rounded-xl bg-info-soft p-3 text-sm text-info">Poste restante : retirez le colis au guichet avec votre pièce d&apos;identité (aucun code).</p>
+            )}
           </Section>
 
           <Section title="Où arrive le colis" contentClassName="space-y-3 text-sm">

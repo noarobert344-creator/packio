@@ -15,7 +15,7 @@ import { getSetting } from "@/server/services/settings";
 import { adminReclassify, cancelShipment, updateTransit } from "@/server/services/shipments";
 
 const SIZES = ["SMALL", "MEDIUM", "LARGE"] as const;
-const LOCATION_TYPES = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT"] as const;
+const LOCATION_TYPES = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT", "POST_OFFICE"] as const;
 
 // ----------------------------------------------------------------------------- Expéditions
 

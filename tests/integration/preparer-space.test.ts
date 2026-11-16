@@ -25,16 +25,23 @@ describe("Espace préparateur : fiche, crédits des clients, administrateur pré
     const base = { phone: "06 12 34 56 78", addressLine1: "4 quai de la Fosse", postalCode: "44000", city: "Nantes" };
 
     await expect(completeOnboarding(actor, { ...base, phone: "12", lockers: [] })).rejects.toMatchObject({ code: "ONBOARDING" });
+    // Au moins un point de réception : jamais de livraison au domicile.
+    await expect(completeOnboarding(actor, { ...base, lockers: [] })).rejects.toMatchObject({ code: "POINTS" });
     const res = await completeOnboarding(actor, {
       ...base,
-      lockers: [{ network: "MONDIAL_RELAY", relayName: "Locker Mondial Relay Commerce", addressLine1: "2 place du Commerce", postalCode: "44000", city: "Nantes" }],
+      lockers: [
+        { network: "MONDIAL_RELAY", relayName: "Locker Mondial Relay Commerce", addressLine1: "2 place du Commerce", postalCode: "44000", city: "Nantes" },
+        { network: "LA_POSTE", relayName: "Bureau de poste Nantes Bretagne", addressLine1: "2 place de Bretagne", postalCode: "44000", city: "Nantes" },
+      ],
     });
     expect(res.locations).toBe(2);
     const locations = await db.preparerLocation.findMany({ where: { preparerId: preparer.id }, orderBy: { createdAt: "asc" } });
-    expect(locations.map((l) => [l.type, l.network, l.validatedAt, l.recipientPhone])).toEqual([
-      ["BUSINESS_ADDRESS", null, null, "06 12 34 56 78"],
-      ["LOCKER", "MONDIAL_RELAY", null, "06 12 34 56 78"],
+    expect(locations.map((l) => [l.type, l.network, l.validatedAt, l.recipientPhone, l.isPrimary])).toEqual([
+      ["LOCKER", "MONDIAL_RELAY", null, "06 12 34 56 78", true],
+      ["POST_OFFICE", "LA_POSTE", null, "06 12 34 56 78", false],
     ]);
+    // L'adresse personnelle n'est jamais un point de réception.
+    expect(locations.some((l) => l.addressLine1 === base.addressLine1)).toBe(false);
     expect((await db.user.findUniqueOrThrow({ where: { id: preparer.userId } })).phone).toBe("06 12 34 56 78");
     expect((await db.preparerProfile.findUniqueOrThrow({ where: { id: preparer.id } })).onboardedAt).not.toBeNull();
     expect(await db.notification.count({ where: { userId: admin.userId, type: "ADMIN_PREPARER_ONBOARDED" } })).toBe(1);

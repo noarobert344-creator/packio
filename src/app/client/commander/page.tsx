@@ -54,7 +54,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
     <div className="space-y-8">
       <PageHeader
         title="Commander des articles"
-        description="Achetez sur ZenMarket, Vinted, Vestiaire Collective ou Whatnot pour votre stock, sur Temu, SHEIN et AliExpress en dropshipping, ou ailleurs (choisissez « Autre »), en vous faisant livrer chez votre préparateur. Déclarez ensuite la commande ici, en indiquant où arrive le colis."
+        description="Achetez sur ZenMarket, Vinted, Vestiaire Collective ou Whatnot pour votre stock, sur Temu, SHEIN et AliExpress en dropshipping, ou ailleurs (choisissez « Autre »), en vous faisant livrer à un point de réception de votre préparateur (locker, point relais ou poste restante). Déclarez ensuite la commande ici, en indiquant où arrive le colis."
         actions={
           <Button asChild>
             <a href="#nouvelle-commande">Nouvelle commande</a>

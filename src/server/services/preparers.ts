@@ -184,6 +184,9 @@ export async function saveLocation(actor: Actor, input: LocationInput & { prepar
   if ((input.type === "LOCKER" || input.type === "RELAY_POINT") && (!input.network || !input.relayName)) {
     throw new DomainError("RELAY", "Indiquez le réseau et le nom exact du locker / point relais.", { fieldErrors: { relayName: "Requis", network: "Requis" } });
   }
+  if (input.type === "POST_OFFICE" && !input.relayName?.trim()) {
+    throw new DomainError("POST_OFFICE", "Indiquez le nom du bureau de poste.", { fieldErrors: { relayName: "Requis" } });
+  }
   return db.$transaction(async (tx) => {
     if (input.isPrimary) {
       await tx.preparerLocation.updateMany({ where: { preparerId: input.preparerId, isPrimary: true, NOT: input.locationId ? { id: input.locationId } : undefined }, data: { isPrimary: false } });
@@ -191,7 +194,7 @@ export async function saveLocation(actor: Actor, input: LocationInput & { prepar
     const data = {
       type: input.type,
       label: input.label.trim(),
-      network: input.type === "BUSINESS_ADDRESS" ? null : input.network || null,
+      network: input.type === "BUSINESS_ADDRESS" ? null : input.type === "POST_OFFICE" ? "LA_POSTE" : input.network || null,
       relayName: input.relayName?.trim() || null,
       addressLine1: input.addressLine1.trim(),
       addressLine2: input.addressLine2?.trim() || null,
@@ -312,11 +315,12 @@ export async function getPreparerStats(preparerId: string) {
 // Questionnaire de bienvenue (fiche visible par les clients)
 // -----------------------------------------------------------------------------
 
-/** Lockers proposés au questionnaire (tous facultatifs). */
+/** Points de réception proposés au questionnaire (au moins un) : lockers et poste restante. */
 export const ONBOARDING_LOCKER_NETWORKS = [
   { code: "MONDIAL_RELAY", label: "Mondial Relay" },
   { code: "VINTED_GO", label: "Vinted Go" },
   { code: "CHRONOPOST_PICKUP", label: "Chronopost" },
+  { code: "LA_POSTE", label: "Poste restante" },
 ] as const;
 
 export type OnboardingInput = {
@@ -329,8 +333,9 @@ export type OnboardingInput = {
 };
 
 /**
- * Première connexion du préparateur : téléphone, adresse de réception et
- * lockers facultatifs. Les points de réception restent à valider par Packio
+ * Première connexion du préparateur : téléphone, adresse personnelle (privée :
+ * jamais montrée aux clients, aucun colis n'y est livré) et au moins un point de
+ * réception (locker ou poste restante). Les points restent à valider par Packio
  * avant d'être proposés aux clients.
  */
 export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
@@ -346,6 +351,9 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
   return withEffects(async (tx, fx) => {
     const profile = await tx.preparerProfile.findUniqueOrThrow({ where: { id: preparerId }, include: { user: { select: { firstName: true, lastName: true } } } });
     if (profile.onboardedAt) throw new DomainError("ALREADY_DONE", "Votre fiche est déjà complétée : modifiez-la depuis vos paramètres.");
+    if (input.lockers.length === 0) {
+      throw new DomainError("POINTS", "Renseignez au moins un point de réception (locker ou bureau de poste) : aucun colis n'est livré chez vous.");
+    }
     const name = `${profile.user.firstName} ${profile.user.lastName}`;
     const address = { addressLine1: input.addressLine1.trim(), addressLine2: input.addressLine2?.trim() || null, postalCode: input.postalCode.trim(), city: input.city.trim() };
     await tx.user.update({ where: { id: actor.userId }, data: { phone } });
@@ -360,17 +368,18 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
         onboardedAt: new Date(),
       },
     });
-    const hasPrimary = await tx.preparerLocation.count({ where: { preparerId, isPrimary: true, isActive: true } });
-    await tx.preparerLocation.create({
-      data: { preparerId, type: "BUSINESS_ADDRESS", label: "Adresse de réception", ...address, country: "FR", recipientName: name, recipientPhone: phone, isPrimary: !hasPrimary },
-    });
+    // L'adresse personnelle reste privée : elle ne devient jamais un point de réception.
+    let hasPrimary = (await tx.preparerLocation.count({ where: { preparerId, isPrimary: true, isActive: true } })) > 0;
     for (const l of input.lockers) {
       const network = ONBOARDING_LOCKER_NETWORKS.find((n) => n.code === l.network)!;
+      const postOffice = network.code === "LA_POSTE";
+      const primary = !hasPrimary;
+      hasPrimary = true;
       await tx.preparerLocation.create({
         data: {
           preparerId,
-          type: "LOCKER",
-          label: `Locker ${network.label}`,
+          type: postOffice ? "POST_OFFICE" : "LOCKER",
+          label: postOffice ? "Poste restante" : `Locker ${network.label}`,
           network: network.code,
           relayName: l.relayName.trim(),
           addressLine1: l.addressLine1.trim(),
@@ -379,21 +388,21 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
           country: "FR",
           recipientName: name,
           recipientPhone: phone,
-          isPrimary: false,
+          isPrimary: primary,
         },
       });
     }
-    await audit({ actor, action: "preparer.onboarded", entityType: "preparer", entityId: preparerId, summary: `${1 + input.lockers.length} point(s) de réception à valider` }, tx);
+    await audit({ actor, action: "preparer.onboarded", entityType: "preparer", entityId: preparerId, summary: `${input.lockers.length} point(s) de réception à valider` }, tx);
     fx.notifyAdmins(
       {
         type: "ADMIN_PREPARER_ONBOARDED",
         title: "Fiche préparateur à valider",
-        body: `${name} a complété sa fiche : ${1 + input.lockers.length} point(s) de réception à valider avant de recevoir des clients.`,
+        body: `${name} a complété sa fiche : ${input.lockers.length} point(s) de réception à valider avant de recevoir des clients.`,
         link: `/admin/preparateurs/${preparerId}`,
       },
       "preparers.manage",
     );
-    return { locations: 1 + input.lockers.length };
+    return { locations: input.lockers.length };
   });
 }
 

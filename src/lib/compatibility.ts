@@ -14,7 +14,8 @@ export function checkCompatibility(supplier: SupplierCompat, location: LocationC
   if (!supplier.acceptedLocationTypes.includes(location.type)) {
     return { ok: false, reason: `${supplier.name} ne livre pas vers un point de type « ${LOCATION_TYPE[location.type]} ».` };
   }
-  if (location.type !== "BUSINESS_ADDRESS") {
+  // Lockers et points relais : le réseau doit aussi être accepté. Adresse et poste restante : le type suffit.
+  if (location.type === "LOCKER" || location.type === "RELAY_POINT") {
     if (!location.network || !supplier.acceptedNetworks.includes(location.network)) {
       return { ok: false, reason: `${supplier.name} ne propose pas la livraison via ${networkLabel(location.network)}.` };
     }

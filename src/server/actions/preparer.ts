@@ -393,7 +393,7 @@ export async function cancelAbsenceAction(_prev: ActionState, formData: FormData
 }
 
 const locationSchema = z.object({
-  type: z.enum(["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT"], { error: "Type requis" }),
+  type: z.enum(["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT", "POST_OFFICE"], { error: "Type requis" }),
   label: requiredText("Libellé", 2, 80),
   network: optionalText(40),
   relayName: optionalText(160),

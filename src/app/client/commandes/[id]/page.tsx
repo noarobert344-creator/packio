@@ -59,7 +59,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <StepProgress steps={SUPPLIER_ORDER_FLOW.map((s) => ({ key: s, label: SUPPLIER_ORDER_STATUS[s].label }))} current={failed ? "REGISTERED" : order.status} failed={failed} />
         {failed && <p className="mt-3 text-sm text-danger">{SUPPLIER_ORDER_STATUS[order.status].label}</p>}
         <div className="mt-5">
-          <OrderActions order={{ id: order.id, status: order.status, trackingNumber: order.trackingNumber, carrier: order.carrier, pickupCode: order.pickupCode, isPickup: order.location.type !== "BUSINESS_ADDRESS" }} />
+          <OrderActions order={{ id: order.id, status: order.status, trackingNumber: order.trackingNumber, carrier: order.carrier, pickupCode: order.pickupCode, isPickup: order.location.type === "LOCKER" || order.location.type === "RELAY_POINT" }} />
         </div>
       </Section>
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">

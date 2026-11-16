@@ -286,9 +286,12 @@ model PreparerProfile {
 }
 
 enum LocationType {
+  /// Adresse de domiciliation / boîte de réception (jamais le domicile du préparateur).
   BUSINESS_ADDRESS
   LOCKER
   RELAY_POINT
+  /// Poste restante : colis gardé au bureau de poste, retiré avec une pièce d'identité.
+  POST_OFFICE
 }
 
 /// Points de réception d'un préparateur (adresse pro, lockers, points relais).

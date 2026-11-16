@@ -217,7 +217,7 @@ export async function resendInvitationAction(_prev: ActionState<{ invitationUrl:
 const locationSchema = z.object({
   preparerId: z.string().min(1),
   locationId: optionalText(40),
-  type: z.enum(["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT"]),
+  type: z.enum(["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT", "POST_OFFICE"]),
   label: requiredText("Libellé", 2, 80),
   network: optionalText(40),
   relayName: optionalText(160),

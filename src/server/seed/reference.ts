@@ -55,7 +55,9 @@ export const DEFAULT_CREDIT_PACKS = [
   { name: "100 crédits", credits: 100, priceCents: 24900, sortOrder: 4 },
 ];
 
-const ALL: LocationType[] = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT"];
+const ALL: LocationType[] = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT", "POST_OFFICE"];
+/** Vinted : livraison en point relais / locker (ou adresse), pas en poste restante. */
+const PICKUPS: LocationType[] = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT"];
 /** Commandes pour le stock : ZenMarket, Vinted, Vestiaire Collective. Dropshipping : Temu, SHEIN, AliExpress. */
 const STOCK: OrderMode[] = ["STOCK"];
 const DROPSHIP: OrderMode[] = ["DROPSHIP"];
@@ -65,12 +67,16 @@ const DROPSHIP: OrderMode[] = ["DROPSHIP"];
  * vérifiées et ajustées par l'administrateur selon les options réellement
  * proposées par chaque fournisseur au moment de l'achat.
  */
+/** ZenMarket : poste japonaise remise à La Poste, donc poste restante possible (pas DHL ni FedEx). */
+export const ZENMARKET_NOTES =
+  "Choisissez un envoi par la poste japonaise (EMS, ePacket ou courrier aérien) : il est livré en France par La Poste, en poste restante au bureau de poste de votre préparateur, avec le nom du destinataire indiqué. DHL et FedEx ne livrent pas en poste restante : dans ce cas, utilisez uniquement une adresse de domiciliation.";
+
 export const DEFAULT_SUPPLIERS = [
   {
     code: "VINTED",
     name: "Vinted",
     websiteUrl: "https://www.vinted.fr",
-    acceptedLocationTypes: ALL,
+    acceptedLocationTypes: PICKUPS,
     acceptedNetworks: ["MONDIAL_RELAY", "INPOST", "RELAIS_COLIS", "VINTED_GO", "CHRONOPOST_PICKUP"],
     requiresPickupCode: true,
     orderModes: STOCK,
@@ -82,12 +88,12 @@ export const DEFAULT_SUPPLIERS = [
     code: "ZENMARKET",
     name: "ZenMarket",
     websiteUrl: "https://zenmarket.jp/fr/",
-    acceptedLocationTypes: ["BUSINESS_ADDRESS"] as LocationType[],
+    acceptedLocationTypes: ["POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
     acceptedNetworks: [],
     requiresPickupCode: false,
     orderModes: STOCK,
     sortOrder: 1,
-    compatibilityNotes: "Expédition internationale vers une adresse complète avec numéro de téléphone : les lockers et points relais ne sont pas utilisables.",
+    compatibilityNotes: ZENMARKET_NOTES,
   },
   {
     code: "VESTIAIRE",
@@ -99,7 +105,7 @@ export const DEFAULT_SUPPLIERS = [
     orderModes: STOCK,
     sortOrder: 3,
     compatibilityNotes:
-      "Livraison à l'adresse professionnelle de votre préparateur (nom du destinataire et code client indiqués dans votre espace). Les options de point relais varient selon la commande : vérifiez-les au paiement.",
+      "Livraison à l'adresse de domiciliation de votre préparateur (nom du destinataire et code client indiqués dans votre espace). Les options de point relais varient selon la commande : vérifiez-les au paiement.",
   },
   {
     code: "TEMU",
@@ -110,7 +116,7 @@ export const DEFAULT_SUPPLIERS = [
     requiresPickupCode: false,
     orderModes: DROPSHIP,
     sortOrder: 5,
-    compatibilityNotes: "Livraison à l'adresse professionnelle de votre préparateur. Les délais de livraison varient : tenez-en compte dans le délai annoncé à votre acheteur.",
+    compatibilityNotes: "Livraison à l'adresse de domiciliation de votre préparateur. Les délais de livraison varient : tenez-en compte dans le délai annoncé à votre acheteur.",
   },
   {
     code: "SHEIN",
@@ -132,7 +138,7 @@ export const DEFAULT_SUPPLIERS = [
     requiresPickupCode: false,
     orderModes: DROPSHIP,
     sortOrder: 7,
-    compatibilityNotes: "Livraison à l'adresse professionnelle du préparateur recommandée. Les options de retrait varient selon le vendeur et ne sont pas activées par défaut.",
+    compatibilityNotes: "Livraison à l'adresse de domiciliation du préparateur recommandée. Les options de retrait varient selon le vendeur et ne sont pas activées par défaut.",
   },
   {
     code: "WHATNOT",

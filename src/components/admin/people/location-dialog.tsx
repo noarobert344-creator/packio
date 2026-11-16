@@ -10,7 +10,7 @@ import { saveLocationAction } from "@/server/actions/admin/people";
 
 export type LocationValues = {
   id: string;
-  type: "BUSINESS_ADDRESS" | "LOCKER" | "RELAY_POINT";
+  type: "BUSINESS_ADDRESS" | "LOCKER" | "RELAY_POINT" | "POST_OFFICE";
   label: string;
   network: string | null;
   relayName: string | null;
@@ -30,7 +30,8 @@ export type LocationValues = {
 
 export function LocationDialog({ preparerId, location, defaultRecipient, defaultPhone }: { preparerId: string; location?: LocationValues; defaultRecipient: string; defaultPhone?: string | null }) {
   const [type, setType] = useState<LocationValues["type"]>(location?.type ?? "LOCKER");
-  const isRelay = type !== "BUSINESS_ADDRESS";
+  const isRelay = type === "LOCKER" || type === "RELAY_POINT";
+  const isPostOffice = type === "POST_OFFICE";
   return (
     <ActionDialog
       wide
@@ -61,8 +62,23 @@ export function LocationDialog({ preparerId, location, defaultRecipient, default
             onChange={(e) => setType(e.target.value as LocationValues["type"])}
             options={Object.entries(LOCATION_TYPE).map(([value, label]) => ({ value, label }))}
           />
-          <TextField name="label" label="Libellé interne" required defaultValue={location?.label ?? (isRelay ? "Locker principal" : "Adresse professionnelle")} />
+          <TextField name="label" label="Libellé interne" required defaultValue={location?.label ?? (isRelay ? "Locker principal" : isPostOffice ? "Poste restante" : "Adresse de domiciliation")} />
         </div>
+        {type === "BUSINESS_ADDRESS" && (
+          <p className="rounded-xl bg-warning-soft p-3 text-xs text-warning">
+            Jamais l&apos;adresse personnelle du préparateur : uniquement une adresse de domiciliation ou une boîte de réception de colis. Les clients voient cette adresse.
+          </p>
+        )}
+        {isPostOffice && (
+          <div className="grid gap-3">
+            <p className="rounded-xl bg-info-soft p-3 text-xs text-info">
+              Le colis est gardé au bureau de poste et le préparateur le retire avec sa pièce d&apos;identité : le nom du destinataire doit être exactement celui de sa
+              pièce d&apos;identité. Convient aux envois remis à La Poste (Colissimo, poste japonaise pour ZenMarket…), pas à DHL ni FedEx.
+            </p>
+            <input type="hidden" name="network" value="LA_POSTE" />
+            <TextField name="relayName" label="Nom du bureau de poste" required defaultValue={location?.relayName ?? ""} placeholder="Ex. : Bureau de poste Lyon Bellecour" />
+          </div>
+        )}
         {isRelay && (
           <div className="grid gap-4 sm:grid-cols-2">
             <SelectField name="network" label="Réseau" required defaultValue={location?.network ?? "MONDIAL_RELAY"} options={PICKUP_NETWORKS.map((n) => ({ value: n.code, label: n.label }))} />

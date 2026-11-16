@@ -199,9 +199,10 @@ export const PREPARER_STATUS: Record<PreparerStatus, Labeled> = {
 };
 
 export const LOCATION_TYPE: Record<LocationType, string> = {
-  BUSINESS_ADDRESS: "Adresse professionnelle",
+  BUSINESS_ADDRESS: "Adresse de domiciliation",
   LOCKER: "Locker",
   RELAY_POINT: "Point relais",
+  POST_OFFICE: "Poste restante (bureau de poste)",
 };
 
 export const PAYMENT_STATUS: Record<PaymentStatus, Labeled> = {

@@ -26,7 +26,8 @@ export function Hero({ shippingHours }: { shippingHours: number }) {
             Déléguez vos colis à un <span className="text-gradient-brand">préparateur attitré</span>.
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted-foreground text-balance animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200 fill-mode-both sm:text-lg">
-            Vos achats arrivent chez votre préparateur : photographiés comme des pros, parfumés, emballés avec soin et expédiés à vos acheteurs sous {shippingHours} h.
+            Vos achats sont récupérés par votre préparateur en locker, en point relais ou en bureau de poste : photographiés comme des pros, parfumés, emballés avec
+            soin et expédiés à vos acheteurs sous {shippingHours} h.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both sm:flex-row">
             <Button asChild size="lg" className="btn-shine h-11 w-full px-5 text-[0.95rem] sm:w-auto">
