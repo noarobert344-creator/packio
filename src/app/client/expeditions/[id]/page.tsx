@@ -121,7 +121,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                   <Link href={`/client/stock/${i.inventoryItem.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-muted/40">
                     <span className="truncate text-sm font-medium">{i.inventoryItem.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {i.inventoryItem.sku} · ×{i.quantity}
+                      ×{i.quantity}
                     </span>
                   </Link>
                 </li>

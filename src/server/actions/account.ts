@@ -12,6 +12,7 @@ import { changePassword } from "@/server/services/auth";
 import { markNotificationsRead, savePreferences } from "@/server/services/notifications";
 import { createSupportConversation } from "@/server/services/messaging";
 import { audit } from "@/server/services/audit";
+import { syncLocationContact } from "@/server/services/preparers";
 
 const profileSchema = z.object({
   firstName: requiredText("Prénom", 1, 60),
@@ -22,7 +23,16 @@ const profileSchema = z.object({
 
 export async function updateProfileAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   return runAction(profileSchema, formToObject(formData), async (actor, data) => {
+    const before = await db.user.findUniqueOrThrow({ where: { id: actor.userId }, select: { firstName: true, lastName: true, phone: true } });
     await db.user.update({ where: { id: actor.userId }, data: { firstName: data.firstName, lastName: data.lastName, phone: data.phone ?? null } });
+    // Préparateur : ses points de réception reprennent son nouveau nom / numéro.
+    if (actor.preparerId) {
+      await syncLocationContact(
+        actor.preparerId,
+        { name: `${before.firstName} ${before.lastName}`, phone: before.phone },
+        { name: `${data.firstName} ${data.lastName}`, phone: data.phone ?? null },
+      );
+    }
     if (actor.customerId) await db.customerProfile.update({ where: { id: actor.customerId }, data: { companyName: data.companyName ?? null } });
     await audit({ actor, action: "account.profile_updated", entityType: "user", entityId: actor.userId });
     revalidatePath("/", "layout");

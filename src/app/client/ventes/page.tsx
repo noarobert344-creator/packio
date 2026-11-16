@@ -1,34 +1,32 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { KeyRound, Link2, PlugZap, Puzzle, ShoppingBag, Store } from "lucide-react";
+import { Inbox, KeyRound, MousePointerClick, PlugZap, Puzzle, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { FilterTabs } from "@/components/shared/list-controls";
 import { SalesList } from "@/components/client/sales-list";
 import { EmptyState } from "@/components/shared/empty-state";
-import { ActionButton, ActionDialog } from "@/components/shared/action-dialog";
-import { SelectField } from "@/components/shared/form-field";
+import { ActionButton } from "@/components/shared/action-dialog";
 import { ExtensionTokenForm } from "@/components/client/extension-token-form";
 import { ExtensionConnect } from "@/components/client/extension-connect";
 import { requireSubscribedCustomer } from "@/server/customer-page";
 import { SALE_FILTERS, listMarketplaceOverview, type SaleFilter } from "@/server/services/marketplace";
-import { createExtensionTokenAction, linkListingAction, revokeExtensionTokenAction } from "@/server/actions/marketplace";
+import { createExtensionTokenAction, revokeExtensionTokenAction } from "@/server/actions/marketplace";
 import { MARKETPLACE_PLATFORM } from "@/lib/labels";
-import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { one, type SearchParams } from "@/lib/params";
 
 export const metadata: Metadata = { title: "Ventes et comptes liés" };
 
 const STEPS = [
   { icon: Puzzle, title: "Installez Packio Connect", text: "L'extension pour Chrome lit vos ventes Vinted et Vestiaire Collective, depuis votre navigateur, avec vos propres sessions." },
+  { icon: Inbox, title: "Vos ventes arrivent ici", text: "Chaque article vendu apparaît tout seul dans « Toutes mes ventes », avec la photo, le prix et l'acheteur." },
   {
-    icon: Link2,
-    title: "Mettez le code de l'article dans l'annonce",
-    text: "Chaque article de votre stock a un code (par exemple SKU-AB12CD3), affiché dans « Mon stock ». Copiez-le dans la description de votre annonce Vinted : quand l'article se vend, Packio sait tout seul lequel expédier. Sans code, vous reliez la vente à l'article ici, en un clic.",
+    icon: MousePointerClick,
+    title: "Un clic par vente",
+    text: "« Vente normale » : l'article est dans votre stock, votre préparateur l'expédie. « Vente dropshipping » : il est commandé chez le fournisseur. « Supprimer » : vous l'expédiez vous-même.",
   },
-  { icon: ShoppingBag, title: "Vendez, Packio expédie", text: "Les ventes reconnues grâce au code partent seules chez votre préparateur, avec le bordereau. Pour les autres : « Vendu avec Packio » ou « Supprimer »." },
 ];
 
 const PAGE = 30;
@@ -39,15 +37,21 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
   const requested = one(sp.ventes);
   const filter: SaleFilter = (SALE_FILTERS as readonly string[]).includes(requested ?? "") ? (requested as SaleFilter) : "toutes";
   const limit = Math.min(Math.max(Number.parseInt(one(sp.n) ?? "", 10) || PAGE, PAGE), 300);
-  const { accounts, tokens, sales, salesFilter, hasMoreSales, saleCounts, listings, stockItems } = await listMarketplaceOverview(customer.id, { salesFilter: filter, salesLimit: limit });
-  const itemOptions = stockItems.map((i) => ({ value: i.id, label: `${i.name} · ${i.sku} (${i.quantityAvailable} dispo.)` }));
+  const { accounts, tokens, sales, salesFilter, hasMoreSales, saleCounts, stockItems } = await listMarketplaceOverview(customer.id, { salesFilter: filter, salesLimit: limit });
+  // Deux articles du même nom : on précise la date d'arrivée pour les distinguer.
+  const names = new Map<string, number>();
+  for (const i of stockItems) names.set(i.name, (names.get(i.name) ?? 0) + 1);
+  const itemOptions = stockItems.map((i) => ({
+    value: i.id,
+    label: `${i.name}${(names.get(i.name) ?? 0) > 1 ? ` · arrivé le ${formatDate(i.receivedAt)}` : ""} (${i.quantityAvailable} dispo.)`,
+  }));
   const activeTokens = tokens.filter((t) => !t.revokedAt);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Ventes et comptes liés"
-        description="Reliez vos comptes Vinted et Vestiaire Collective : vos ventes arrivent ici, et celles des articles stockés chez votre préparateur partent avec le bordereau de la plateforme."
+        description="Reliez vos comptes Vinted et Vestiaire Collective : toutes vos ventes arrivent ici, et vous choisissez pour chacune ce que Packio en fait."
       />
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -64,8 +68,8 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
       </div>
 
       <Section
-        title="Toutes les ventes"
-        description="Toutes vos ventes Vinted et Vestiaire Collective. Sous chaque article : « Vendu avec Packio » (expédié depuis votre stock), « Vendu en dropshipping » (commandé chez le fournisseur, expédié dès réception) ou « Supprimer » si vous l'expédiez vous-même."
+        title="Toutes mes ventes"
+        description="Sous chaque article vendu, choisissez : « Vente normale » (l'article est dans votre stock, votre préparateur l'expédie), « Vente dropshipping » (commandé chez le fournisseur, expédié dès réception) ou « Supprimer » (vous l'expédiez vous-même)."
       >
         <div className="space-y-4">
           <FilterTabs
@@ -73,7 +77,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
             options={[
               { value: "", label: "Toutes", count: saleCounts.toutes },
               { value: "a-traiter", label: "À traiter", count: saleCounts["a-traiter"] },
-              { value: "packio", label: "Ventes Packio", count: saleCounts.packio },
+              { value: "packio", label: "Ventes normales", count: saleCounts.packio },
               { value: "dropshipping", label: "Ventes dropshipping", count: saleCounts.dropshipping },
             ]}
           />
@@ -97,7 +101,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
                 salesFilter === "a-traiter"
                   ? "Aucune vente à traiter"
                   : salesFilter === "packio"
-                    ? "Aucune vente expédiée depuis votre stock"
+                    ? "Aucune vente normale"
                     : salesFilter === "dropshipping"
                       ? "Aucune vente en dropshipping"
                       : "Aucune vente pour l'instant"
@@ -165,73 +169,6 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
           </p>
         </Section>
       </div>
-
-      <Section title="Annonces" description="Rattachez une annonce à un article du stock : ses ventes seront expédiées automatiquement." contentClassName="p-0">
-        {listings.length ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-5">Annonce</TableHead>
-                  <TableHead>Prix</TableHead>
-                  <TableHead>Article Packio</TableHead>
-                  <TableHead className="pr-5 text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {listings.map((l) => (
-                  <TableRow key={l.id}>
-                    <TableCell className="max-w-xs pl-5">
-                      <span className="block truncate font-medium">
-                        {l.url ? (
-                          <a href={l.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                            {l.title}
-                          </a>
-                        ) : (
-                          l.title
-                        )}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {MARKETPLACE_PLATFORM[l.platform]} · {l.status === "sold" ? "vendue" : l.status} · vue le {formatDate(l.lastSeenAt)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm tabular">{l.priceCents !== null ? formatMoney(l.priceCents, l.currency) : "—"}</TableCell>
-                    <TableCell className="text-sm">
-                      {l.inventoryItem ? (
-                        <Link href={`/client/stock/${l.inventoryItem.id}`} className="hover:underline">
-                          {l.inventoryItem.name} <span className="font-mono text-xs text-muted-foreground">{l.inventoryItem.sku}</span>
-                        </Link>
-                      ) : (
-                        <span className="text-muted-foreground">Non rattachée</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="pr-5 text-right">
-                      {l.inventoryItem ? (
-                        <ActionButton action={linkListingAction} fields={{ listingId: l.id, itemId: "" }} variant="ghost" size="sm">
-                          Détacher
-                        </ActionButton>
-                      ) : (
-                        <ActionDialog trigger={<Button size="sm" variant="outline">Rattacher</Button>} title="Rattacher l'annonce" description={l.title} action={linkListingAction} submitLabel="Rattacher">
-                          <input type="hidden" name="listingId" value={l.id} />
-                          {itemOptions.length ? (
-                            <SelectField name="itemId" label="Article de votre stock" required options={itemOptions} placeholder="Choisir un article" />
-                          ) : (
-                            <p className="text-sm text-muted-foreground">Aucun article disponible dans votre stock.</p>
-                          )}
-                        </ActionDialog>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <div className="p-5">
-            <EmptyState icon={ShoppingBag} title="Aucune annonce synchronisée" />
-          </div>
-        )}
-      </Section>
     </div>
   );
 }

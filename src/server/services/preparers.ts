@@ -2,6 +2,7 @@ import type { LocationType, PreparerStatus } from "@/generated/prisma/enums";
 import { db } from "@/server/db";
 import { DomainError, ForbiddenError, NotFoundError } from "@/server/errors";
 import { assertAdmin, assertPreparer, type Actor } from "@/server/auth/actor";
+import { hasPermission } from "@/server/auth/permissions";
 import { audit } from "./audit";
 import { normalizeEmail, sendInvitation } from "./auth";
 import { withEffects } from "./notifications";
@@ -169,13 +170,33 @@ export type LocationInput = {
   recipientPhone?: string | null;
   openingHours?: string | null;
   instructions?: string | null;
-  isPrimary: boolean;
+  /** Absent : le lieu modifié garde son statut de lieu principal. */
+  isPrimary?: boolean;
 };
 
+/** Champs qui désignent l'endroit où le colis arrive. */
+const DESTINATION_FIELDS = ["type", "network", "relayName", "externalId", "addressLine1", "addressLine2", "postalCode", "city", "country"] as const;
+/** Champs revus par Packio : la destination et le texte libre montré aux clients. */
+const REVIEWED_FIELDS = [...DESTINATION_FIELDS, "instructions"] as const;
+/** Commandes fournisseur encore attendues sur un point de réception. */
+const AWAITED_ORDER_STATUSES = ["REGISTERED", "SUPPLIER_CONFIRMED", "IN_TRANSIT", "AT_LOCKER"] as const;
+
 /**
- * Création / modification d'un lieu de réception. Un lieu modifié perd sa
- * validation : il doit être revalidé par un administrateur avant d'être
- * communiqué aux clients.
+ * Un préparateur qui est aussi administrateur avec le droit de valider les
+ * lieux n'a pas à attendre sa propre validation : il pourrait la donner
+ * lui-même depuis l'administration. Vérifié en base, jamais d'après le client.
+ */
+async function canValidateOwnLocations(actor: Actor) {
+  if (!actor.otherSpaces?.includes("ADMIN")) return false;
+  const user = await db.user.findUnique({ where: { id: actor.userId }, select: { role: true, status: true, staffRole: { select: { permissions: true } } } });
+  return user?.role === "ADMIN" && user.status !== "DEACTIVATED" && hasPermission(user.staffRole?.permissions ?? [], "preparers.manage");
+}
+
+/**
+ * Création / modification d'un lieu de réception. Seuls les lieux validés sont
+ * communiqués aux clients : un lieu dont la destination (ou les instructions)
+ * change doit être revalidé par Packio. Le libellé, le nom, le téléphone et les
+ * horaires se modifient sans perdre la validation.
  */
 export async function saveLocation(actor: Actor, input: LocationInput & { preparerId: string; locationId?: string; validate?: boolean }) {
   const isAdmin = actor.role === "ADMIN";
@@ -191,11 +212,15 @@ export async function saveLocation(actor: Actor, input: LocationInput & { prepar
   if (input.type === "POST_OFFICE" && !input.relayName?.trim()) {
     throw new DomainError("POST_OFFICE", "Indiquez le nom du bureau de poste.", { fieldErrors: { relayName: "Requis" } });
   }
-  return db.$transaction(async (tx) => {
-    if (input.isPrimary) {
-      await tx.preparerLocation.updateMany({ where: { preparerId: input.preparerId, isPrimary: true, NOT: input.locationId ? { id: input.locationId } : undefined }, data: { isPrimary: false } });
+  const selfValidate = !isAdmin && (await canValidateOwnLocations(actor));
+  return withEffects(async (tx, fx) => {
+    const existing = input.locationId ? await tx.preparerLocation.findUnique({ where: { id: input.locationId } }) : null;
+    if (input.locationId && (!existing || existing.preparerId !== input.preparerId)) throw new NotFoundError("Lieu introuvable.");
+    if (existing && !isAdmin) {
+      if (!existing.isActive) throw new DomainError("INACTIVE", "Ce point de réception a été retiré : ajoutez-en un nouveau.");
+      if (existing.type === "BUSINESS_ADDRESS") throw new DomainError("MANAGED", "Ce lieu est géré par l'équipe Packio : écrivez-lui pour le modifier.");
     }
-    const data = {
+    const fields = {
       type: input.type,
       label: input.label.trim(),
       network: input.type === "BUSINESS_ADDRESS" ? null : input.type === "POST_OFFICE" ? "LA_POSTE" : input.network || null,
@@ -210,20 +235,52 @@ export async function saveLocation(actor: Actor, input: LocationInput & { prepar
       recipientPhone: input.recipientPhone?.trim() || null,
       openingHours: input.openingHours?.trim() || null,
       instructions: input.instructions?.trim() || null,
-      isPrimary: input.isPrimary,
-      isActive: true,
-      validatedAt: isAdmin && input.validate ? new Date() : null,
-      validatedById: isAdmin && input.validate ? actor.userId : null,
     };
-    let location;
-    if (input.locationId) {
-      const existing = await tx.preparerLocation.findUnique({ where: { id: input.locationId } });
-      if (!existing || existing.preparerId !== input.preparerId) throw new NotFoundError("Lieu introuvable.");
-      location = await tx.preparerLocation.update({ where: { id: input.locationId }, data });
-    } else {
-      location = await tx.preparerLocation.create({ data: { ...data, preparerId: input.preparerId } });
+    const differs = (keys: readonly (keyof typeof fields)[]) => !existing || keys.some((k) => (existing[k] ?? null) !== fields[k]);
+    const moved = differs(DESTINATION_FIELDS);
+    const needsReview = differs(REVIEWED_FIELDS);
+    if (existing && !isAdmin && moved) {
+      // Les colis déjà commandés arrivent à l'ancienne destination : on ne la perd pas de vue.
+      const awaited = await tx.supplierOrder.count({ where: { locationId: existing.id, status: { in: [...AWAITED_ORDER_STATUSES] } } });
+      if (awaited) {
+        throw new DomainError(
+          "IN_TRANSIT",
+          `${awaited} commande(s) sont encore attendues sur ce point : changez son adresse une fois qu'elles sont récupérées, ou ajoutez plutôt un nouveau point.`,
+        );
+      }
     }
-    await audit({ actor, action: input.locationId ? "location.updated" : "location.created", entityType: "preparer_location", entityId: location.id, summary: `${location.label}${data.validatedAt ? " (validé)" : " (à valider)"}` }, tx);
+    const isPrimary = input.isPrimary ?? existing?.isPrimary ?? false;
+    if (isPrimary) {
+      await tx.preparerLocation.updateMany({ where: { preparerId: input.preparerId, isPrimary: true, NOT: existing ? { id: existing.id } : undefined }, data: { isPrimary: false } });
+    }
+    const validation = isAdmin
+      ? input.validate
+        ? { validatedAt: new Date(), validatedById: actor.userId }
+        : { validatedAt: null, validatedById: null }
+      : existing && !needsReview
+        ? { validatedAt: existing.validatedAt, validatedById: existing.validatedById }
+        : selfValidate
+          ? { validatedAt: new Date(), validatedById: actor.userId }
+          : { validatedAt: null, validatedById: null };
+    const data = { ...fields, isPrimary, isActive: true, ...validation };
+    const location = existing
+      ? await tx.preparerLocation.update({ where: { id: existing.id }, data })
+      : await tx.preparerLocation.create({ data: { ...data, preparerId: input.preparerId } });
+    await audit(
+      { actor, action: existing ? "location.updated" : "location.created", entityType: "preparer_location", entityId: location.id, summary: `${location.label}${location.validatedAt ? " (validé)" : " (à valider)"}` },
+      tx,
+    );
+    if (!isAdmin && !location.validatedAt) {
+      fx.notifyAdmins(
+        {
+          type: "ADMIN_PREPARER_ONBOARDED",
+          title: existing ? "Point de réception modifié à valider" : "Point de réception à valider",
+          body: `${actor.firstName} ${actor.lastName} ${existing ? "a modifié" : "propose"} « ${location.label} » : à vérifier avant qu'il soit proposé aux clients.`,
+          link: `/admin/preparateurs/${input.preparerId}`,
+        },
+        "preparers.manage",
+      );
+    }
     return location;
   });
 }
@@ -238,15 +295,64 @@ export async function setLocationValidation(actor: Actor, input: { locationId: s
   return loc;
 }
 
-export async function deactivateLocation(actor: Actor, locationId: string) {
+async function locationForActor(actor: Actor, locationId: string) {
   const loc = await db.preparerLocation.findUnique({ where: { id: locationId } });
   if (!loc) throw new NotFoundError();
   if (actor.role === "ADMIN") assertAdmin(actor, "preparers.manage");
   else if (assertPreparer(actor) !== loc.preparerId) throw new ForbiddenError();
-  const pending = await db.supplierOrder.count({ where: { locationId, status: { in: ["REGISTERED", "SUPPLIER_CONFIRMED", "IN_TRANSIT", "AT_LOCKER"] } } });
-  await db.preparerLocation.update({ where: { id: locationId }, data: { isActive: false, isPrimary: false } });
-  await audit({ actor, action: "location.deactivated", entityType: "preparer_location", entityId: locationId, summary: `${pending} commande(s) encore en route` });
-  return { pendingOrders: pending };
+  return loc;
+}
+
+/**
+ * Retire un lieu de réception. Le préparateur garde toujours au moins un point
+ * actif ; le lieu principal passe au point suivant (validé de préférence).
+ */
+export async function deactivateLocation(actor: Actor, locationId: string) {
+  const loc = await locationForActor(actor, locationId);
+  return db.$transaction(async (tx) => {
+    const others = await tx.preparerLocation.findMany({
+      where: { preparerId: loc.preparerId, isActive: true, NOT: { id: loc.id } },
+      orderBy: [{ validatedAt: { sort: "desc", nulls: "last" } }, { createdAt: "asc" }],
+      select: { id: true },
+    });
+    if (actor.role !== "ADMIN" && loc.isActive && others.length === 0) {
+      throw new DomainError("LAST_POINT", "Gardez au moins un point de réception : ajoutez-en un autre avant de retirer celui-ci.");
+    }
+    const pending = await tx.supplierOrder.count({ where: { locationId, status: { in: [...AWAITED_ORDER_STATUSES] } } });
+    await tx.preparerLocation.update({ where: { id: locationId }, data: { isActive: false, isPrimary: false } });
+    if (loc.isPrimary && others[0]) await tx.preparerLocation.update({ where: { id: others[0].id }, data: { isPrimary: true } });
+    await audit({ actor, action: "location.deactivated", entityType: "preparer_location", entityId: locationId, summary: `${pending} commande(s) encore en route` }, tx);
+    return { pendingOrders: pending };
+  });
+}
+
+/** Choisit le point de réception affiché en premier aux clients. */
+export async function setPrimaryLocation(actor: Actor, locationId: string) {
+  const loc = await locationForActor(actor, locationId);
+  if (!loc.isActive) throw new DomainError("INACTIVE", "Ce point de réception a été retiré.");
+  await db.$transaction([
+    db.preparerLocation.updateMany({ where: { preparerId: loc.preparerId, isPrimary: true, NOT: { id: loc.id } }, data: { isPrimary: false } }),
+    db.preparerLocation.update({ where: { id: loc.id }, data: { isPrimary: true } }),
+  ]);
+  await audit({ actor, action: "location.primary", entityType: "preparer_location", entityId: loc.id, summary: loc.label });
+}
+
+/**
+ * Le préparateur change de nom ou de téléphone dans son profil : les points de
+ * réception qui reprenaient l'ancien nom / numéro suivent (le code de retrait
+ * Vinted arrive par SMS, la poste restante se retire avec la pièce d'identité).
+ */
+export async function syncLocationContact(
+  preparerId: string,
+  before: { name: string; phone: string | null },
+  after: { name: string; phone: string | null },
+) {
+  if (before.name !== after.name) {
+    await db.preparerLocation.updateMany({ where: { preparerId, isActive: true, recipientName: before.name }, data: { recipientName: after.name } });
+  }
+  if (before.phone && after.phone && before.phone !== after.phone) {
+    await db.preparerLocation.updateMany({ where: { preparerId, isActive: true, recipientPhone: before.phone }, data: { recipientPhone: after.phone } });
+  }
 }
 
 export async function updateAvailability(actor: Actor, input: { availability: WeeklyAvailability; note?: string | null }) {

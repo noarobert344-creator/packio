@@ -4,7 +4,6 @@ import { Camera, Download, ExternalLink, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { CopyButton } from "@/components/shared/copy-button";
 import { requireSubscribedCustomer } from "@/server/customer-page";
 import { listForSale } from "@/server/queries/sales-board";
 import { MARKETPLACE_PLATFORM } from "@/lib/labels";
@@ -19,7 +18,7 @@ export default async function CustomerForSalePage() {
     <div className="space-y-6">
       <PageHeader
         title="À vendre"
-        description="Votre préparateur photographie vos articles en stock et les dépose ici. Téléchargez les photos, créez votre annonce et indiquez le SKU dans sa description : Packio Connect la rattachera à l'article."
+        description="Votre préparateur photographie vos articles en stock et les dépose ici. Téléchargez les photos et créez votre annonce. Quand l'article se vend, la vente arrive dans « Toutes mes ventes » : choisissez « Vente normale »."
         actions={
           <Button asChild variant="outline">
             <Link href="/client/bordereaux">Bordereaux</Link>
@@ -63,10 +62,6 @@ export default async function CustomerForSalePage() {
                       <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">À publier</span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2">
-                    <span className="font-mono text-xs">{item.sku}</span>
-                    <CopyButton value={item.sku} label="Copier le SKU" variant="ghost" size="sm" />
-                  </div>
                   {live.map((l) =>
                     l.url ? (
                       <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand hover:underline">
@@ -105,7 +100,6 @@ export default async function CustomerForSalePage() {
                     {item.name}
                   </Link>
                 </span>
-                <span className="shrink-0 font-mono text-xs text-muted-foreground">{item.sku}</span>
               </li>
             ))}
           </ul>

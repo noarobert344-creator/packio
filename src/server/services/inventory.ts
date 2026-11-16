@@ -150,7 +150,7 @@ export async function createStockItem(
   if (!input.dropship) fx.notify(customer.userId, {
     type: "STOCK_UPDATED",
     title: "Nouvel article en stock",
-    body: `${updated.name} (×${input.quantity}) a été ajouté à votre stock — SKU ${updated.sku}.`,
+    body: `${updated.name} (×${input.quantity}) a été ajouté à votre stock.`,
     link: `/client/stock/${updated.id}`,
   });
   return updated;

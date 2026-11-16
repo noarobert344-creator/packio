@@ -89,7 +89,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     <Link href={`/client/stock/${i.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-muted/40">
                       <span className="text-sm font-medium">{i.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {i.sku} · {i.quantityAvailable} disponible(s)
+                        {i.quantityAvailable} disponible(s)
                       </span>
                     </Link>
                   </li>

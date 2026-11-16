@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarOff, MapPinPlus } from "lucide-react";
+import { CalendarOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SubmitButton, useFieldError } from "@/components/shared/action-form";
-import { SelectField, TextAreaField, TextField } from "@/components/shared/form-field";
-import { LOCATION_TYPE, PICKUP_NETWORKS } from "@/lib/labels";
+import { TextField } from "@/components/shared/form-field";
 import { cn } from "@/lib/utils";
-import { declareAbsenceAction, proposeLocationAction, updateAvailabilityAction } from "@/server/actions/preparer";
+import { declareAbsenceAction, updateAvailabilityAction } from "@/server/actions/preparer";
 import { StepForm, StepDialog } from "./step-form";
 
 const DAYS = [
@@ -91,63 +90,6 @@ export function AbsenceDialog() {
         <TextField name="endsAt" label="Au (inclus)" type="date" required min={today} />
       </div>
       <TextField name="reason" label="Motif" placeholder="Facultatif — ex. : congés" />
-    </StepDialog>
-  );
-}
-
-export function ProposeLocationDialog({ defaultRecipient, defaultCity, defaultPhone }: { defaultRecipient: string; defaultCity: string; defaultPhone?: string | null }) {
-  const [type, setType] = useState<"LOCKER" | "RELAY_POINT" | "POST_OFFICE">("LOCKER");
-  const relay = type === "LOCKER" || type === "RELAY_POINT";
-  return (
-    <StepDialog
-      trigger={
-        <Button variant="outline">
-          <MapPinPlus /> Proposer un point de réception
-        </Button>
-      }
-      title="Proposer un point de réception"
-      description="Le point sera communiqué à vos clients uniquement après vérification et validation par l'équipe Packio."
-      action={proposeLocationAction}
-      submitLabel="Envoyer pour validation"
-      wide
-    >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <SelectField
-          name="type"
-          label="Type"
-          required
-          value={type}
-          onChange={(e) => setType(e.target.value as typeof type)}
-          options={(["LOCKER", "RELAY_POINT", "POST_OFFICE"] as const).map((k) => ({ value: k, label: LOCATION_TYPE[k] }))}
-        />
-        <TextField name="label" label="Libellé" required placeholder="Ex. : Locker secondaire" />
-        {type === "POST_OFFICE" && (
-          <>
-            <p className="rounded-xl bg-info-soft p-3 text-xs text-info sm:col-span-2">
-              Poste restante : le colis vous attend au bureau de poste et vous le retirez avec votre pièce d&apos;identité. Le nom du destinataire doit être celui de
-              votre pièce d&apos;identité.
-            </p>
-            <input type="hidden" name="network" value="LA_POSTE" />
-            <TextField name="relayName" label="Nom du bureau de poste" required placeholder="Ex. : Bureau de poste Lyon Bellecour" className="sm:col-span-2" />
-          </>
-        )}
-        {relay && (
-          <>
-            <SelectField name="network" label="Réseau" required placeholder="Choisir…" options={PICKUP_NETWORKS.map((n) => ({ value: n.code, label: n.label }))} />
-            <TextField name="relayName" label="Nom exact du point relais / locker" required />
-            <TextField name="externalId" label="Identifiant du point (si connu)" />
-            <TextField name="openingHours" label="Horaires" placeholder="Ex. : 24 h/24" />
-          </>
-        )}
-        <TextField name="addressLine1" label="Adresse" required className="sm:col-span-2" />
-        <TextField name="addressLine2" label="Complément d'adresse" className="sm:col-span-2" />
-        <TextField name="postalCode" label="Code postal" required />
-        <TextField name="city" label="Ville" required defaultValue={defaultCity} />
-        <TextField name="country" label="Pays (code ISO)" required defaultValue="FR" maxLength={2} />
-        <TextField name="recipientName" label="Nom du destinataire à indiquer" required defaultValue={defaultRecipient} />
-        <TextField name="recipientPhone" label="Téléphone à indiquer" type="tel" defaultValue={defaultPhone ?? ""} hint="Vinted l'exige : vous recevez le code de retrait par SMS." />
-      </div>
-      <TextAreaField name="instructions" label="Instructions pour les clients" rows={2} placeholder="Facultatif" />
     </StepDialog>
   );
 }

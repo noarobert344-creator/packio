@@ -27,7 +27,19 @@ import {
   updateTransit,
 } from "@/server/services/shipments";
 import { preparerDebitCredits, PREPARER_DEBIT_MAX } from "@/server/services/preparer-credits";
-import { cancelAbsence, completeOnboarding, declareAbsence, ONBOARDING_LOCKER_NETWORKS, saveLocation, updateAvailability, type OnboardingInput, type WeeklyAvailability } from "@/server/services/preparers";
+import {
+  cancelAbsence,
+  completeOnboarding,
+  deactivateLocation,
+  declareAbsence,
+  ONBOARDING_LOCKER_NETWORKS,
+  saveLocation,
+  setPrimaryLocation,
+  updateAvailability,
+  type OnboardingInput,
+  type WeeklyAvailability,
+} from "@/server/services/preparers";
+import { assertPreparer } from "@/server/auth/actor";
 
 function refresh(...paths: string[]) {
   for (const p of paths) revalidatePath(p);
@@ -410,11 +422,41 @@ const locationSchema = z.object({
 });
 
 export async function proposeLocationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(locationSchema, formToObject(formData), async (actor, data) => {
-    if (!actor.preparerId) throw new DomainError("FORBIDDEN", "Action réservée aux préparateurs.");
-    await saveLocation(actor, { ...data, preparerId: actor.preparerId, isPrimary: false });
-    refresh("/preparateur/disponibilites");
-    return { ok: true, message: "Point de réception proposé. Il sera communiqué aux clients après validation par l'équipe Packio." };
+  return runAction(locationSchema.extend({ locationId: id.optional() }), formToObject(formData), async (actor, data) => {
+    const preparerId = assertPreparer(actor);
+    const { locationId, ...input } = data;
+    const location = await saveLocation(actor, { ...input, preparerId, locationId, isPrimary: locationId ? undefined : false });
+    refresh("/preparateur/disponibilites", "/preparateur/parametres");
+    if (location.validatedAt) return { ok: true, message: locationId ? "Point de réception modifié." : "Point de réception ajouté." };
+    return {
+      ok: true,
+      message: locationId
+        ? "Point de réception modifié : il sera de nouveau proposé à vos clients après vérification par l'équipe Packio."
+        : "Point de réception proposé. Il sera communiqué aux clients après validation par l'équipe Packio.",
+    };
+  });
+}
+
+export async function removeLocationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(z.object({ locationId: id }), formToObject(formData), async (actor, data) => {
+    assertPreparer(actor);
+    const { pendingOrders } = await deactivateLocation(actor, data.locationId);
+    refresh("/preparateur/disponibilites", "/preparateur/parametres");
+    return {
+      ok: true,
+      message: pendingOrders
+        ? `Point retiré. ${pendingOrders} commande(s) déjà en route y arrivent quand même : pensez à les récupérer.`
+        : "Point de réception retiré : il n'est plus proposé à vos clients.",
+    };
+  });
+}
+
+export async function setPrimaryLocationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(z.object({ locationId: id }), formToObject(formData), async (actor, data) => {
+    assertPreparer(actor);
+    await setPrimaryLocation(actor, data.locationId);
+    refresh("/preparateur/disponibilites", "/preparateur/parametres");
+    return { ok: true, message: "Point principal mis à jour : il est proposé en premier à vos clients." };
   });
 }
 

@@ -44,7 +44,7 @@ Installation en deux clics
 2. Dans Packio, ouvrez « Ventes et comptes liés » et cliquez sur « Connecter l'extension ».
 Restez simplement connecté à Vinted ou Vestiaire Collective dans ce navigateur : la synchronisation a lieu toutes les 15 minutes, ou à la demande.
 
-Vos annonces sont rattachées à vos articles en stock lorsque leur description cite le SKU Packio (SKU-XXXXXXX).
+Vos ventes arrivent dans « Toutes mes ventes » : un clic pour choisir vente normale, vente dropshipping ou supprimer.
 
 Données utilisées et confidentialité
 • L'extension lit vos annonces (titre, description, prix, photo principale), vos ventes (article, prix, date, pseudonyme de l'acheteur, suivi) et les bordereaux d'expédition (nom et adresse de l'acheteur).

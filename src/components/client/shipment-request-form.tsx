@@ -97,7 +97,7 @@ export function ShipmentRequestForm({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{i.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {i.sku} · {i.available} disponible(s)
+                      {i.available} disponible(s)
                     </p>
                   </div>
                   {checked && (

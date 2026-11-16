@@ -232,7 +232,7 @@ export async function syncFromExtension(customerId: string, payload: unknown) {
         title: `Vente ${platformLabel(platform)} : « ${sale.title} »`,
         body: item
           ? `Vendu${price}. L'article « ${item.name} » de votre stock est envoyé à votre préparateur ; le bordereau sera joint dès qu'il sera généré sur ${platformLabel(platform)}.`
-          : `Vendu${price}. Associez cette vente à un article de votre stock pour que votre préparateur l'expédie.`,
+          : `Vendu${price}. Dans « Toutes mes ventes », choisissez : vente normale, vente dropshipping ou supprimer.`,
         link: "/client/ventes",
         forceEmail: true,
       });
@@ -500,7 +500,7 @@ const saleFilterWhere: Record<SaleFilter, Prisma.MarketplaceSaleWhereInput> = {
 export async function listMarketplaceOverview(customerId: string, opts: { salesFilter?: SaleFilter; salesLimit?: number } = {}) {
   const filter = opts.salesFilter ?? "toutes";
   const limit = Math.min(Math.max(opts.salesLimit ?? 30, 1), 300);
-  const [accounts, tokens, sales, saleCounts, listings, stockItems] = await Promise.all([
+  const [accounts, tokens, sales, saleCounts, stockItems] = await Promise.all([
     db.marketplaceAccount.findMany({ where: { customerId }, orderBy: { lastSyncAt: "desc" } }),
     db.extensionToken.findMany({
       // Jetons révoqués affichés 7 jours (l'historique complet reste dans le journal d'audit).
@@ -514,7 +514,7 @@ export async function listMarketplaceOverview(customerId: string, opts: { salesF
       orderBy: { soldAt: "desc" },
       take: limit + 1,
       include: {
-        inventoryItem: { select: { id: true, name: true, sku: true, files: { where: { purpose: "PRODUCT_PHOTO", deletedAt: null }, orderBy: { createdAt: "asc" }, take: 1, select: { id: true } } } },
+        inventoryItem: { select: { id: true, name: true, files: { where: { purpose: "PRODUCT_PHOTO", deletedAt: null }, orderBy: { createdAt: "asc" }, take: 1, select: { id: true } } } },
         shipment: { select: { id: true, reference: true, status: true, carrier: true, trackingNumber: true } },
         dropshipOrder: {
           select: {
@@ -531,16 +531,10 @@ export async function listMarketplaceOverview(customerId: string, opts: { salesF
       },
     }),
     Promise.all(SALE_FILTERS.map((f) => db.marketplaceSale.count({ where: { customerId, ...saleFilterWhere[f] } }))),
-    db.marketplaceListing.findMany({
-      where: { customerId },
-      orderBy: { lastSeenAt: "desc" },
-      take: 200,
-      include: { inventoryItem: { select: { id: true, name: true, sku: true } } },
-    }),
     db.inventoryItem.findMany({
       where: { customerId, dropship: false, quantityAvailable: { gt: 0 } },
       orderBy: { receivedAt: "desc" },
-      select: { id: true, name: true, sku: true, quantityAvailable: true },
+      select: { id: true, name: true, quantityAvailable: true, receivedAt: true },
       take: 300,
     }),
   ]);
@@ -551,7 +545,6 @@ export async function listMarketplaceOverview(customerId: string, opts: { salesF
     salesFilter: filter,
     hasMoreSales: sales.length > limit,
     saleCounts: Object.fromEntries(SALE_FILTERS.map((f, i) => [f, saleCounts[i]])) as Record<SaleFilter, number>,
-    listings,
     stockItems,
   };
 }

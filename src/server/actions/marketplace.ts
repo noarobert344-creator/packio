@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ActionState } from "@/lib/action-types";
 import { formToObject, runAction } from "@/server/action";
-import { createExtensionToken, deleteSale, linkListingToItem, matchSaleToItem, revokeExtensionToken } from "@/server/services/marketplace";
+import { createExtensionToken, deleteSale, matchSaleToItem, revokeExtensionToken } from "@/server/services/marketplace";
 
 const id = z.string().min(1).max(40);
 
@@ -25,24 +25,12 @@ export async function revokeExtensionTokenAction(_prev: ActionState, formData: F
   });
 }
 
-export async function linkListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ listingId: id, itemId: z.string().max(40).optional() }), formToObject(formData), async (actor, data) => {
-    const { shipments } = await linkListingToItem(actor, { listingId: data.listingId, itemId: data.itemId || null });
-    revalidatePath("/client/ventes");
-    revalidatePath("/client/stock", "layout");
-    return {
-      ok: true,
-      message: !data.itemId ? "Annonce détachée de l'article." : shipments ? `Annonce rattachée : ${shipments} expédition(s) créée(s) pour les ventes en attente.` : "Annonce rattachée à l'article.",
-    };
-  });
-}
-
 export async function matchSaleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   return runAction(z.object({ saleId: id, itemId: id }), formToObject(formData), async (actor, data) => {
     await matchSaleToItem(actor, data);
     revalidatePath("/client/ventes");
     revalidatePath("/client/expeditions");
-    return { ok: true, message: "Vendu avec Packio : votre préparateur expédie l'article sous 48 h." };
+    return { ok: true, message: "Vente normale : votre préparateur expédie l'article sous 48 h." };
   });
 }
 

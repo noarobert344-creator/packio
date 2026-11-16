@@ -70,7 +70,7 @@ export function LabelBoard({ shipments, role, now }: { shipments: LabelBoardShip
                     <div className="min-w-0">
                       <p className="truncate font-medium">{it.inventoryItem.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {it.inventoryItem.sku} · × {it.quantity}
+                        {role === "PREPARER" ? `${it.inventoryItem.sku} · ` : ""}× {it.quantity}
                         {role === "PREPARER" && it.inventoryItem.storageLocation ? ` · Empl. ${it.inventoryItem.storageLocation}` : ""}
                       </p>
                     </div>

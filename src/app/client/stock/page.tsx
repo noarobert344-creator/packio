@@ -68,7 +68,7 @@ export default async function StockPage({ searchParams }: { searchParams: Search
             { value: "DAMAGED", label: "Abîmés" },
           ]}
         />
-        <SearchInput placeholder="Nom, SKU, fournisseur…" />
+        <SearchInput placeholder="Nom de l'article, fournisseur…" />
       </div>
       {items.length ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -89,10 +89,7 @@ export default async function StockPage({ searchParams }: { searchParams: Search
                   <p className="truncate font-medium">{i.name}</p>
                   <StatusFrom map={INVENTORY_STATUS} value={i.status} />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {i.sku}
-                  {i.supplierName ? ` · ${i.supplierName}` : ""}
-                </p>
+                {i.supplierName && <p className="text-xs text-muted-foreground">{i.supplierName}</p>}
                 <div className="grid grid-cols-4 gap-1 pt-1 text-center text-[0.7rem]">
                   {[
                     ["Reçus", i.quantityReceived],

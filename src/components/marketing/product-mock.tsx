@@ -94,7 +94,7 @@ export function ProductMock() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[0.8rem] font-semibold">Sneakers · taille 39</p>
-                  <p className="text-[0.68rem] text-muted-foreground">SKU-4F8D2A1 · Emplacement C-01</p>
+                  <p className="text-[0.68rem] text-muted-foreground">Reçu chez votre préparateur</p>
                 </div>
                 <span className="rounded-full bg-success-soft px-2 py-0.5 text-[0.65rem] font-medium text-success ring-1 ring-inset ring-success/20">En stock</span>
               </div>

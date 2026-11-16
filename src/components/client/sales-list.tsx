@@ -14,9 +14,10 @@ type Overview = Awaited<ReturnType<typeof listMarketplaceOverview>>;
 type Sale = Overview["sales"][number];
 
 /**
- * « Toutes les ventes » : une carte par article vendu sur un compte lié.
- * Sous chaque vente à traiter : « Vendu avec Packio » (le préparateur expédie)
- * ou « Supprimer » (article expédié par le client lui-même).
+ * « Toutes mes ventes » : une carte par article vendu sur un compte lié.
+ * Sous chaque vente à traiter, trois boutons : « Vente normale » (article du
+ * stock, le préparateur expédie), « Vente dropshipping » (commandé chez le
+ * fournisseur) ou « Supprimer » (article expédié par le client lui-même).
  */
 export function SalesList({ sales, itemOptions }: { sales: Sale[]; itemOptions: { value: string; label: string }[] }) {
   return (
@@ -75,11 +76,10 @@ function SaleCard({ sale: s, itemOptions }: { sale: Sale; itemOptions: { value: 
       </div>
       {s.inventoryItem && (
         <p className="mt-2 text-xs text-muted-foreground">
-          Article Packio :{" "}
+          Article de votre stock :{" "}
           <Link href={`/client/stock/${s.inventoryItem.id}`} className="font-medium text-foreground hover:underline">
             {s.inventoryItem.name}
-          </Link>{" "}
-          <span className="font-mono">{s.inventoryItem.sku}</span>
+          </Link>
         </p>
       )}
       {s.notes && <p className="mt-2 text-xs text-warning">{s.notes}</p>}
@@ -89,7 +89,7 @@ function SaleCard({ sale: s, itemOptions }: { sale: Sale; itemOptions: { value: 
         {s.dropshipOrder ? (
           <Link href={`/client/commandes/${s.dropshipOrder.id}`} className="block rounded-xl bg-brand-soft px-3 py-2.5 text-brand transition-colors hover:bg-brand-soft/70">
             <span className="flex items-center gap-1.5 text-sm font-medium">
-              <Zap className="size-4 shrink-0" /> Vendu en dropshipping
+              <Zap className="size-4 shrink-0" /> Vente dropshipping
             </span>
             <span className="mt-0.5 block text-xs">
               {s.dropshipOrder.dropshipShipment ? (
@@ -106,7 +106,7 @@ function SaleCard({ sale: s, itemOptions }: { sale: Sale; itemOptions: { value: 
         ) : s.shipment ? (
           <Link href={`/client/expeditions/${s.shipment.id}`} className="block rounded-xl bg-success-soft px-3 py-2.5 text-success transition-colors hover:bg-success-soft/70">
             <span className="flex items-center gap-1.5 text-sm font-medium">
-              <CircleCheck className="size-4 shrink-0" /> Vendu avec Packio
+              <CircleCheck className="size-4 shrink-0" /> Vente normale
             </span>
             <span className="mt-0.5 block text-xs text-success/80">
               Expédition <span className="font-mono">{s.shipment.reference}</span> · {SHIPMENT_STATUS[s.shipment.status].label}
@@ -117,34 +117,34 @@ function SaleCard({ sale: s, itemOptions }: { sale: Sale; itemOptions: { value: 
             <ActionDialog
               trigger={
                 <Button className="w-full">
-                  <PackageCheck /> Vendu avec Packio
+                  <PackageCheck /> Vente normale
                 </Button>
               }
-              title="Vendu avec Packio"
-              description={`Choisissez l'article de votre stock : votre préparateur l'expédie sous 48 h, avec le bordereau ${platform} dès qu'il est généré.`}
+              title="Vente normale"
+              description={`Quel article de votre stock avez-vous vendu ? Votre préparateur l'expédie sous 48 h, avec le bordereau ${platform} dès qu'il est généré.`}
               action={matchSaleAction}
               submitLabel="Confirmer l'expédition"
             >
               <input type="hidden" name="saleId" value={s.id} />
               {itemOptions.length ? (
-                <SelectField name="itemId" label="Article de votre stock" required options={itemOptions} placeholder="Choisir un article" defaultValue={s.inventoryItem?.id ?? ""} />
+                <SelectField name="itemId" label="Article vendu" required options={itemOptions} placeholder="Choisir dans mon stock" defaultValue={s.inventoryItem?.id ?? ""} />
               ) : (
                 <p className="text-sm text-muted-foreground">Aucun article disponible dans votre stock : commandez ou faites livrer l&apos;article chez votre préparateur.</p>
               )}
             </ActionDialog>
             <Button asChild variant="secondary" className="w-full">
               <Link href={`/client/commander?vente=${s.id}#nouvelle-commande`}>
-                <Zap /> Vendu en dropshipping
+                <Zap /> Vente dropshipping
               </Link>
             </Button>
             <ActionDialog
               trigger={
                 <Button variant="outline" className="w-full text-muted-foreground" aria-label="Supprimer la vente">
-                  <Trash2 /> Supprimer
+                  <Trash2 /> Supprimer de mes ventes
                 </Button>
               }
-              title="Supprimer cette vente ?"
-              description={`À utiliser si vous expédiez « ${s.title} » vous-même. La vente disparaît de la liste ; le nom de l'acheteur et le bordereau éventuel sont effacés de Packio.`}
+              title="Supprimer de mes ventes ?"
+              description={`À utiliser si vous expédiez « ${s.title} » vous-même. La vente disparaît de Packio (rien ne change sur ${platform}) ; le nom de l'acheteur et le bordereau éventuel sont effacés.`}
               action={deleteSaleAction}
               submitLabel="Supprimer"
               destructive

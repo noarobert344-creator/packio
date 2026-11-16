@@ -8,7 +8,6 @@ import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatusFrom } from "@/components/shared/status-badge";
 import { FileThumbs } from "@/components/shared/file-uploader";
 import { ReportIncidentDialog } from "@/components/incidents/incident-dialog";
-import { ItemMarketplace } from "@/components/client/item-marketplace";
 import { requireSubscribedCustomer } from "@/server/customer-page";
 import { getItemForActor } from "@/server/services/inventory";
 import { db } from "@/server/db";
@@ -37,7 +36,6 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
     <div className="space-y-6">
       <PageHeader
         back={{ href: "/client/stock", label: "Mon stock" }}
-        eyebrow={item.sku}
         title={item.name}
         description={item.description ?? undefined}
         actions={
@@ -192,7 +190,6 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
               </p>
             )}
           </Section>
-          <ItemMarketplace customerId={item.customerId} itemId={item.id} />
           {otherFiles.length > 0 && (
             <Section title="Autres documents">
               <FileThumbs files={otherFiles} size="lg" />
