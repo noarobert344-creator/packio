@@ -6,7 +6,7 @@ Packio Connect relie les comptes **Vinted** et **Vestiaire Collective** d'un cli
 - chaque **vente** détectée sur un article stocké crée l'expédition chez le préparateur ;
 - le **bordereau** généré par la plateforme est transmis automatiquement et joint à l'expédition : le préparateur n'a plus qu'à l'imprimer.
 
-Version 0.2.1 : extension Chrome (Manifest V3), sans étape de compilation. Si une plateforme change la structure de ses ventes, l'extension confie l'extrait illisible à la lecture de secours de Packio (côté serveur : lecture automatique gratuite, puis IA facultative ; voir le README principal).
+Version 0.2.2 : extension Chrome (Manifest V3), sans étape de compilation. Si une plateforme change la structure de ses ventes, l'extension confie l'extrait illisible à la lecture de secours de Packio (côté serveur : lecture automatique gratuite, puis IA facultative ; voir le README principal).
 
 ## Installation pour les clients (version publique)
 

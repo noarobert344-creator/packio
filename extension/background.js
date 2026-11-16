@@ -2,6 +2,7 @@ import * as vinted from "./platforms/vinted.js";
 import * as vestiaire from "./platforms/vestiaire.js";
 import { NotLoggedInError, arrayBufferToBase64 } from "./platforms/common.js";
 import { PACKIO_URL } from "./config.js";
+import { getConsent } from "./consent.js";
 
 /**
  * Packio Connect : synchronisation périodique (toutes les 15 minutes) ou à la
@@ -65,6 +66,12 @@ async function uploadLabels(cfg, platform, sales) {
 async function syncAll(trigger) {
   const cfg = await getConfig();
   const report = { at: new Date().toISOString(), trigger, platforms: {} };
+  // Rien n'est lu ni envoyé sans l'accord de l'utilisateur.
+  if (!(await getConsent())) {
+    report.error = "En attente de votre accord : ouvrez Packio Connect et acceptez la lecture de vos ventes.";
+    await chrome.storage.local.set({ lastSync: report });
+    return report;
+  }
   if (!cfg.packioUrl || !cfg.token) {
     report.error = "Configurez l'adresse de Packio et votre jeton dans les options.";
     await chrome.storage.local.set({ lastSync: report });
@@ -111,9 +118,10 @@ async function ensureAlarm() {
   if (!(await chrome.alarms.get(ALARM))) chrome.alarms.create(ALARM, { periodInMinutes: 15, delayInMinutes: 1 });
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   ensureAlarm();
-  chrome.runtime.openOptionsPage();
+  // Première installation, ou mise à jour sans accord : page d'accord et de réglages.
+  if (details.reason === "install" || !(await getConsent())) chrome.runtime.openOptionsPage();
 });
 chrome.runtime.onStartup.addListener(ensureAlarm);
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -137,6 +145,11 @@ async function connectFromPage(token, sender) {
   // accumuler des accès inutilisés dans le compte.
   if (previous.token && previous.token !== token && (!previous.packioUrl || new URL(previous.packioUrl).origin === expected)) {
     fetch(`${expected}/api/extension/status`, { method: "DELETE", headers: { Authorization: `Bearer ${previous.token}` } }).catch(() => undefined);
+  }
+  if (!(await getConsent())) {
+    // Connexion faite, mais aucune lecture avant l'accord : on l'affiche.
+    chrome.runtime.openOptionsPage();
+    return { ok: true, needsConsent: true, referenceCode: json.customer?.referenceCode ?? null };
   }
   syncOnce("connect").catch(() => undefined);
   return { ok: true, referenceCode: json.customer?.referenceCode ?? null };

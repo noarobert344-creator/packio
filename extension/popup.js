@@ -1,4 +1,5 @@
 import { PACKIO_URL } from "./config.js";
+import { getConsent, giveConsent, renderDisclosure } from "./consent.js";
 const LABELS = { VINTED: "Vinted", VESTIAIRE: "Vestiaire Collective" };
 const STATUS = {
   ok: ["ok", "Synchronisé"],
@@ -39,7 +40,27 @@ function render(report) {
   else if (report?.at) last.textContent = `Dernière synchronisation : ${new Date(report.at).toLocaleString("fr-FR")}`;
 }
 
+/** Sans accord : seul le texte d'information et le bouton « J'accepte » sont affichés. */
+async function showConsentIfNeeded() {
+  const consent = await getConsent();
+  document.getElementById("consent").hidden = !!consent;
+  document.getElementById("main").hidden = !consent;
+  if (consent) return true;
+  renderDisclosure(document.getElementById("consent-text"));
+  document.getElementById("consent-accept").addEventListener(
+    "click",
+    async () => {
+      await giveConsent();
+      await showConsentIfNeeded();
+      chrome.runtime.sendMessage({ type: "sync-now" }).then(render, () => undefined);
+    },
+    { once: true },
+  );
+  return false;
+}
+
 async function init() {
+  await showConsentIfNeeded();
   const cfg = await chrome.storage.sync.get({ packioUrl: PACKIO_URL, token: "" });
   document.getElementById("config-warning").hidden = !!(cfg.packioUrl && cfg.token);
   cfg.packioUrl = PACKIO_URL || cfg.packioUrl;

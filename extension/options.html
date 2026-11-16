@@ -9,6 +9,15 @@
   <body>
     <main class="stack">
       <div class="brand"><img src="icons/icon48.png" alt="" /><h1>Packio Connect</h1></div>
+      <section id="consent-box" class="card stack">
+        <div id="consent-text" class="stack"></div>
+        <button id="consent-accept" type="button">J'accepte</button>
+        <p class="muted" id="consent-note">Sans votre accord, rien n'est lu ni envoyé.</p>
+      </section>
+      <section id="consent-given" class="card row" hidden>
+        <p class="muted" id="consent-date"></p>
+        <button id="consent-withdraw" type="button" class="secondary">Retirer mon accord</button>
+      </section>
       <p class="muted">Le plus simple : dans Packio, ouvrez « Ventes et comptes liés » et cliquez sur « Connecter l'extension ». Sinon, créez-y un jeton personnel et collez-le ici. Le jeton reste dans votre navigateur ; vos identifiants Vinted et Vestiaire Collective ne sont jamais lus ni transmis.</p>
       <form id="form" class="card stack">
         <label>Adresse de Packio<input id="packioUrl" type="url" placeholder="https://app.packio.fr" required /></label>

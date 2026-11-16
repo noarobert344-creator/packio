@@ -1,4 +1,5 @@
 :root { color-scheme: dark; --bg: #0b0d12; --card: #12151c; --border: #252a35; --fg: #f3f5f8; --muted: #9aa3b2; --brand: #3b6ef5; --ok: #34c77b; --warn: #f0a429; --danger: #ef5350; }
+[hidden] { display: none !important; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
 h1 { font-size: 16px; margin: 0; }
@@ -20,3 +21,6 @@ input, select { background: #0e1117; border: 1px solid var(--border); border-rad
 .badge.warn { background: rgba(240, 164, 41, 0.15); color: var(--warn); }
 .badge.danger { background: rgba(239, 83, 80, 0.15); color: var(--danger); }
 .result { font-size: 12px; white-space: pre-wrap; }
+h2 { font-size: 14px; margin: 0; }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+a { color: var(--brand); }

@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Packio Connect : champs du Chrome Web Store</title>
+<style>
+  :root { --bg: #f6f7f9; --card: #ffffff; --fg: #15171c; --muted: #5d6573; --border: #dfe3ea; --brand: #3b6ef5; --soft: #eef3ff; --code: #f3f5f8; --warn: #9a5b00; --warn-bg: #fff6e5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0b0d12; --card: #12151c; --fg: #f3f5f8; --muted: #9aa3b2; --border: #252a35; --brand: #6b93ff; --soft: #172038; --code: #0e1117; --warn: #f0b45a; --warn-bg: #2a2111; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 36px 0 12px; display: flex; gap: 10px; align-items: center; }
+  h2 .n { background: var(--brand); color: #fff; border-radius: 999px; min-width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
+  p { margin: 0 0 10px; }
+  .muted { color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 12px; }
+  .field { display: grid; gap: 6px; }
+  .label { font-weight: 650; }
+  .label small { font-weight: 400; color: var(--muted); }
+  .how { color: var(--muted); font-size: 14px; }
+  .answer { display: inline-block; background: var(--soft); color: var(--brand); border-radius: 8px; padding: 2px 10px; font-weight: 600; }
+  .copy { position: relative; }
+  pre { margin: 0; background: var(--code); border: 1px solid var(--border); border-radius: 10px; padding: 12px 12px 12px 12px; white-space: pre-wrap; word-break: break-word; font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  button { position: absolute; top: 8px; right: 8px; border: 1px solid var(--border); background: var(--card); color: var(--fg); border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+  button.done { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .copy pre { padding-right: 84px; }
+  ul.checks { margin: 0; padding-left: 20px; }
+  ul.checks li { margin: 2px 0; }
+  .yes::before { content: "☑ "; color: var(--brand); }
+  .no::before { content: "☐ "; color: var(--muted); }
+  ul.checks li.yes, ul.checks li.no { list-style: none; margin-left: -20px; }
+  .warn { background: var(--warn-bg); color: var(--warn); border-radius: 12px; padding: 12px 14px; margin: 12px 0; font-size: 14px; }
+  .files li { margin: 2px 0; }
+  code { font: 13.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--code); border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Packio Connect : tous les champs du Chrome Web Store</h1>
+  <p class="muted">Dans l'ordre de la console développeur : <a href="https://chrome.google.com/webstore/devconsole" target="_blank" rel="noopener">chrome.google.com/webstore/devconsole</a>. Chaque texte a un bouton « Copier ». Les noms des champs sont en français, avec l'anglais entre parenthèses si la console s'affiche en anglais.</p>
+
+  <h2><span class="n">1</span> Compte développeur (une seule fois)</h2>
+  <div class="card field">
+    <div class="label">Inscription <small>(Registration)</small></div>
+    <div class="how">Connecte-toi avec ton compte Google, accepte le contrat développeur et paie les frais d'inscription : <span class="answer">5 $, une seule fois</span>.</div>
+  </div>
+  <div class="card field">
+    <div class="label">Nom de l'éditeur <small>(Publisher name)</small></div>
+    <div class="copy"><pre>Packio</pre><button type="button">Copier</button></div>
+  </div>
+  <div class="card field">
+    <div class="label">Adresse e-mail de contact <small>(Contact email)</small></div>
+    <div class="how">Ton adresse e-mail. Google t'envoie un lien de vérification : clique dessus, sinon tu ne pourras pas publier.</div>
+  </div>
+  <div class="card field">
+    <div class="label">Statut de commerçant <small>(Trader / Non-trader)</small></div>
+    <div class="how">Packio vend un service : choisis <span class="answer">Commerçant (Trader)</span>. Google demande alors ton nom (ou celui de ta société), ton adresse, ton téléphone et ton e-mail, et les vérifie. <strong>Ces informations sont affichées publiquement sur la fiche de l'extension.</strong></div>
+  </div>
+
+  <h2><span class="n">2</span> Paquet <small class="muted">(Package)</small></h2>
+  <div class="card field">
+    <div class="label">Nouvel élément <small>(New item)</small></div>
+    <div class="how">Envoie le fichier <code>packio-connect-0.2.2.zip</code> du dossier « 1 - Fichier a envoyer », tel quel, sans l'ouvrir. Le nom, le résumé, la version et l'icône sont lus automatiquement dans ce fichier.</div>
+  </div>
+
+  <h2><span class="n">3</span> Fiche <small class="muted">(Store listing)</small></h2>
+  <div class="card field">
+    <div class="label">Description <small>(Description)</small></div>
+    <div class="copy"><pre>Packio Connect relie vos comptes Vinted et Vestiaire Collective à votre espace Packio, le service d'expédition déléguée pour les vendeurs en ligne.
+
+Dès qu'un article vendu se trouve dans votre stock Packio :
+• la vente est détectée automatiquement ;
+• l'expédition est créée chez votre préparateur ;
+• le bordereau généré par la plateforme lui est transmis, avec l'article à côté ;
+• votre colis part sous 48 heures.
+
+Installation en deux clics
+1. Ajoutez l'extension à Chrome et acceptez la lecture de vos ventes (votre accord est demandé au premier lancement).
+2. Dans Packio, ouvrez « Ventes et comptes liés » et cliquez sur « Connecter l'extension ».
+Restez simplement connecté à Vinted ou Vestiaire Collective dans ce navigateur : la synchronisation a lieu toutes les 15 minutes, ou à la demande.
+
+Vos annonces sont rattachées à vos articles en stock lorsque leur description cite le SKU Packio (SKU-XXXXXXX).
+
+Données utilisées et confidentialité
+• L'extension lit vos annonces (titre, description, prix, photo principale), vos ventes (article, prix, date, pseudonyme de l'acheteur, suivi) et les bordereaux d'expédition (nom et adresse de l'acheteur).
+• Rien n'est lu avant votre accord, que vous pouvez retirer à tout moment dans les options.
+• Si une page de ventes ne peut pas être lue, l'extrait est transmis à Packio pour une lecture de secours ; les données personnelles sont masquées avant tout recours à un service d'intelligence artificielle.
+• L'extension utilise la session déjà ouverte dans votre navigateur : elle ne lit jamais vos mots de passe.
+• Elle ne publie rien et ne modifie rien sur Vinted ou Vestiaire Collective.
+• Les données sont envoyées uniquement à votre compte Packio, jamais vendues ni utilisées pour de la publicité.
+• Vous pouvez déconnecter l'extension et révoquer son accès à tout moment depuis Packio.
+
+Un compte Packio avec un abonnement actif est nécessaire.
+
+Packio n'est ni affilié à Vinted ni à Vestiaire Collective. Vinted et Vestiaire Collective sont des marques de leurs propriétaires respectifs.</pre><button type="button">Copier</button></div>
+  </div>
+  <div class="card field">
+    <div class="label">Catégorie <small>(Category)</small></div>
+    <div class="how"><span class="answer">Productivité → Outils</span> <span class="muted">(Productivity → Tools), ou la plus proche proposée</span></div>
+  </div>
+  <div class="card field">
+    <div class="label">Langue <small>(Language)</small></div>
+    <div class="how"><span class="answer">Français</span></div>
+  </div>
+  <div class="card field">
+    <div class="label">Images <small>(Graphic assets)</small> : dossier « 3 - Images »</div>
+    <ul class="files">
+      <li><strong>Icône du store</strong> <small class="muted">(Store icon, 128 × 128)</small> : <code>icon128.png</code></li>
+      <li><strong>Captures d'écran</strong> <small class="muted">(Screenshots, 1280 × 800)</small> : <code>capture-1-connexion.png</code>, <code>capture-2-bordereaux.png</code>, <code>capture-3-fenetre.png</code></li>
+      <li><strong>Petite vignette promotionnelle</strong> <small class="muted">(Small promo tile, 440 × 280)</small> : <code>vignette-440x280.png</code></li>
+      <li><strong>Grande vignette</strong> <small class="muted">(Marquee promo tile)</small> et <strong>vidéo</strong> <small class="muted">(Promo video)</small> : laisse vide.</li>
+    </ul>
+  </div>
+  <div class="card field">
+    <div class="label">Site officiel <small>(Official URL)</small></div>
+    <div class="how"><span class="answer">Aucun</span> <span class="muted">(None) : ce champ demande de prouver que le site t'appartient via Google Search Console, inutile ici.</span></div>
+  </div>
+  <div class="card field">
+    <div class="label">Page d'accueil <small>(Homepage URL)</small></div>
+    <div class="copy"><pre>https://packio.onrender.com</pre><button type="button">Copier</button></div>
+  </div>
+  <div class="card field">
+    <div class="label">Assistance <small>(Support URL)</small></div>
+    <div class="copy"><pre>https://packio.onrender.com/#contact</pre><button type="button">Copier</button></div>
+  </div>
+  <div class="card field">
+    <div class="label">Contenu réservé aux adultes <small>(Mature content)</small></div>
+    <div class="how"><span class="answer">Non</span></div>
+  </div>
+
+  <h2><span class="n">4</span> Pratiques de confidentialité <small class="muted">(Privacy)</small></h2>
+  <div class="card field">
+    <div class="label">Description de l'objectif unique <small>(Single purpose description)</small></div>
+    <div class="copy"><pre>Transmettre au compte Packio de l'utilisateur les annonces et les ventes de ses propres comptes Vinted et Vestiaire Collective, avec leur bordereau d'expédition, afin que son préparateur Packio expédie les articles vendus.</pre><button type="button">Copier</button></div>
+  </div>
+  <div class="card field">
+    <div class="label">Justification de « storage »</div>
+    <div class="copy"><pre>Conserver l'accord de l'utilisateur, le jeton de connexion à son compte Packio, ses préférences (site Vinted utilisé, plateformes à synchroniser) et le résumé de la dernière synchronisation.</pre><button type="button">Copier</button></div>
+  </div>
+  <div class="card field">
+    <div class="label">Justification de « alarms »</div>
+    <div class="copy"><pre>Lancer la synchronisation automatique toutes les 15 minutes, pour que les ventes arrivent chez le préparateur sans action de l'utilisateur.</pre><button type="button">Copier</button></div>
+  </div>
+  <div class="card field">
+    <div class="label">Justification de l'autorisation de l'hôte <small>(Host permission justification)</small></div>
+    <div class="copy"><pre>vinted.fr, vinted.be, vinted.es, vinted.it, vinted.de, vinted.com : lire, avec la session déjà ouverte par l'utilisateur, ses propres annonces, ventes et bordereaux d'expédition sur Vinted. Aucune écriture.
+vestiairecollective.com et apiv2.vestiairecollective.com : lire, avec la session déjà ouverte par l'utilisateur, ses propres annonces, ventes et bordereaux d'expédition sur Vestiaire Collective. Aucune écriture.
+packio.onrender.com : envoyer ces données au compte Packio de l'utilisateur, seul destinataire, et permettre la connexion en un clic depuis la page « Ventes et comptes liés » de Packio (script de contenu limité à cette page).</pre><button type="button">Copier</button></div>
+  </div>
+  <div class="card field">
+    <div class="label">Utilisez-vous du code distant ? <small>(Are you using remote code?)</small></div>
+    <div class="how"><span class="answer">Non, je n'utilise pas de code distant</span> <span class="muted">(No, I am not using remote code)</span></div>
+  </div>
+  <div class="card field">
+    <div class="label">Utilisation des données : données collectées <small>(Data usage)</small></div>
+    <ul class="checks">
+      <li class="yes"><strong>Informations permettant d'identifier personnellement l'utilisateur</strong> <small class="muted">(Personally identifiable information) : nom et adresse de l'acheteur sur les bordereaux</small></li>
+      <li class="no">Informations relatives à la santé <small class="muted">(Health information)</small></li>
+      <li class="yes"><strong>Informations financières et de paiement</strong> <small class="muted">(Financial and payment information) : historique des ventes, prix, dates</small></li>
+      <li class="yes"><strong>Informations d'authentification</strong> <small class="muted">(Authentication information) : jeton de connexion Packio</small></li>
+      <li class="no">Communications personnelles <small class="muted">(Personal communications)</small></li>
+      <li class="no">Position <small class="muted">(Location)</small></li>
+      <li class="no">Historique Web <small class="muted">(Web history)</small></li>
+      <li class="no">Activité de l'utilisateur <small class="muted">(User activity)</small></li>
+      <li class="yes"><strong>Contenu du site Web</strong> <small class="muted">(Website content) : annonces (titre, description, prix, photo principale)</small></li>
+    </ul>
+  </div>
+  <div class="card field">
+    <div class="label">Déclarations <small>(Certifications)</small> : coche les trois</div>
+    <ul class="checks">
+      <li class="yes">Je ne vends ni ne transfère de données utilisateur à des tiers, en dehors des cas d'utilisation approuvés.</li>
+      <li class="yes">Je n'utilise ni ne transfère de données utilisateur à des fins sans rapport avec l'objectif unique de mon article.</li>
+      <li class="yes">Je n'utilise ni ne transfère de données utilisateur pour déterminer la solvabilité ou à des fins de prêt.</li>
+    </ul>
+  </div>
+  <div class="card field">
+    <div class="label">Règles de confidentialité : URL <small>(Privacy policy URL)</small></div>
+    <div class="copy"><pre>https://packio.onrender.com/legal/confidentialite</pre><button type="button">Copier</button></div>
+  </div>
+
+  <h2><span class="n">5</span> Distribution <small class="muted">(Distribution)</small></h2>
+  <div class="card field">
+    <div class="label">Paiements <small>(Payments)</small></div>
+    <div class="how"><span class="answer">Sans frais</span> <span class="muted">(Free of charge)</span></div>
+  </div>
+  <div class="card field">
+    <div class="label">Visibilité <small>(Visibility)</small></div>
+    <div class="how"><span class="answer">Non répertoriée</span> <span class="muted">(Unlisted) : seuls tes clients, avec le lien affiché dans Packio, la trouvent. Tu pourras la passer en « Publique » plus tard.</span></div>
+  </div>
+  <div class="card field">
+    <div class="label">Régions de distribution <small>(Distribution regions)</small></div>
+    <div class="how"><span class="answer">Toutes les régions</span> <span class="muted">(All regions)</span></div>
+  </div>
+
+  <h2><span class="n">6</span> Instructions de test <small class="muted">(Test instructions)</small></h2>
+  <div class="warn">Ce compte de démonstration doit exister pendant l'examen : ne fais pas le « grand ménage » des données de démonstration avant que Google ait validé l'extension.</div>
+  <div class="card field">
+    <div class="label">Nom d'utilisateur <small>(Username)</small></div>
+    <div class="copy"><pre>lea.moreau@demo.packio.local</pre><button type="button">Copier</button></div>
+  </div>
+  <div class="card field">
+    <div class="label">Mot de passe <small>(Password)</small></div>
+    <div class="copy"><pre>Demo-Packio-2026</pre><button type="button">Copier</button></div>
+  </div>
+  <div class="card field">
+    <div class="label">Instructions supplémentaires <small>(Additional instructions)</small></div>
+    <div class="copy"><pre>1. Installez l'extension, puis cliquez sur « J'accepte » dans la page qui s'ouvre (accord pour la lecture des ventes, révocable dans les options).
+2. Ouvrez https://packio.onrender.com/connexion et connectez-vous avec le compte de démonstration ci-dessus (données fictives, paiements simulés).
+3. Ouvrez « Ventes et comptes liés », puis cliquez sur « Connecter l'extension » : l'extension se configure automatiquement.
+4. Cliquez sur l'icône Packio Connect, puis sur « Synchroniser maintenant ». Sans compte Vinted ou Vestiaire Collective ouvert dans ce navigateur, l'état « Non connecté » s'affiche : c'est le comportement attendu. Avec un compte Vinted ouvert, les annonces et les ventes de ce compte apparaissent dans « Ventes et comptes liés ».
+L'extension ne lit que les comptes de l'utilisateur lui-même, avec la session déjà ouverte, et n'écrit rien sur Vinted ni sur Vestiaire Collective.</pre><button type="button">Copier</button></div>
+  </div>
+
+  <h2><span class="n">7</span> Envoyer</h2>
+  <div class="card field">
+    <div class="label">Envoyer pour examen <small>(Submit for review)</small></div>
+    <div class="how">Laisse cochée la publication automatique après l'examen. Google répond en général en quelques jours, parfois jusqu'à deux semaines. Une fois l'extension publiée, envoie le lien de la fiche à Claude : il l'ajoutera au site (bouton « Installer depuis le Chrome Web Store »).</div>
+  </div>
+</main>
+<script>
+  for (const button of document.querySelectorAll(".copy button")) {
+    button.addEventListener("click", async () => {
+      const text = button.previousElementSibling.textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const area = document.createElement("textarea");
+        area.value = text;
+        document.body.append(area);
+        area.select();
+        document.execCommand("copy");
+        area.remove();
+      }
+      button.textContent = "Copié ✓";
+      button.classList.add("done");
+      setTimeout(() => { button.textContent = "Copier"; button.classList.remove("done"); }, 1800);
+    });
+  }
+</script>
+</body>
+</html>

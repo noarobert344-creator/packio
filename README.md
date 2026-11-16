@@ -352,7 +352,7 @@ npm run extension:build -- https://packio.onrender.com
 ```
 
 2. Ouvrez un compte développeur sur la [console du Chrome Web Store](https://chrome.google.com/webstore/devconsole) (5 $, une fois), au nom de l'éditeur de Packio.
-3. **Nouvel élément** : envoyez `dist/packio-connect-<version>.zip` (version 0.2.1 actuellement), puis remplissez la fiche avec les textes et images de [`extension/store/`](extension/store/fiche-chrome-web-store.md) et soumettez-la à l'examen (quelques jours en général).
+3. **Nouvel élément** : envoyez `dist/packio-connect-<version>.zip` (version 0.2.2 actuellement), puis remplissez la fiche avec les textes et images de [`extension/store/`](extension/store/fiche-chrome-web-store.md) et soumettez-la à l'examen (quelques jours en général).
 4. Une fois l'extension publiée, ajoutez `EXTENSION_STORE_URL` (adresse de la fiche) dans **packio → Environment**, puis redéployez : les clients voient le bouton **Installer depuis le Chrome Web Store**, puis **Connecter l'extension**, dans **Ventes et comptes liés**.
 
 ## Déploiement (Vercel)

@@ -9,6 +9,12 @@
   <body>
     <div class="stack">
       <div class="brand"><img src="icons/icon48.png" alt="" /><h1>Packio Connect</h1></div>
+      <div id="consent" class="card stack" hidden>
+        <div id="consent-text" class="stack"></div>
+        <button id="consent-accept">J'accepte</button>
+        <p class="muted">Sans votre accord, rien n'est lu ni envoyé.</p>
+      </div>
+      <div id="main" class="stack">
       <div id="config-warning" class="card" hidden>
         <p>L'extension n'est pas encore connectée à votre compte Packio.</p>
         <p class="muted">Dans Packio, ouvrez « Ventes et comptes liés » et cliquez sur « Connecter l'extension ».</p>
@@ -19,6 +25,7 @@
       <div class="row">
         <a class="button secondary" id="open-packio" href="#" target="_blank" rel="noopener">Ouvrir Packio</a>
         <a class="button secondary" id="open-options" href="#">Options</a>
+      </div>
       </div>
     </div>
     <script src="popup.js" type="module"></script>

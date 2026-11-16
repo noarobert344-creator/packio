@@ -1,4 +1,5 @@
 import { PACKIO_URL } from "./config.js";
+import { getConsent, giveConsent, renderDisclosure, withdrawConsent } from "./consent.js";
 
 const FIELDS = ["packioUrl", "token", "vintedDomain", "enableVinted", "enableVestiaire"];
 const DEFAULTS = { packioUrl: "", token: "", vintedDomain: "www.vinted.fr", enableVinted: true, enableVestiaire: true };
@@ -75,6 +76,30 @@ async function disconnect() {
   result.textContent = "Extension déconnectée : plus aucune donnée n'est envoyée à Packio depuis ce navigateur.";
 }
 
+/** Accord explicite avant toute lecture ; révocable ici à tout moment. */
+async function renderConsent() {
+  const consent = await getConsent();
+  el("consent-box").hidden = !!consent;
+  el("consent-given").hidden = !consent;
+  if (consent) {
+    el("consent-date").textContent = `Accord donné le ${new Date(consent.at).toLocaleString("fr-FR")} : la lecture de vos ventes est active.`;
+  } else {
+    renderDisclosure(el("consent-text"));
+  }
+}
+
+el("consent-accept").addEventListener("click", async () => {
+  await giveConsent();
+  await renderConsent();
+  const { token } = await chrome.storage.sync.get({ token: "" });
+  if (token) chrome.runtime.sendMessage({ type: "sync-now" });
+});
+el("consent-withdraw").addEventListener("click", async () => {
+  await withdrawConsent();
+  await renderConsent();
+  el("result").textContent = "Accord retiré : plus rien n'est lu ni envoyé à Packio depuis ce navigateur.";
+});
 el("form").addEventListener("submit", save);
+renderConsent();
 el("disconnect").addEventListener("click", disconnect);
 load();
