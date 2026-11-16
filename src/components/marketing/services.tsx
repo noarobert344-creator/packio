@@ -3,7 +3,7 @@ import { Container, SectionHeading } from "./section";
 
 /** Services complémentaires inclus dans l'offre (présentation, sans chiffres inventés). */
 export function Services({ shippingHours, returnCredits }: { shippingHours: number; returnCredits: number }) {
-  const services = [
+  const services: { icon: typeof Zap; title: string; text: string; badge?: string }[] = [
     {
       icon: PackageCheck,
       title: "Envoi depuis votre stock",
@@ -12,7 +12,8 @@ export function Services({ shippingHours, returnCredits }: { shippingHours: numb
     {
       icon: Zap,
       title: "Dropshipping Vinted",
-      text: "Article vendu mais pas encore reçu ? Commandez-le sur Temu, SHEIN ou AliExpress : il part chez l'acheteur dès réception. Aucune place de stock utilisée ; les crédits dépendent de la taille du colis.",
+      badge: "0 place de stock",
+      text: "Article vendu mais pas encore reçu ? Commandez-le sur Temu, SHEIN ou AliExpress : il part chez l'acheteur dès réception. Il ne prend aucune place dans votre stock : seuls les crédits d'expédition sont utilisés, selon la taille du colis.",
     },
     {
       icon: Camera,
@@ -37,7 +38,12 @@ export function Services({ shippingHours, returnCredits }: { shippingHours: numb
                   <s.icon className="size-[1.1rem]" />
                 </span>
                 <div>
-                  <p className="font-semibold">{s.title}</p>
+                  <p className="flex flex-wrap items-center gap-2 font-semibold">
+                    {s.title}
+                    {s.badge && (
+                      <span className="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand ring-1 ring-brand/20 ring-inset">{s.badge}</span>
+                    )}
+                  </p>
                   <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{s.text}</p>
                 </div>
               </div>

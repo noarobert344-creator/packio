@@ -92,7 +92,7 @@ export function Pricing({
             <Warehouse className="size-4 text-brand" />
             <p className="font-semibold">Stockage</p>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">Une place = un article chez votre préparateur, y compris les commandes en route.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Une place = un article chez votre préparateur, y compris les commandes en route. Le dropshipping ne prend aucune place.</p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <div className="rounded-2xl bg-muted/50 p-4">
               <p className="text-sm font-medium">Places incluses</p>
