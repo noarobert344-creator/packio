@@ -21,11 +21,10 @@ Trois espaces, une seule application :
 4. [Règles métier clés](#règles-métier-clés)
 5. [Sécurité et RGPD](#sécurité-et-rgpd)
 6. [Configuration des services](#configuration-des-services)
-7. [Déployer gratuitement : Render + Supabase + cron-job.org](#déployer-gratuitement--render--supabase--cron-joborg)
-8. [Déploiement (Vercel)](#déploiement-vercel)
-9. [Tests](#tests)
-10. [Scripts npm](#scripts-npm)
-11. [Limites connues et évolutions](#limites-connues-et-évolutions)
+7. [Déploiement (Vercel)](#déploiement-vercel)
+8. [Tests](#tests)
+9. [Scripts npm](#scripts-npm)
+10. [Limites connues et évolutions](#limites-connues-et-évolutions)
 
 ---
 
@@ -305,7 +304,7 @@ Renseignez `RESEND_API_KEY` et `EMAIL_FROM` (domaine vérifié chez Resend). San
 
 ### Stockage des fichiers
 
-Sans disque persistant (hébergement gratuit, serverless), utilisez `STORAGE_DRIVER="s3"` avec un bucket **privé** compatible S3 : Supabase Storage (gratuit jusqu'à 1 Go), Cloudflare R2 ou Scaleway Object Storage, avec des serveurs dans l'UE. Les téléchargements passent toujours par `/api/files/[id]` (contrôle des droits), qui redirige vers une adresse signée valable 2 minutes ; les documents sont forcés en téléchargement.
+Sans disque persistant (serverless, ou hébergement sans disque), utilisez `STORAGE_DRIVER="s3"` avec un bucket **privé** compatible S3 : Supabase Storage (gratuit jusqu'à 1 Go), Cloudflare R2 ou Scaleway Object Storage, avec des serveurs dans l'UE. Les téléchargements passent toujours par `/api/files/[id]` (contrôle des droits), qui redirige vers une adresse signée valable 2 minutes ; les documents sont forcés en téléchargement.
 
 ### Tâches planifiées
 
@@ -316,57 +315,31 @@ Sans disque persistant (hébergement gratuit, serverless), utilisez `STORAGE_DRI
 | `/api/cron/maintenance` | quotidien | Purge des sessions et jetons expirés |
 | `/api/cron/toutes` | toutes les 10 à 15 min | Les trois à la fois (ménage entre 3 h 30 et 3 h 45 UTC) : un seul ordonnanceur suffit |
 
-Chaque appel doit porter l'en-tête `Authorization: Bearer <CRON_SECRET>`. `vercel.json` déclare les trois premières pour Vercel Cron (le plan Hobby de Vercel limite les crons à une exécution par jour) ; avec Render gratuit, un ordonnanceur externe gratuit comme [cron-job.org](https://cron-job.org) appelle `/api/cron/toutes`.
+Chaque appel doit porter l'en-tête `Authorization: Bearer <CRON_SECRET>`. `vercel.json` déclare les trois premières pour Vercel Cron (le plan Hobby de Vercel limite les crons à une exécution par jour) ; sur Render, la tâche `packio-taches` de [`render.yaml`](render.yaml) les appelle toutes les 15 minutes, et tout autre ordonnanceur (par exemple [cron-job.org](https://cron-job.org)) peut appeler `/api/cron/toutes`.
 
-## Déployer gratuitement : Render + Supabase + cron-job.org
+## Déployer sur Render (recommandé)
 
-Trois services gratuits, sans carte bancaire chez Supabase et cron-job.org :
+Le fichier [`render.yaml`](render.yaml) décrit tout : le site (service web avec un disque de 5 Go pour les photos et bordereaux), la base PostgreSQL et une tâche planifiée toutes les 15 minutes (délais d'attribution et d'expédition, crédits, stockage, ménage quotidien). Région : Francfort.
 
-| Service | Rôle | Offre gratuite |
-| --- | --- | --- |
-| [Render](https://render.com) | Le site, mis à jour automatiquement à chaque modification sur GitHub (`main`) | Instance « Free » : 512 Mo, 750 h par mois et par workspace |
-| [Supabase](https://supabase.com) | Base PostgreSQL et fichiers (photos, bordereaux, messagerie) | 500 Mo de base, 1 Go de fichiers |
-| [cron-job.org](https://cron-job.org) | Tâches automatiques toutes les 10 minutes | Gratuit |
+**Première mise en ligne (site de démonstration, environ 10 minutes) :**
 
-Le fichier [`render.yaml`](render.yaml) décrit le site (instance gratuite, région Francfort). Les migrations, les données de référence, le compte administrateur et, si `DEMO_DATA=1`, les données de démonstration sont appliqués pendant la construction (l'offre gratuite n'a pas de commande de pré-déploiement).
-
-**1. Supabase (base de données et fichiers)**
-
-1. Créez un compte sur [supabase.com](https://supabase.com), puis **New project** : nom `packio`, région **Central EU (Frankfurt)** ou **West EU (Paris)**, et un mot de passe de base **composé uniquement de lettres et de chiffres** (notez-le).
-2. Bouton **Connect** (en haut) → **Connection string** → **Session pooler** (port 5432). Copiez l'adresse et remplacez `[YOUR-PASSWORD]` par le mot de passe : c'est `DATABASE_URL`. (La connexion directe `db.<projet>.supabase.co` n'est joignable qu'en IPv6 : ne l'utilisez pas avec Render.)
-3. **Storage → New bucket** : nom `packio`, **sans** cocher « Public bucket ».
-4. **Storage → Settings** (rubrique S3) : activez la connexion S3, copiez **Endpoint** (`S3_ENDPOINT`) et **Region** (`S3_REGION`), puis **New access key** : `S3_ACCESS_KEY_ID` et `S3_SECRET_ACCESS_KEY` (la clé secrète n'est affichée qu'une fois).
-
-**2. Render (le site)**
-
-1. Connectez GitHub à Render et donnez-lui accès au dépôt `packio` (**New → Blueprint → Configure account**, ou sur GitHub : **Settings → Applications → Render → Configure**).
-2. **New → Blueprint**, dépôt `packio`, branche **`main`**. L'estimation doit afficher 0 $.
-3. Renseignez `INITIAL_ADMIN_EMAIL` (votre e-mail), `DATABASE_URL`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` ; laissez `GEMINI_API_KEY` vide si vous n'avez pas de clé. Puis **Deploy Blueprint**.
-4. À la fin du déploiement, dans **packio → Events → Deploy → journaux de construction**, copiez le « Lien d'activation » : il permet de choisir le mot de passe du compte super administrateur.
-5. Vérifiez l'adresse du site (par exemple `https://packio.onrender.com`). Si elle diffère, corrigez `APP_URL` dans **packio → Environment**, puis **Manual Deploy**.
-
-**3. cron-job.org (tâches automatiques)**
-
-1. Dans Render, **packio → Environment**, affichez et copiez la valeur de `CRON_SECRET`.
-2. Créez un compte sur [cron-job.org](https://cron-job.org), puis **Create cronjob** :
-   - URL : `https://<votre-adresse>/api/cron/toutes`
-   - Exécution : toutes les **10 minutes**
-   - Onglet **Advanced → Headers** : `Authorization` = `Bearer <CRON_SECRET>` (le mot `Bearer`, une espace, puis la valeur copiée).
-3. Enregistrez. L'historique doit afficher des réponses `200` (la toute première peut échouer si le site se réveillait).
-
-Ces appels réguliers gardent aussi le site éveillé (une instance gratuite s'endort après 15 minutes sans visite) et la base Supabase active (un projet gratuit est mis en pause après 7 jours sans activité).
-
-**Limites de l'offre gratuite** : instance lente (0,1 processeur) ; 750 heures par mois partagées entre toutes les instances gratuites du workspace Render (un site allumé en permanence en consomme environ 744) ; 5 Go de bande passante par mois chez Render (Hobby) et chez Supabase ; 500 Mo de base et 1 Go de fichiers. Quand l'activité grandit : instance payante chez Render (**packio → Settings → Instance Type**) et offre payante chez Supabase, sans changer de code.
+1. Créez un compte sur [render.com](https://render.com) avec votre compte GitHub, puis autorisez l'accès au dépôt `packio`.
+2. **New → Blueprint**, choisissez le dépôt et la branche, puis **Apply**.
+3. Render demande `INITIAL_ADMIN_EMAIL` : saisissez votre adresse e-mail.
+4. Attendez la fin du premier déploiement. Dans **packio → Logs**, copiez le lien « Lien d'activation » affiché : il permet de choisir le mot de passe du compte super administrateur.
+5. Vérifiez l'adresse du site (en haut de la page du service, par exemple `https://packio.onrender.com`). Si elle diffère, corrigez `APP_URL` dans **Env Groups → packio-commun**, puis **Manual Deploy**.
 
 Ce premier site contient les **comptes de démonstration** (mot de passe `Demo-Packio-2026`) et des **paiements simulés** (aucun encaissement), comme en développement.
 
 **Lancement réel :**
 
-1. Créez un nouveau projet Supabase (et remplacez `DATABASE_URL` et les clés S3) pour ne pas garder les données de démonstration.
+1. Créez une nouvelle base (ou un nouveau Blueprint) pour ne pas garder les données de démonstration.
 2. Dans **packio → Environment** : supprimez `DEMO_DATA` et `ALLOW_DEV_BILLING_IN_PRODUCTION`, passez `BILLING_MODE` à `whop`, ajoutez `WHOP_API_KEY`, `WHOP_ACCOUNT_ID`, `WHOP_WEBHOOK_SECRET` (voir « Paiements avec Whop »), `RESEND_API_KEY` et `EMAIL_FROM` pour les e-mails, et `EXTENSION_STORE_URL` (lien de Packio Connect sur le Chrome Web Store).
 3. Déclarez le webhook Whop sur `https://<votre-adresse>/api/webhooks/whop`.
-4. Domaine personnalisé (facultatif) : **Settings → Custom Domains**, puis mettez `APP_URL` à jour (et l'URL de cron-job.org).
+4. Domaine personnalisé (facultatif) : **Settings → Custom Domains**, puis mettez `APP_URL` à jour.
 5. Back-office → **Paramètres → Informations légales** : éditeur, et hébergeur « Render » avec l'adresse de la société indiquée sur render.com (reprise dans la politique de confidentialité).
+
+Remarques : l'offre gratuite de Render n'est pas adaptée (le site s'endort après 15 minutes d'inactivité, la base gratuite expire après 30 jours, pas de disque ni de commande de pré-déploiement). Les plans indiqués dans `render.yaml` sont les plus petits plans payants ; le disque impose un court arrêt à chaque déploiement. Les noms de plans peuvent évoluer : en cas d'erreur à l'application du Blueprint, choisissez le plus petit plan payant proposé.
 
 ### Publier l'extension Packio Connect (Chrome Web Store)
 
