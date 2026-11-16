@@ -64,7 +64,7 @@ export function ProductMock() {
                     <span
                       className={cn(
                         "inline-flex size-4 shrink-0 items-center justify-center rounded-full",
-                        s.done ? "bg-brand text-brand-foreground" : s.active ? "bg-brand-soft ring-2 ring-brand" : "bg-muted ring-1 ring-border",
+                        s.done ? "bg-brand text-brand-foreground" : s.active ? "bg-brand-soft ring-2 ring-brand animate-soft-ping" : "bg-muted ring-1 ring-border",
                       )}
                     >
                       {s.done && <Check className="size-2.5" strokeWidth={3} />}
@@ -83,10 +83,8 @@ export function ProductMock() {
                   </div>
                   <span className="rounded-full bg-info-soft px-2 py-0.5 text-[0.65rem] font-medium text-info ring-1 ring-inset ring-info/20">Crédits réservés</span>
                 </div>
-                <div className="mt-3 flex gap-1">
-                  {[1, 1, 1, 0.6, 0, 0].map((v, i) => (
-                    <span key={i} className={cn("h-1.5 flex-1 rounded-full", v === 1 ? "bg-brand" : v > 0 ? "bg-brand/60" : "bg-muted")} />
-                  ))}
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <span className="block h-full w-full rounded-full bg-gradient-to-r from-brand/70 to-brand animate-progress" />
                 </div>
                 <p className="mt-2 text-[0.68rem] text-muted-foreground">Préparation en cours</p>
               </div>

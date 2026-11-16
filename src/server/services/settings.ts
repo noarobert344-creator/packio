@@ -62,6 +62,8 @@ export const SETTINGS_SCHEMAS = {
   shipping: z.object({
     /** Délai d'expédition promis à compter de la demande (heures). */
     slaHours: z.number().int().min(1).max(24 * 14),
+    /** Coût fixe d'un retour d'articles au domicile du client (frais de port à sa charge). */
+    returnCredits: z.number().int().min(0).max(100),
   }),
 } as const;
 
@@ -93,7 +95,7 @@ export const SETTINGS_DEFAULTS: Settings = {
   },
   messaging: { supervisionMinutes: 60 },
   storage: { includedDays: 14, extensionDays: 14, extensionCredits: 1, slotsPerCredit: 3, extraSlotsDays: 30, reminderDaysBefore: 2 },
-  shipping: { slaHours: 48 },
+  shipping: { slaHours: 48, returnCredits: 1 },
 };
 
 export async function getSetting<K extends SettingKey>(key: K, client: DbClient = db): Promise<Settings[K]> {

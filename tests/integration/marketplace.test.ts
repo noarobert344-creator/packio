@@ -5,7 +5,7 @@ import {
   attachSaleLabel,
   authenticateExtensionToken,
   createExtensionToken,
-  ignoreSale,
+  deleteSale,
   linkListingToItem,
   matchSaleToItem,
   revokeExtensionToken,
@@ -13,6 +13,7 @@ import {
 } from "@/server/services/marketplace";
 import { POST as syncRoute } from "@/app/api/extension/sync/route";
 import { DELETE as disconnectRoute, GET as statusRoute } from "@/app/api/extension/status/route";
+import { listMarketplaceOverview } from "@/server/services/marketplace";
 import type { Actor } from "@/server/auth/actor";
 import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb } from "../helpers";
 
@@ -122,7 +123,7 @@ describe("Comptes liés Vinted / Vestiaire et extension", () => {
     await expect(attachSaleLabel(client.customerId, { platform: "VINTED", externalOrderId: "INCONNU", filename: "b.pdf", data: PDF })).rejects.toThrow(/Vente inconnue/);
   });
 
-  it("vente non identifiée : association manuelle à un article (expédition avec le bordereau déjà reçu), ou vente ignorée", async () => {
+  it("vente non identifiée : « Vendu avec Packio » (expédition avec le bordereau déjà reçu), ou « Supprimer »", async () => {
     const { prep, client } = await setup();
     const item = await stockedItem(client.actor, prep.actor, prep.location.id, 2);
     await syncFromExtension(client.customerId, {
@@ -145,7 +146,34 @@ describe("Comptes liés Vinted / Vestiaire et extension", () => {
     await expect(matchSaleToItem(client.actor, { saleId: v1.id, itemId: item.id })).rejects.toThrow(/existe déjà/);
 
     const v2 = await db.marketplaceSale.findFirstOrThrow({ where: { externalOrderId: "V-2" } });
-    expect((await ignoreSale(client.actor, v2.id)).status).toBe("IGNORED");
+    expect((await deleteSale(client.actor, v2.id)).status).toBe("IGNORED");
+    // Une vente expédiée par Packio ne se supprime pas tant que l'expédition est active.
+    await expect(deleteSale(client.actor, v1.id)).rejects.toThrow(/annulez d'abord/);
+  });
+
+  it("« Supprimer » : acheteur et bordereau effacés, vente masquée, ni recréée ni réactivée par la synchronisation", async () => {
+    const { client } = await setup();
+    const sale = { externalOrderId: "VT-9", title: "Robe vendue en direct", buyerName: "Acheteuse Test", soldAt: new Date().toISOString() };
+    await syncFromExtension(client.customerId, { platform: "VINTED", account: { externalUserId: "u9" }, sales: [sale] });
+    const row = await db.marketplaceSale.findFirstOrThrow({ where: { customerId: client.customerId, externalOrderId: "VT-9" } });
+    const { fileId } = await attachSaleLabel(client.customerId, { platform: "VINTED", externalOrderId: "VT-9", filename: "b.pdf", data: PDF });
+    expect((await listMarketplaceOverview(client.customerId, { salesFilter: "a-traiter" })).saleCounts).toMatchObject({ toutes: 1, "a-traiter": 1, packio: 0 });
+
+    await deleteSale(client.actor, row.id);
+    const deleted = await db.marketplaceSale.findUniqueOrThrow({ where: { id: row.id } });
+    expect(deleted).toMatchObject({ status: "IGNORED", buyerName: null });
+    expect((await db.file.findUniqueOrThrow({ where: { id: fileId! } })).deletedAt).not.toBeNull();
+    expect(await db.auditLog.count({ where: { action: "marketplace.sale_deleted", entityId: client.customerId } })).toBe(1);
+    const overview = await listMarketplaceOverview(client.customerId);
+    expect(overview.sales).toHaveLength(0);
+    expect(overview.saleCounts).toEqual({ toutes: 0, "a-traiter": 0, packio: 0 });
+
+    // Nouvelle synchronisation et nouveau bordereau : rien n'est recréé ni conservé.
+    expect((await syncFromExtension(client.customerId, { platform: "VINTED", account: { externalUserId: "u9" }, sales: [sale] })).newSales).toBe(0);
+    const label = await attachSaleLabel(client.customerId, { platform: "VINTED", externalOrderId: "VT-9", filename: "b2.pdf", data: Buffer.concat([PDF, Buffer.from(" ")]) });
+    expect(label).toMatchObject({ fileId: null, ignored: true });
+    expect(await db.file.count({ where: { marketplaceSaleId: row.id, deletedAt: null } })).toBe(0);
+    await expect(matchSaleToItem(client.actor, { saleId: row.id, itemId: "inexistant" })).rejects.toThrow(/supprimée/);
   });
 
   it("rattacher une annonce traite les ventes en attente ; sans stock, la vente reste identifiée avec une note", async () => {
@@ -185,7 +213,7 @@ describe("Comptes liés Vinted / Vestiaire et extension", () => {
 
     await expect(linkListingToItem(other.actor, { listingId: listing.id, itemId: null })).rejects.toThrow(/introuvable/);
     await expect(matchSaleToItem(other.actor, { saleId: sale.id, itemId: item.id })).rejects.toThrow(/introuvable/);
-    await expect(ignoreSale(other.actor, sale.id)).rejects.toThrow(/introuvable/);
+    await expect(deleteSale(other.actor, sale.id)).rejects.toThrow(/introuvable/);
     await expect(revokeExtensionToken(other.actor, tokenId)).rejects.toThrow(/introuvable/);
     // Un client ne peut pas associer sa vente à l'article d'un autre client.
     const otherSale = await syncFromExtension(other.customerId, { platform: "VINTED", account: { externalUserId: "u2" }, sales: [{ externalOrderId: "S-A", title: "Autre", soldAt: new Date().toISOString() }] });

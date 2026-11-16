@@ -217,7 +217,7 @@ Règles paramétrables (réglage `storage`, valeurs par défaut dans `src/server
 ### Expéditions : délai de 48 h et retour à domicile
 
 - **Délai d'expédition** (réglage `shipping.slaHours`, 48 h par défaut) : chaque expédition reçoit une échéance à sa création. Le délai est suspendu pendant l'attente de crédits et repart à leur réservation. La tâche `attribution` (toutes les 15 min) alerte une fois le préparateur et les administrateurs pour chaque expédition non déposée à l'échéance.
-- **Retour à domicile** : le client demande l'envoi d'articles à sa propre adresse. L'expédition est de type « Retour au client » et suit le même circuit (classification, crédits, dépôt) ; le transport reste à la charge du client.
+- **Retour à domicile** : le client demande l'envoi d'articles à sa propre adresse (bouton « Me le renvoyer » sur la fiche article). Il paie le transport en joignant obligatoirement un **bordereau prépayé** (l'adresse du préparateur lui est indiquée comme expéditeur), et le retour coûte un **forfait de 1 crédit** (paramètre `shipping.returnCredits`, réglable dans Admin → Paramètres), réservé dès la demande et débité au dépôt, sans classification de taille ni contestation. Sans crédit disponible, le retour attend la recharge puis reprend automatiquement.
 
 ### Dropshipping
 
@@ -235,9 +235,9 @@ Les bordereaux arrivent automatiquement dans l'espace **Bordereaux** du prépara
 
 Extension Chrome (Manifest V3) fournie dans le dossier `extension/` — installation, configuration et limites dans [`extension/README.md`](extension/README.md). Elle relie les comptes **Vinted** et **Vestiaire Collective** du client à Packio : elle remonte ses annonces et ses ventes, puis le bordereau d'expédition de chaque vente.
 
-- Le client crée un **jeton** dans `Ventes et comptes liés` (affiché une seule fois, seul son hash est stocké, révocable) et le colle dans les options de l'extension.
-- API utilisées par l'extension (en-tête `Authorization: Bearer <jeton>`) : `GET /api/extension/status`, `POST /api/extension/sync` (annonces et ventes), `POST /api/extension/label` (bordereau d'une vente, PDF ou image).
-- Une annonce est rattachée à un article du stock automatiquement si elle contient sa référence (SKU), ou manuellement. Une vente d'une annonce rattachée crée l'expédition chez le préparateur ; le bordereau, dès qu'il est disponible, y est joint automatiquement. Les traitements sont idempotents (une vente rejouée ne crée rien de plus).
+- Le client connecte l'extension en un clic dans `Ventes et comptes liés` (bouton **Connecter l'extension**), ou crée un **jeton** manuel (affiché une seule fois, seul son hash est stocké, révocable).
+- API utilisées par l'extension (en-tête `Authorization: Bearer <jeton>`) : `GET /api/extension/status`, `DELETE /api/extension/status` (déconnexion), `POST /api/extension/sync` (annonces et ventes), `POST /api/extension/label` (bordereau d'une vente, PDF ou image).
+- **Toutes les ventes** des comptes liés s'affichent dans `Ventes et comptes liés` (filtres : toutes, à traiter, vendues avec Packio). Une vente d'une annonce rattachée à un article du stock (SKU cité dans l'annonce, ou rattachement manuel) part automatiquement chez le préparateur. Sous chaque autre vente : **Vendu avec Packio** (choix de l'article, expédition sous 48 h avec le bordereau) ou **Supprimer** (article expédié par le client lui-même : nom de l'acheteur et bordereau effacés, la vente n'est plus recréée ni son bordereau conservé). Les traitements sont idempotents (une vente rejouée ne crée rien de plus).
 - Les plateformes ne proposent pas d'API officielle : la lecture des données dépend de leur site et doit être **validée avec de vrais comptes** ; le client l'utilise sur ses propres comptes et reste responsable du respect de leurs conditions d'utilisation.
 
 ## Sécurité et RGPD

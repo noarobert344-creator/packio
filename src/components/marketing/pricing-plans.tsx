@@ -36,15 +36,16 @@ export function PricingPlans({ plans }: { plans: PricingPlan[] }) {
         </div>
       )}
       <div className={cn("grid gap-5", plans.length >= 3 ? "lg:grid-cols-3" : "md:grid-cols-2")}>
-        {plans.map((p) => {
+        {plans.map((p, i) => {
           const annual = yearly && hasAnnualOffer(p);
           const savings = annualSavings(p);
           return (
+            <div key={p.id} data-reveal className="flex" style={{ "--d": `${i * 110}ms` } as React.CSSProperties}>
             <div
-              key={p.id}
+              data-spotlight={p.highlighted ? undefined : ""}
               className={cn(
-                "relative flex flex-col rounded-3xl border bg-card p-7 shadow-soft",
-                p.highlighted && "border-brand/50 bg-gradient-to-b from-brand-soft/70 to-card glow-brand lg:-my-3 lg:py-10",
+                "relative flex flex-1 flex-col rounded-3xl border bg-card p-7 shadow-soft",
+                p.highlighted && "border-glow border-brand/50 bg-gradient-to-b from-brand-soft/70 to-card glow-brand lg:-my-3 lg:py-10",
               )}
             >
               {p.highlighted && <span className="absolute -top-3 left-7 rounded-full bg-brand px-3 py-1 text-xs font-semibold text-brand-foreground">Recommandé</span>}
@@ -75,11 +76,12 @@ export function PricingPlans({ plans }: { plans: PricingPlan[] }) {
                   </li>
                 ))}
               </ul>
-              <Button asChild size="lg" variant={p.highlighted ? "default" : "outline"} className="mt-8 h-11 w-full text-[0.95rem]">
+              <Button asChild size="lg" variant={p.highlighted ? "default" : "outline"} className={cn("mt-8 h-11 w-full text-[0.95rem]", p.highlighted && "btn-shine")}>
                 <Link href={`/inscription?offre=${p.code}${annual ? "&periodicite=annuel" : ""}`}>
                   Choisir {p.name} <ArrowRight />
                 </Link>
               </Button>
+            </div>
             </div>
           );
         })}

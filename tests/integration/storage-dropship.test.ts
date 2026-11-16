@@ -2,7 +2,9 @@ import { addDays, addHours } from "date-fns";
 import { beforeEach, describe, expect, it } from "vitest";
 import { assignPreparer } from "@/server/services/assignments";
 import { createSupplierOrder, markPickedUp, receiveOrder, stockOrder } from "@/server/services/orders";
-import { classifyShipment, requestShipment, retryAwaitingCredits, runShipmentSlaCheck } from "@/server/services/shipments";
+import { classifyShipment, confirmDropOff, confirmLabel, disputeClassification, markReady, requestShipment, retryAwaitingCredits, runShipmentSlaCheck, startPreparation } from "@/server/services/shipments";
+import { getSetting } from "@/server/services/settings";
+import { updateSettings } from "@/server/services/catalog";
 import { adminAdjustCredits } from "@/server/services/credits";
 import { getStorageOverview, purchaseStorageSlots, runStorageBilling } from "@/server/services/storage";
 import { updateItemDetails } from "@/server/services/inventory";
@@ -165,14 +167,53 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
     expect((await wallet(client.customerId)).purchasedBalance).toBe(3);
   });
 
-  it("retour à domicile : expédition de type retour, échéance 48 h", async () => {
+  it("retour à domicile : bordereau prépayé du client obligatoire, 1 crédit fixe réservé à la demande, sans classification, débité au dépôt", async () => {
     const { prep, client } = await setup();
     const { item } = await stocked(client.actor, prep.actor, prep.location.id, 2);
+    expect((await getSetting("shipping")).returnCredits).toBe(1);
+    await expect(
+      requestShipment(client.actor, { items: [{ itemId: item.id, quantity: 2 }], ...address, labelMode: "PREPARER_PROVIDED", kind: "RETURN_TO_CUSTOMER" }),
+    ).rejects.toMatchObject({ code: "RETURN_LABEL" });
+
     const before = Date.now();
-    const s = await requestShipment(client.actor, { items: [{ itemId: item.id, quantity: 2 }], ...address, labelMode: "PREPARER_PROVIDED", kind: "RETURN_TO_CUSTOMER" });
-    expect(s.kind).toBe("RETURN_TO_CUSTOMER");
+    const w0 = await wallet(client.customerId);
+    const label = await labelFile(client.actor);
+    const s = await requestShipment(client.actor, { items: [{ itemId: item.id, quantity: 2 }], ...address, labelMode: "CUSTOMER_PROVIDED", labelFileId: label.id, kind: "RETURN_TO_CUSTOMER" });
+    expect(s).toMatchObject({ kind: "RETURN_TO_CUSTOMER", status: "CLASSIFIED", creditCost: 1, creditState: "RESERVED", sizeCategory: null });
     expect(Math.round((s.dueAt!.getTime() - before) / 3_600_000)).toBe(48);
+    expect((await wallet(client.customerId)).reservedBalance).toBe(w0.reservedBalance + 1);
     expect(await db.notification.count({ where: { userId: prep.actor.userId, title: "Retour d'articles au client" } })).toBe(1);
+
+    // Coût fixe : ni classification, ni contestation.
+    await expect(classifyShipment(prep.actor, { shipmentId: s.id, size: "LARGE" })).rejects.toMatchObject({ code: "RETURN_FIXED" });
+    await expect(disputeClassification(client.actor, { shipmentId: s.id, reason: "Je conteste la taille du colis" })).rejects.toMatchObject({ code: "RETURN_FIXED" });
+
+    await startPreparation(prep.actor, { shipmentId: s.id });
+    await markReady(prep.actor, { shipmentId: s.id });
+    await confirmLabel(prep.actor, { shipmentId: s.id });
+    await confirmDropOff(prep.actor, { shipmentId: s.id, carrier: "COLISSIMO", trackingNumber: "6A99999999999" });
+    const w1 = await wallet(client.customerId);
+    expect(w1.monthlyBalance + w1.purchasedBalance).toBe(w0.monthlyBalance + w0.purchasedBalance - 1);
+    expect(w1.reservedBalance).toBe(w0.reservedBalance);
+    const inv = await ledgerInvariant(client.customerId);
+    expect(inv.available).toBe(inv.ledgerAvailable);
+    expect(inv.reserved).toBe(inv.ledgerReserved);
+  });
+
+  it("retour à domicile sans crédit disponible : en attente, puis repris après recharge ; coût réglable par l'administration", async () => {
+    const { admin, prep, client } = await setup();
+    const { item } = await stocked(client.actor, prep.actor, prep.location.id, 1);
+    await drain(admin, client.customerId);
+    const s = await requestShipment(client.actor, { items: [{ itemId: item.id, quantity: 1 }], ...address, labelMode: "CUSTOMER_PROVIDED", labelFileId: (await labelFile(client.actor)).id, kind: "RETURN_TO_CUSTOMER" });
+    expect(s).toMatchObject({ status: "AWAITING_CREDITS", creditCost: 1, creditState: "INSUFFICIENT" });
+    await adminAdjustCredits(admin, { customerId: client.customerId, direction: "CREDIT", amount: 1, bucket: "PURCHASED", reason: "Recharge de test", requestId: "topup-retour" });
+    await retryAwaitingCredits(client.customerId);
+    expect(await db.outboundShipment.findUniqueOrThrow({ where: { id: s.id } })).toMatchObject({ status: "CLASSIFIED", creditState: "RESERVED" });
+
+    await updateSettings(admin, "shipping", { slaHours: 48, returnCredits: 0 });
+    const { item: other } = await stocked(client.actor, prep.actor, prep.location.id, 1);
+    const free = await requestShipment(client.actor, { items: [{ itemId: other.id, quantity: 1 }], ...address, labelMode: "CUSTOMER_PROVIDED", labelFileId: (await labelFile(client.actor)).id, kind: "RETURN_TO_CUSTOMER" });
+    expect(free).toMatchObject({ status: "CLASSIFIED", creditCost: 0, creditState: "NONE" });
   });
 
   it("dropshipping : sans place de stock, expédition express créée à la réception avec le bordereau", async () => {

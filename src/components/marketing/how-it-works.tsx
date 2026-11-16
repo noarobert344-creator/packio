@@ -15,27 +15,27 @@ const STEPS = [
   {
     icon: CreditCard,
     title: "Choisissez votre offre",
-    text: "Souscrivez un abonnement mensuel, ou annuel à prix réduit, adapté à votre volume. Vos crédits de préparation sont disponibles dès le paiement, géré de façon sécurisée par Whop.",
+    text: "Mensuel ou annuel, selon votre volume. Vos crédits sont disponibles dès le paiement.",
   },
   {
     icon: UserRoundCheck,
     title: "Votre préparateur vous est attribué",
-    text: "L'équipe Packio sélectionne manuellement le préparateur le plus adapté, sous 24 heures. Vous êtes notifié et son point de réception s'active dans votre espace.",
+    text: "L'équipe Packio choisit le préparateur le plus adapté, sous 24 heures.",
   },
   {
     icon: ShoppingBag,
     title: "Commandez vers son point de réception",
-    text: "Achetez sur ZenMarket, Vinted ou Vestiaire Collective pour votre stock, en livraison vers l'adresse ou le locker validé de votre préparateur, puis déclarez la commande. Article déjà vendu ? Commandez-le sur Temu, SHEIN ou AliExpress en dropshipping.",
+    text: "ZenMarket, Vinted ou Vestiaire pour votre stock ; Temu, SHEIN ou AliExpress en dropshipping.",
   },
   {
     icon: PackageCheck,
     title: "Réception, contrôle et mise en stock",
-    text: "Votre préparateur récupère le colis, vérifie le contenu, le photographie et le range. Chaque article apparaît dans votre stock avec ses photos, à télécharger pour vos annonces.",
+    text: "Votre préparateur vérifie, photographie et range chaque article. Les photos sont prêtes pour vos annonces.",
   },
   {
     icon: Truck,
     title: "Demandez une expédition",
-    text: "Sélectionnez les articles et le destinataire, ou votre propre adresse pour un retour. Le préparateur classe le colis, le prépare et le dépose chez le transporteur sous 48 h : les crédits sont débités au dépôt.",
+    text: "Choisissez les articles et le destinataire : le colis part sous 48 h, les crédits sont débités au dépôt.",
   },
 ];
 
@@ -157,7 +157,7 @@ export function HowItWorks({ sizeRules, shippingHours = 48 }: { sizeRules: SizeR
         {STEPS.map((s, i) => {
           const isActive = i === active;
           return (
-            <li key={s.title}>
+            <li key={s.title} data-reveal="left" style={{ "--d": `${i * 90}ms` } as React.CSSProperties}>
               <button
                 type="button"
                 role="tab"
@@ -188,7 +188,7 @@ export function HowItWorks({ sizeRules, shippingHours = 48 }: { sizeRules: SizeR
           );
         })}
       </ol>
-      <div id="how-panel" role="tabpanel" className="rounded-3xl border bg-muted/40 p-4 sm:p-6 lg:sticky lg:top-24">
+      <div id="how-panel" role="tabpanel" data-reveal="right" className="rounded-3xl border bg-muted/40 p-4 sm:p-6 lg:sticky lg:top-24">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm font-semibold">{STEPS[active].title}</p>
           <span className="text-xs text-muted-foreground">

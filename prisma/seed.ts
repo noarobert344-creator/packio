@@ -23,6 +23,7 @@ import { assignPreparer } from "@/server/services/assignments";
 import { createSupplierOrder, customerUpdateOrder, markPickedUp, receiveOrder, stockOrder } from "@/server/services/orders";
 import { classifyShipment, confirmDropOff, confirmLabel, markReady, requestShipment, startPreparation, updateTransit } from "@/server/services/shipments";
 import { sendMessage } from "@/server/services/messaging";
+import { syncFromExtension } from "@/server/services/marketplace";
 import { randomCode } from "@/server/lib/ids";
 
 const DEMO_DOMAIN = "demo.packio.local";
@@ -38,6 +39,23 @@ function guard() {
   if (!/localhost|127\.0\.0\.1|@db:|@postgres:/.test(url) && process.env.SEED_ALLOW_REMOTE !== "1" && !demoDeployment) {
     throw new Error("Refus : base distante détectée. Définissez SEED_ALLOW_REMOTE=1 si cette base est bien une base de développement.");
   }
+}
+
+async function demoMarketplaceSales(customerId: string, figurineSku: string) {
+  await syncFromExtension(customerId, {
+    platform: "VINTED",
+    account: { externalUserId: "demo-lea-vinted", username: "lea.vintage (démo)" },
+    listings: [
+      { externalId: "DEMO-L-1", title: "Figurine One Piece édition limitée", description: `Neuve, jamais déballée. Réf. ${figurineSku}`, priceCents: 4500, status: "active" },
+      { externalId: "DEMO-L-2", title: "Pull en laine beige — M", priceCents: 1800, status: "active" },
+      { externalId: "DEMO-L-3", title: "Sac à main en cuir noir", priceCents: 3500, status: "active" },
+    ],
+    sales: [
+      { externalOrderId: "DEMO-VT-5001", externalItemId: "DEMO-L-1", title: "Figurine One Piece édition limitée", priceCents: 4500, buyerName: "Sarah B. (démo)", soldAt: subHours(new Date(), 5) },
+      { externalOrderId: "DEMO-VT-5002", externalItemId: "DEMO-L-2", title: "Pull en laine beige — M", priceCents: 1800, buyerName: "Thomas L. (démo)", soldAt: subHours(new Date(), 26) },
+      { externalOrderId: "DEMO-VT-5003", externalItemId: "DEMO-L-3", title: "Sac à main en cuir noir", priceCents: 3500, buyerName: "Inès M. (démo)", soldAt: subHours(new Date(), 50) },
+    ],
+  });
 }
 
 async function actorFor(userId: string): Promise<Actor> {
@@ -220,7 +238,11 @@ async function main() {
   await requestShipment(leaActor, {
     items: [{ itemId: s3.items[0].id, quantity: 1 }], recipientName: "Marc Dubois", addressLine1: "3 allée des Pins", postalCode: "33000", city: "Bordeaux", country: "FR", labelMode: "PREPARER_PROVIDED", requestedCarrier: "MONDIAL_RELAY", instructions: "Double carton si possible, merci !",
   });
-  void s2;
+
+  // Ventes Vinted remontées par Packio Connect (données fictives) : la figurine,
+  // dont l'annonce cite le SKU, part seule chez la préparatrice ; les deux autres
+  // ventes attendent « Vendu avec Packio » ou « Supprimer ».
+  await demoMarketplaceSales(lea.customerProfile!.id, s2.items[0].sku);
 
   const conversation = await db.conversation.findFirstOrThrow({ where: { customerId: lea.customerProfile!.id, preparerId: camille.preparer.id } });
   await sendMessage(leaActor, { conversationId: conversation.id, body: "Bonjour Camille ! J'ai une paire de Nike qui arrive au locker cette semaine." });

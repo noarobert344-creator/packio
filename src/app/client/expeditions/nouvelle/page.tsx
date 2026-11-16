@@ -9,6 +9,7 @@ import { requireSubscribedCustomer } from "@/server/customer-page";
 import { db } from "@/server/db";
 import { getWalletOverview } from "@/server/services/credits";
 import { getSizeRules } from "@/server/services/shipments";
+import { getReceptionInfo } from "@/server/services/orders";
 import { getSetting } from "@/server/services/settings";
 import { one, type SearchParams } from "@/lib/params";
 
@@ -17,7 +18,7 @@ export const metadata: Metadata = { title: "Demander une expédition" };
 export default async function NewShipmentPage({ searchParams }: { searchParams: SearchParams }) {
   const { customer } = await requireSubscribedCustomer();
   const sp = await searchParams;
-  const [items, rules, wallet, shipping] = await Promise.all([
+  const [items, rules, wallet, shipping, reception] = await Promise.all([
     db.inventoryItem.findMany({
       where: { customerId: customer.id, quantityAvailable: { gt: 0 }, ...(customer.currentPreparerId ? { preparerId: customer.currentPreparerId } : {}) },
       orderBy: { receivedAt: "desc" },
@@ -26,7 +27,9 @@ export default async function NewShipmentPage({ searchParams }: { searchParams: 
     getSizeRules(),
     getWalletOverview(customer.id),
     getSetting("shipping"),
+    getReceptionInfo(customer.id),
   ]);
+  const senderLocation = reception.locations[0];
   const isReturn = one(sp.retour) === "1";
   const returnAddress =
     customer.returnAddressLine1 && customer.returnPostalCode && customer.returnCity
@@ -54,6 +57,12 @@ export default async function NewShipmentPage({ searchParams }: { searchParams: 
           defaultKind={isReturn ? "RETURN_TO_CUSTOMER" : "SALE"}
           returnAddress={returnAddress}
           shippingHours={shipping.slaHours}
+          returnCredits={shipping.returnCredits}
+          returnSender={
+            senderLocation
+              ? { name: senderLocation.recipientName, addressLine1: senderLocation.addressLine1, addressLine2: senderLocation.addressLine2, postalCode: senderLocation.postalCode, city: senderLocation.city }
+              : null
+          }
           available={wallet.available}
           sizes={rules.map((r) => ({ label: r.label, creditCost: r.creditCost, dims: r.maxLengthCm ? `≤ ${r.maxLengthCm}×${r.maxWidthCm}×${r.maxHeightCm} cm` : "hors gabarit" }))}
           items={items.map((i) => ({ id: i.id, name: i.name, sku: i.sku, available: i.quantityAvailable, photoId: i.files[0]?.id ?? null, storageLocation: i.storageLocation }))}

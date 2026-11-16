@@ -246,6 +246,195 @@
   }
 }
 
+/* -----------------------------------------------------------------------------
+   Animations de la page d'accueil
+   Apparition au défilement : le contenu n'est masqué qu'une fois le script
+   prêt (attribut data-reveal-ready posé par <MotionEffects />) ; sans script,
+   ou si l'appareil demande moins d'animations, tout reste visible.
+   -------------------------------------------------------------------------- */
+[data-reveal-ready] [data-reveal] {
+  transition:
+    opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0ms),
+    transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0ms),
+    filter 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--d, 0ms);
+}
+[data-reveal-ready] [data-reveal]:not([data-revealed]) {
+  opacity: 0;
+  transform: translateY(26px) scale(0.985);
+  filter: blur(6px);
+}
+[data-reveal-ready] [data-reveal="left"]:not([data-revealed]) {
+  transform: translateX(-28px);
+}
+[data-reveal-ready] [data-reveal="right"]:not([data-revealed]) {
+  transform: translateX(28px);
+}
+/* Trait des sur-titres : se déploie à l'apparition. */
+.eyebrow-line {
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.25s;
+}
+[data-reveal-ready] [data-reveal]:not([data-revealed]) .eyebrow-line {
+  width: 0;
+}
+
+/* Halo animé (hero, appel final). */
+@keyframes aurora {
+  0%,
+  100% {
+    transform: translate(-50%, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate(-42%, 2.5rem) scale(1.12) rotate(14deg);
+  }
+  66% {
+    transform: translate(-58%, -1.5rem) scale(0.94) rotate(-10deg);
+  }
+}
+.animate-aurora {
+  animation: aurora 18s ease-in-out infinite;
+}
+.animate-aurora-slow {
+  animation: aurora 26s ease-in-out infinite reverse;
+}
+
+/* Texte en dégradé qui ondule. */
+@keyframes gradient-x {
+  to {
+    background-position: 200% center;
+  }
+}
+.text-gradient-brand {
+  background-image: linear-gradient(90deg, var(--brand), oklch(0.74 0.15 230), oklch(0.7 0.2 290), var(--brand));
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: gradient-x 6s linear infinite;
+}
+
+/* Bandeau défilant infini (contenu dupliqué une fois). */
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 38s linear infinite;
+}
+.marquee:hover .animate-marquee {
+  animation-play-state: paused;
+}
+.mask-fade-x {
+  mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+}
+
+/* Reflet qui balaie un bouton. */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: shine 4.5s ease-in-out 1.2s infinite;
+  pointer-events: none;
+}
+@keyframes shine {
+  0% {
+    transform: translateX(-120%);
+  }
+  22%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+/* Halo qui suit le pointeur sur les cartes (variables posées par <MotionEffects />). */
+[data-spotlight] {
+  transition:
+    border-color 0.3s,
+    translate 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.3s;
+}
+[data-spotlight]:hover {
+  background-image: radial-gradient(28rem circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklch, var(--brand) 11%, transparent), transparent 55%);
+  border-color: color-mix(in oklch, var(--brand) 40%, var(--border));
+  translate: 0 -3px;
+}
+
+/* Bordure lumineuse en rotation (offre recommandée). */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.border-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from var(--border-angle), transparent 0 62%, var(--brand) 80%, oklch(0.78 0.14 230) 88%, transparent 96%);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: border-spin 5s linear infinite;
+  pointer-events: none;
+}
+@keyframes border-spin {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+/* Pastille « en cours » qui pulse. */
+@keyframes soft-ping {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--brand) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 9px transparent;
+  }
+}
+.animate-soft-ping {
+  animation: soft-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Barre de progression qui se remplit en boucle. */
+@keyframes progress-fill {
+  0% {
+    transform: scaleX(0.15);
+  }
+  70%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+.animate-progress {
+  transform-origin: left;
+  animation: progress-fill 3.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal-ready] [data-reveal]:not([data-revealed]) {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .text-gradient-brand,
+  .animate-marquee,
+  .btn-shine::after,
+  .border-glow::before,
+  .animate-aurora,
+  .animate-aurora-slow {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -14,10 +14,10 @@ export function SectionHeading({
   className?: string;
 }) {
   return (
-    <div className={cn("max-w-2xl space-y-4", align === "center" && "mx-auto text-center", className)}>
+    <div data-reveal className={cn("max-w-2xl space-y-4", align === "center" && "mx-auto text-center", className)}>
       {eyebrow && (
         <p className="inline-flex items-center gap-2 text-xs font-semibold tracking-[0.18em] text-brand uppercase">
-          <span className="h-px w-6 bg-brand/50" aria-hidden />
+          <span className="eyebrow-line h-px w-6 bg-brand/50" aria-hidden />
           {eyebrow}
         </p>
       )}

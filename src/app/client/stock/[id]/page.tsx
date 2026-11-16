@@ -23,12 +23,13 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const item = await getItemForActor(actor, id).catch(() => null);
   if (!item) notFound();
-  const [files, movements, preparer, order, rules] = await Promise.all([
+  const [files, movements, preparer, order, rules, shipping] = await Promise.all([
     db.file.findMany({ where: { inventoryItemId: item.id, deletedAt: null }, select: { id: true, filename: true, mimeType: true, purpose: true }, orderBy: { createdAt: "asc" } }),
     db.inventoryMovement.findMany({ where: { itemId: item.id }, orderBy: { createdAt: "desc" }, include: { actor: { select: { firstName: true, lastName: true, role: true } } } }),
     db.preparerProfile.findUniqueOrThrow({ where: { id: item.preparerId }, include: { user: { select: { firstName: true, lastName: true } } } }),
     item.supplierOrderId ? db.supplierOrder.findUnique({ where: { id: item.supplierOrderId }, select: { id: true, reference: true } }) : null,
     getSetting("storage"),
+    getSetting("shipping"),
   ]);
   const productPhotos = files.filter((f) => f.purpose === "PRODUCT_PHOTO");
   const otherFiles = files.filter((f) => f.purpose !== "PRODUCT_PHOTO");
@@ -47,6 +48,9 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                 <Button asChild variant="outline">
                   <Link href={`/client/expeditions/nouvelle?article=${item.id}&retour=1`}>
                     <Undo2 /> Me le renvoyer
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({shipping.returnCredits} crédit{shipping.returnCredits > 1 ? "s" : ""})
+                    </span>
                   </Link>
                 </Button>
                 <Button asChild>

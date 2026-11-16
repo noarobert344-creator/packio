@@ -1,4 +1,4 @@
-import { Info, Package, TriangleAlert, Warehouse } from "lucide-react";
+import { Info, Package, Warehouse } from "lucide-react";
 import type { Settings } from "@/server/services/settings";
 import { commonAnnualBadge } from "@/lib/billing-intervals";
 import { formatMoney } from "@/lib/format";
@@ -31,12 +31,14 @@ export function Pricing({
   packs,
   storage,
   shippingHours,
+  returnCredits,
 }: {
   plans: PricingPlan[];
   sizeRules: SizeRule[];
   packs: Pack[];
   storage: StorageRules;
   shippingHours: number;
+  returnCredits: number;
 }) {
   const annualBadge = commonAnnualBadge(plans);
   const extension = `${storage.extensionCredits} crédit${storage.extensionCredits > 1 ? "s" : ""}`;
@@ -46,17 +48,17 @@ export function Pricing({
         <SectionHeading
           eyebrow="Tarifs"
           title="Un abonnement simple, des crédits pour chaque colis"
-          description={`Chaque offre inclut un préparateur attitré, des places de stockage, l'expédition sous ${shippingHours} h, le tableau de bord et la messagerie. En mensuel, sans engagement : résiliable à tout moment, effectif à la fin de la période de 30 jours en cours.${annualBadge ? ` En annuel : ${annualBadge}, engagement de 12 mois.` : ""}`}
+          description={`Préparateur attitré, stockage, expédition sous ${shippingHours} h et messagerie inclus. Sans engagement en mensuel${annualBadge ? ` ; en annuel : ${annualBadge}` : ""}.`}
         />
         <PricingPlans plans={plans} />
 
         <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-          <div className="rounded-3xl border bg-card p-6 sm:p-7">
+          <div data-reveal className="rounded-3xl border bg-card p-6 sm:p-7">
             <div className="flex items-center gap-2">
               <Package className="size-4 text-brand" />
               <p className="font-semibold">Coût de préparation par colis</p>
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">La taille réelle est déterminée par votre préparateur, selon les règles ci-dessous. Vous êtes notifié avant tout débit.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Selon la taille du colis, mesurée par votre préparateur.</p>
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {sizeRules.map((r) => (
                 <div key={r.size} className="rounded-2xl bg-muted/50 p-4">
@@ -65,14 +67,13 @@ export function Pricing({
                     {r.creditCost} <span className="text-sm font-normal text-muted-foreground">crédit{r.creditCost > 1 ? "s" : ""}</span>
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{dims(r)}</p>
-                  {r.description && <p className="mt-1 text-xs text-muted-foreground">{r.description}</p>}
                 </div>
               ))}
             </div>
           </div>
-          <div className="flex flex-col rounded-3xl border bg-card p-6 sm:p-7">
+          <div data-reveal className="flex flex-col rounded-3xl border bg-card p-6 sm:p-7" style={{ "--d": "100ms" } as React.CSSProperties}>
             <p className="font-semibold">Crédits supplémentaires</p>
-            <p className="mt-1 text-sm text-muted-foreground">Besoin de plus de crédits un mois donné ? Achetez 10, 30, 50 ou 100 crédits depuis votre espace, sans changer d&apos;offre.</p>
+            <p className="mt-1 text-sm text-muted-foreground">À tout moment, sans changer d&apos;offre.</p>
             <ul className="mt-5 divide-y rounded-2xl border">
               {packs.map((pk) => (
                 <li key={pk.id} className="flex items-center justify-between px-4 py-3 text-sm">
@@ -86,14 +87,12 @@ export function Pricing({
             </ul>
           </div>
         </div>
-        <div className="rounded-3xl border bg-card p-6 sm:p-7">
+        <div data-reveal className="rounded-3xl border bg-card p-6 sm:p-7">
           <div className="flex items-center gap-2">
             <Warehouse className="size-4 text-brand" />
             <p className="font-semibold">Stockage</p>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Une place correspond à un article stocké chez votre préparateur. Sont comptés les articles en stock et ceux de vos commandes en cours d&apos;acheminement.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Une place = un article chez votre préparateur, y compris les commandes en route.</p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <div className="rounded-2xl bg-muted/50 p-4">
               <p className="text-sm font-medium">Places incluses</p>
@@ -105,7 +104,6 @@ export function Pricing({
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">En même temps, selon votre offre.</p>
             </div>
             <div className="rounded-2xl bg-muted/50 p-4">
               <p className="text-sm font-medium">Durée de stockage</p>
@@ -126,24 +124,13 @@ export function Pricing({
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">À ajouter depuis « Mon stock », quand vous en avez besoin.</p>
             </div>
           </div>
-          <p className="mt-5 flex gap-2.5 rounded-2xl border border-warning/30 bg-warning-soft/50 p-4 text-sm leading-relaxed">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-            <span>
-              <span className="font-medium">Une commande qui dépasse vos places ?</span>{" "}
-              <span className="text-muted-foreground">
-                Le formulaire de commande indique les crédits nécessaires pour les places manquantes ; ils ne sont débités qu&apos;avec votre accord, et la commande
-                est refusée si votre solde ne suffit pas. Les commandes en dropshipping n&apos;occupent aucune place.
-              </span>
-            </span>
-          </p>
         </div>
 
-        <div className="flex gap-3 rounded-2xl border bg-muted/40 p-5 text-sm">
+        <div data-reveal className="flex gap-3 rounded-2xl border bg-muted/40 p-5 text-sm">
           <Info className="mt-0.5 size-4 shrink-0 text-brand" />
           <p className="leading-relaxed text-muted-foreground">
-            <span className="font-medium text-foreground">Frais de transport non inclus.</span> Les crédits couvrent la réception, le stockage et la préparation, y compris pour un
-            retour à votre domicile. L&apos;affranchissement est
-            distinct : vous fournissez votre propre étiquette (par exemple celle générée par Vinted), ou les frais d&apos;envoi vous sont indiqués et facturés séparément.
+            <span className="font-medium text-foreground">Frais de transport non inclus.</span> Vous fournissez votre étiquette (celle de Vinted, par exemple). Un
+            retour à votre domicile coûte {returnCredits} crédit{returnCredits > 1 ? "s" : ""}, avec votre propre bordereau prépayé.
           </p>
         </div>
       </Container>

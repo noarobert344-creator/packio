@@ -18,6 +18,8 @@ export type LegalContext = {
   storage: Settings["storage"];
   /** Délai d'expédition promis (heures). */
   shippingHours: number;
+  /** Coût fixe d'un retour à domicile (crédits). */
+  returnCredits: number;
 };
 
 /** Durée lisible : 14 → « 2 semaines », 30 → « 30 jours ». */
@@ -148,8 +150,8 @@ export function Cgu({ ctx }: { ctx: LegalContext }) {
       </p>
       <h2>6. Expéditions, classification et crédits</h2>
       <p>
-        Le Client demande l&apos;expédition d&apos;articles en stock, à un acheteur ou à sa propre adresse (retour à domicile). Seul le Préparateur détermine la catégorie
-        réelle du colis ({ctx.sizes.map((s) => s.label.toLowerCase()).join(", ")}), selon les règles fixées par Packio. Le coût en crédits correspondant est réservé
+        Le Client demande l&apos;expédition d&apos;articles en stock, à un acheteur ou à sa propre adresse (retour à domicile, au forfait prévu par les conditions
+        générales de vente). Seul le Préparateur détermine la catégorie réelle du colis ({ctx.sizes.map((s) => s.label.toLowerCase()).join(", ")}), selon les règles fixées par Packio. Le coût en crédits correspondant est réservé
         à la classification puis définitivement débité au dépôt du colis chez le transporteur. Toute classification peut être contestée depuis la fiche de
         l&apos;expédition. Le Préparateur s&apos;engage à déposer le colis dans les {ctx.shippingHours} heures suivant la demande, dans les conditions prévues par les
         conditions générales de vente. Les frais de transport sont distincts des crédits de préparation.
@@ -284,8 +286,10 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
         s&apos;ajoutent à ce délai.
       </p>
       <p>
-        Le Client peut demander le retour d&apos;articles à sa propre adresse. Le retour est préparé comme une expédition : il consomme les mêmes crédits de
-        préparation, selon la catégorie du colis, et les frais de transport restent à la charge du Client.
+        Le Client peut demander le retour d&apos;articles à sa propre adresse. Le retour coûte {creditsLabel(ctx.returnCredits)} par demande, quels que soient le
+        nombre d&apos;articles et la taille du colis : {ctx.returnCredits > 1 ? "ils sont réservés" : "il est réservé"} à la demande et débité{ctx.returnCredits > 1 ? "s" : ""}{" "}
+        au dépôt du colis. Les frais de transport sont à la charge du Client, qui joint à sa demande un bordereau prépayé ; le Préparateur l&apos;imprime et dépose le
+        colis.
       </p>
       <h2>8. Dropshipping</h2>
       <p>

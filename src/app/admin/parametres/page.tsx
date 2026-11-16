@@ -78,7 +78,10 @@ async function PlatformTab() {
         <TextField name="supervisionMinutes" label="Durée d'un accès de supervision (minutes)" type="number" min={5} max={1440} defaultValue={s.messaging.supervisionMinutes} required />
       </Section>
       <Section title="Expédition" description="Engagement affiché aux clients ; au-delà, le préparateur et l'administration sont alertés. Le délai est suspendu pendant l'attente de crédits.">
-        <TextField name="shippingSlaHours" label="Délai d'expédition garanti (heures)" type="number" min={1} max={336} defaultValue={s.shipping.slaHours} required hint="48 h par défaut, à compter de la demande d'expédition." />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField name="shippingSlaHours" label="Délai d'expédition garanti (heures)" type="number" min={1} max={336} defaultValue={s.shipping.slaHours} required hint="48 h par défaut, à compter de la demande d'expédition." />
+          <TextField name="shippingReturnCredits" label="Coût d'un retour à domicile (crédits)" type="number" min={0} max={100} defaultValue={s.shipping.returnCredits} required hint="Fixe, quelle que soit la taille du colis. Frais de port payés par le client (bordereau prépayé)." />
+        </div>
       </Section>
       <Section title="Stockage" description="Durée de stockage par article, prolongations prélevées en crédits et places supplémentaires. Affiché sur le site, dans les CGV et dans l'espace client.">
         <div className="grid gap-4 sm:grid-cols-2">

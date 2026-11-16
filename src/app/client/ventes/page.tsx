@@ -1,41 +1,49 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ExternalLink, KeyRound, Link2, PlugZap, Puzzle, ShoppingBag, Store } from "lucide-react";
+import { KeyRound, Link2, PlugZap, Puzzle, ShoppingBag, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader, Section } from "@/components/shared/page-header";
-import { StatusBadge, StatusFrom } from "@/components/shared/status-badge";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { FilterTabs } from "@/components/shared/list-controls";
+import { SalesList } from "@/components/client/sales-list";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ActionButton, ActionDialog } from "@/components/shared/action-dialog";
 import { SelectField } from "@/components/shared/form-field";
 import { ExtensionTokenForm } from "@/components/client/extension-token-form";
 import { ExtensionConnect } from "@/components/client/extension-connect";
 import { requireSubscribedCustomer } from "@/server/customer-page";
-import { listMarketplaceOverview } from "@/server/services/marketplace";
-import { createExtensionTokenAction, ignoreSaleAction, linkListingAction, matchSaleAction, revokeExtensionTokenAction } from "@/server/actions/marketplace";
-import { MARKETPLACE_PLATFORM, MARKETPLACE_SALE_STATUS, SHIPMENT_STATUS } from "@/lib/labels";
+import { SALE_FILTERS, listMarketplaceOverview, type SaleFilter } from "@/server/services/marketplace";
+import { createExtensionTokenAction, linkListingAction, revokeExtensionTokenAction } from "@/server/actions/marketplace";
+import { MARKETPLACE_PLATFORM } from "@/lib/labels";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
+import { one, type SearchParams } from "@/lib/params";
 
 export const metadata: Metadata = { title: "Ventes et comptes liés" };
 
 const STEPS = [
   { icon: Puzzle, title: "Installez Packio Connect", text: "L'extension pour Chrome lit vos ventes Vinted et Vestiaire Collective, depuis votre navigateur, avec vos propres sessions." },
   { icon: Link2, title: "Indiquez le SKU dans vos annonces", text: "Ajoutez la référence SKU de l'article (visible dans Mon stock) à la description de l'annonce : elle est rattachée automatiquement. Sinon, associez-la ici." },
-  { icon: ShoppingBag, title: "Vendez, Packio expédie", text: "Dès qu'une vente est détectée, l'expédition est créée chez votre préparateur. Le bordereau généré sur la plateforme lui est transmis automatiquement." },
+  { icon: ShoppingBag, title: "Vendez, Packio expédie", text: "Les ventes reconnues par leur SKU partent seules chez votre préparateur, avec le bordereau. Pour les autres : « Vendu avec Packio » ou « Supprimer »." },
 ];
 
-export default async function SalesPage() {
+const PAGE = 30;
+
+export default async function SalesPage({ searchParams }: { searchParams: SearchParams }) {
   const { customer } = await requireSubscribedCustomer();
-  const { accounts, tokens, sales, listings, stockItems } = await listMarketplaceOverview(customer.id);
+  const sp = await searchParams;
+  const requested = one(sp.ventes);
+  const filter: SaleFilter = (SALE_FILTERS as readonly string[]).includes(requested ?? "") ? (requested as SaleFilter) : "toutes";
+  const limit = Math.min(Math.max(Number.parseInt(one(sp.n) ?? "", 10) || PAGE, PAGE), 300);
+  const { accounts, tokens, sales, salesFilter, hasMoreSales, saleCounts, listings, stockItems } = await listMarketplaceOverview(customer.id, { salesFilter: filter, salesLimit: limit });
   const itemOptions = stockItems.map((i) => ({ value: i.id, label: `${i.name} · ${i.sku} (${i.quantityAvailable} dispo.)` }));
   const activeTokens = tokens.filter((t) => !t.revokedAt);
-  const toIdentify = sales.filter((s) => s.status === "NEW").length;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Ventes et comptes liés"
-        description="Reliez vos comptes Vinted et Vestiaire Collective : chaque vente d'un article stocké chez votre préparateur déclenche son expédition, avec le bordereau de la plateforme."
+        description="Reliez vos comptes Vinted et Vestiaire Collective : vos ventes arrivent ici, et celles des articles stockés chez votre préparateur partent avec le bordereau de la plateforme."
       />
 
       <div className="grid gap-3 md:grid-cols-3">
@@ -52,97 +60,39 @@ export default async function SalesPage() {
       </div>
 
       <Section
-        title="Ventes détectées"
-        description={toIdentify ? `${toIdentify} vente(s) à associer à un article de votre stock.` : "Les ventes remontées par l'extension apparaissent ici."}
-        contentClassName="p-0"
+        title="Toutes les ventes"
+        description="Toutes les ventes de vos comptes liés. Sous chaque article : « Vendu avec Packio » pour que votre préparateur l'expédie, ou « Supprimer » si vous l'expédiez vous-même."
       >
-        {sales.length ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-5">Vente</TableHead>
-                  <TableHead>Plateforme</TableHead>
-                  <TableHead>Article Packio</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead className="pr-5 text-right">Expédition</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sales.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="max-w-xs pl-5">
-                      <span className="block truncate font-medium">{s.title}</span>
-                      <span className="block text-xs text-muted-foreground">
-                        {formatDateTime(s.soldAt)}
-                        {s.priceCents !== null ? ` · ${formatMoney(s.priceCents, s.currency)}` : ""}
-                        {s.buyerName ? ` · ${s.buyerName}` : ""} · n° {s.externalOrderId}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {MARKETPLACE_PLATFORM[s.platform]}
-                      {s.listing?.url && (
-                        <a href={s.listing.url} target="_blank" rel="noopener noreferrer" className="ml-1 inline-flex text-muted-foreground hover:text-foreground" aria-label="Voir l'annonce">
-                          <ExternalLink className="size-3.5" />
-                        </a>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {s.inventoryItem ? (
-                        <Link href={`/client/stock/${s.inventoryItem.id}`} className="hover:underline">
-                          {s.inventoryItem.name} <span className="font-mono text-xs text-muted-foreground">{s.inventoryItem.sku}</span>
-                        </Link>
-                      ) : (
-                        <span className="text-muted-foreground">Non identifié</span>
-                      )}
-                      {s.notes && <span className="block text-xs text-warning">{s.notes}</span>}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col items-start gap-1">
-                        <StatusFrom map={MARKETPLACE_SALE_STATUS} value={s.status} />
-                        {s._count.files > 0 && <span className="text-xs text-muted-foreground">Bordereau reçu</span>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="pr-5 text-right">
-                      {s.shipment ? (
-                        <Link href={`/client/expeditions/${s.shipment.id}`} className="inline-flex flex-col items-end text-sm hover:underline">
-                          <span className="font-mono text-xs">{s.shipment.reference}</span>
-                          <span className="text-xs text-muted-foreground">{SHIPMENT_STATUS[s.shipment.status].label}</span>
-                        </Link>
-                      ) : s.status === "NEW" || s.status === "MATCHED" ? (
-                        <div className="flex justify-end gap-1">
-                          <ActionDialog
-                            trigger={<Button size="sm">Associer</Button>}
-                            title="Associer la vente à un article"
-                            description={`« ${s.title} » sera expédié par votre préparateur ; le bordereau ${MARKETPLACE_PLATFORM[s.platform]} lui sera transmis dès qu'il sera généré.`}
-                            action={matchSaleAction}
-                            submitLabel="Associer et expédier"
-                          >
-                            <input type="hidden" name="saleId" value={s.id} />
-                            {itemOptions.length ? (
-                              <SelectField name="itemId" label="Article de votre stock" required options={itemOptions} placeholder="Choisir un article" defaultValue={s.inventoryItem?.id ?? ""} />
-                            ) : (
-                              <p className="text-sm text-muted-foreground">Aucun article disponible dans votre stock.</p>
-                            )}
-                          </ActionDialog>
-                          <ActionButton action={ignoreSaleAction} fields={{ saleId: s.id }} variant="ghost" size="sm">
-                            Ignorer
-                          </ActionButton>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <div className="p-5">
-            <EmptyState icon={Store} title="Aucune vente détectée" description="Installez l'extension et synchronisez vos comptes : vos ventes apparaîtront ici." />
-          </div>
-        )}
+        <div className="space-y-4">
+          <FilterTabs
+            param="ventes"
+            options={[
+              { value: "", label: "Toutes", count: saleCounts.toutes },
+              { value: "a-traiter", label: "À traiter", count: saleCounts["a-traiter"] },
+              { value: "packio", label: "Vendues avec Packio", count: saleCounts.packio },
+            ]}
+          />
+          {sales.length ? (
+            <>
+              <SalesList sales={sales} itemOptions={itemOptions} />
+              {hasMoreSales && (
+                <div className="flex justify-center">
+                  <Button asChild variant="outline">
+                    <Link href={`/client/ventes?${new URLSearchParams({ ...(salesFilter !== "toutes" ? { ventes: salesFilter } : {}), n: String(limit + PAGE) })}`} scroll={false}>
+                      Voir plus de ventes
+                    </Link>
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <EmptyState
+              icon={Store}
+              title={salesFilter === "a-traiter" ? "Aucune vente à traiter" : salesFilter === "packio" ? "Aucune vente expédiée par Packio" : "Aucune vente pour l'instant"}
+              description="Installez l'extension et restez connecté à Vinted ou Vestiaire Collective : vos ventes apparaîtront ici."
+            />
+          )}
+        </div>
       </Section>
 
       <div className="grid gap-6 xl:grid-cols-2">

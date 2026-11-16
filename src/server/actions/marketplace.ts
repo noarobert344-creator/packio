@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ActionState } from "@/lib/action-types";
 import { formToObject, runAction } from "@/server/action";
-import { createExtensionToken, ignoreSale, linkListingToItem, matchSaleToItem, revokeExtensionToken } from "@/server/services/marketplace";
+import { createExtensionToken, deleteSale, linkListingToItem, matchSaleToItem, revokeExtensionToken } from "@/server/services/marketplace";
 
 const id = z.string().min(1).max(40);
 
@@ -42,14 +42,14 @@ export async function matchSaleAction(_prev: ActionState, formData: FormData): P
     await matchSaleToItem(actor, data);
     revalidatePath("/client/ventes");
     revalidatePath("/client/expeditions");
-    return { ok: true, message: "Vente associée : l'expédition a été transmise à votre préparateur." };
+    return { ok: true, message: "Vendu avec Packio : votre préparateur expédie l'article sous 48 h." };
   });
 }
 
-export async function ignoreSaleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function deleteSaleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   return runAction(z.object({ saleId: id }), formToObject(formData), async (actor, data) => {
-    await ignoreSale(actor, data.saleId);
+    await deleteSale(actor, data.saleId);
     revalidatePath("/client/ventes");
-    return { ok: true, message: "Vente ignorée." };
+    return { ok: true, message: "Vente supprimée : elle n'apparaîtra plus dans la liste." };
   });
 }

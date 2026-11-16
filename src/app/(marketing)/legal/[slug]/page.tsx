@@ -79,6 +79,7 @@ export default async function LegalPage({ params }: { params: Promise<{ slug: st
                 supervisionMinutes: messaging.supervisionMinutes,
                 storage,
                 shippingHours: shipping.slaHours,
+                returnCredits: shipping.returnCredits,
                 appUrl: env.appUrl,
                 sizes: sizeRules,
               }}

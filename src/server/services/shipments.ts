@@ -116,6 +116,11 @@ export async function createShipmentTx(
   input: Omit<ShipmentRequestInput, "kind"> & { kind: ShipmentKind; customerId: string; actorUserId: string | null; system?: boolean },
 ) {
   const lines = validateLines(input);
+  if (input.kind === "RETURN_TO_CUSTOMER" && (input.labelMode !== "CUSTOMER_PROVIDED" || !input.labelFileId)) {
+    throw new DomainError("RETURN_LABEL", "Pour un retour à domicile, les frais de port sont à votre charge : joignez votre bordereau prépayé.", {
+      fieldErrors: { labelFileId: "Bordereau prépayé requis" },
+    });
+  }
   const customerId = input.customerId;
   const customer = input.system
     ? await tx.customerProfile.findUniqueOrThrow({ where: { id: customerId }, include: { user: true } })
@@ -177,7 +182,8 @@ export async function createShipmentTx(
   if (input.labelFileId) {
     await tx.file.update({ where: { id: input.labelFileId }, data: { shipmentId: shipment.id, customerId, purpose: "SHIPPING_LABEL" } });
   }
-  const updated = await setStatus(tx, shipment, "AWAITING_CLASSIFICATION", null, "Transmise au préparateur");
+  let updated = await setStatus(tx, shipment, "AWAITING_CLASSIFICATION", null, "Transmise au préparateur");
+  if (input.kind === "RETURN_TO_CUSTOMER") updated = await reserveReturnCredits(tx, fx, updated, customer.userId);
   const preparer = await tx.preparerProfile.findUniqueOrThrow({ where: { id: preparerId }, select: { userId: true } });
   const count = lines.reduce((s, l) => s + l.quantity, 0);
   const due = format(updated.dueAt!, "EEEE d MMMM 'à' HH'h'mm", { locale: fr });
@@ -190,14 +196,46 @@ export async function createShipmentTx(
   fx.notify(preparer.userId, {
     type: "SHIPMENT_REQUESTED",
     title: input.kind === "DROPSHIP" ? "Expédition express à préparer" : input.kind === "RETURN_TO_CUSTOMER" ? "Retour d'articles au client" : "Nouvelle demande d'expédition",
-    body: `${updated.reference} : ${what}. Classification requise, à expédier avant ${due}.`,
+    body: `${updated.reference} : ${what}.${input.kind === "RETURN_TO_CUSTOMER" ? "" : " Classification requise,"} À expédier avant ${due}.`,
     link: `/preparateur/expeditions/${updated.id}`,
   });
   fx.notify(customer.userId, {
     type: "SHIPMENT_REQUESTED",
     title: input.kind === "RETURN_TO_CUSTOMER" ? "Demande de retour envoyée" : "Demande d'expédition envoyée",
-    body: `${updated.reference} a été transmise à votre préparateur, qui va déterminer la taille du colis. Expédition prévue avant ${due}.`,
+    body:
+      input.kind === "RETURN_TO_CUSTOMER"
+        ? `${updated.reference} a été transmise à votre préparateur, qui vous renvoie vos articles avec votre bordereau avant ${due}.`
+        : `${updated.reference} a été transmise à votre préparateur, qui va déterminer la taille du colis. Expédition prévue avant ${due}.`,
     link: `/client/expeditions/${updated.id}`,
+  });
+  return updated;
+}
+
+/**
+ * Retour à domicile : coût fixe en crédits (paramètre « shipping.returnCredits »,
+ * 1 par défaut), réservé dès la demande, sans classification de taille ; les
+ * frais de port sont payés par le client (bordereau prépayé). Sans crédits
+ * suffisants, le retour attend une recharge et reprend automatiquement.
+ */
+async function reserveReturnCredits(tx: Tx, fx: Effects, shipment: OutboundShipment, customerUserId: string) {
+  const cost = (await getSetting("shipping", tx)).returnCredits;
+  let updated = await tx.outboundShipment.update({ where: { id: shipment.id }, data: { creditCost: cost, classificationVersion: 1 } });
+  if (cost === 0) {
+    updated = await tx.outboundShipment.update({ where: { id: shipment.id }, data: { creditState: "NONE" } });
+    return setStatus(tx, updated, "CLASSIFIED", null, "Retour à domicile : aucun crédit requis");
+  }
+  const res = await reserveCredits(tx, { customerId: shipment.customerId, shipmentId: shipment.id, amount: cost, version: 1, description: `Retour à domicile ${shipment.reference}` });
+  if (res.ok) {
+    updated = await tx.outboundShipment.update({ where: { id: shipment.id }, data: { creditState: "RESERVED" } });
+    return setStatus(tx, updated, "CLASSIFIED", null, `Retour à domicile : ${cost} crédit${cost > 1 ? "s" : ""} réservé${cost > 1 ? "s" : ""}`, { cost });
+  }
+  updated = await tx.outboundShipment.update({ where: { id: shipment.id }, data: { creditState: "INSUFFICIENT" } });
+  updated = await setStatus(tx, updated, "AWAITING_CREDITS", null, `${cost} crédit(s) requis, ${res.available} disponible(s)`, { cost });
+  fx.notify(customerUserId, {
+    type: "CREDITS_INSUFFICIENT",
+    title: "Crédits insuffisants",
+    body: `Le retour ${shipment.reference} coûte ${cost} crédit${cost > 1 ? "s" : ""} mais votre solde disponible est de ${res.available}. Rechargez vos crédits : le retour reprendra automatiquement.`,
+    link: "/client/credits",
   });
   return updated;
 }
@@ -213,6 +251,7 @@ export async function classifyShipment(
 ) {
   return withEffects(async (tx, fx) => {
     const shipment = await preparerShipment(tx, actor, input.shipmentId);
+    if (shipment.kind === "RETURN_TO_CUSTOMER") throw new DomainError("RETURN_FIXED", "Un retour à domicile a un coût fixe : aucune classification n'est nécessaire.");
     expect(shipment, ["AWAITING_CLASSIFICATION", "CLASSIFIED", "AWAITING_CREDITS"], "Classifier");
     return classifyInternal(tx, fx, actor, shipment, input);
   });
@@ -572,6 +611,7 @@ export async function disputeClassification(actor: Actor, input: { shipmentId: s
   return withEffects(async (tx, fx) => {
     const shipment = await lockShipment(tx, input.shipmentId);
     if (shipment.customerId !== customerId) throw new ForbiddenError();
+    if (shipment.kind === "RETURN_TO_CUSTOMER") throw new DomainError("RETURN_FIXED", "Un retour à domicile a un coût fixe : il n'y a pas de classification à contester.");
     if (!shipment.sizeCategory) throw new DomainError("NOT_CLASSIFIED", "Ce colis n'a pas encore été classé.");
     const open = await tx.incident.findFirst({ where: { shipmentId: shipment.id, type: "CLASSIFICATION_DISPUTE", status: { in: ["OPEN", "IN_PROGRESS"] } } });
     if (open) throw new DomainError("ALREADY_DISPUTED", "Une contestation est déjà en cours pour ce colis.");
@@ -597,6 +637,7 @@ export async function adminReclassify(actor: Actor, input: { shipmentId: string;
   if (input.reason.trim().length < 5) throw new DomainError("REASON", "Justification obligatoire.");
   return withEffects(async (tx, fx) => {
     const shipment = await lockShipment(tx, input.shipmentId);
+    if (shipment.kind === "RETURN_TO_CUSTOMER") throw new DomainError("RETURN_FIXED", "Un retour à domicile a un coût fixe : il ne se reclasse pas.");
     const rule = await tx.parcelSizeRule.findUniqueOrThrow({ where: { size: input.size } });
     if (["AWAITING_CLASSIFICATION", "CLASSIFIED", "AWAITING_CREDITS"].includes(shipment.status)) {
       const updated = await classifyInternal(tx, fx, actor, shipment, { size: input.size, note: `Correction administrateur : ${input.reason}` });

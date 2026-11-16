@@ -156,10 +156,10 @@ export const MARKETPLACE_PLATFORM: Record<MarketplacePlatform, string> = {
 };
 
 export const MARKETPLACE_SALE_STATUS: Record<MarketplaceSaleStatus, Labeled> = {
-  NEW: { label: "Article à identifier", tone: "warning" },
+  NEW: { label: "À traiter", tone: "warning" },
   MATCHED: { label: "Article identifié", tone: "info" },
-  SHIPMENT_CREATED: { label: "Expédition créée", tone: "success" },
-  IGNORED: { label: "Ignorée", tone: "neutral" },
+  SHIPMENT_CREATED: { label: "Vendu avec Packio", tone: "success" },
+  IGNORED: { label: "Supprimée", tone: "neutral" },
   CANCELLED: { label: "Annulée", tone: "neutral" },
 };
 

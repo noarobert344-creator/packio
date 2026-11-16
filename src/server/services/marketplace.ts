@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { InventoryItem, MarketplaceSale } from "@/generated/prisma/client";
+import type { InventoryItem, MarketplaceSale, Prisma } from "@/generated/prisma/client";
 import type { MarketplacePlatform } from "@/generated/prisma/enums";
 import { db, type Tx } from "@/server/db";
 import { DomainError, ForbiddenError, NotFoundError, isUniqueViolation } from "@/server/errors";
@@ -317,6 +317,8 @@ export async function attachSaleLabel(customerId: string, input: { platform: Mar
     where: { customerId_platform_externalOrderId: { customerId, platform: input.platform, externalOrderId: input.externalOrderId } },
   });
   if (!sale) throw new NotFoundError("Vente inconnue : synchronisez d'abord vos ventes.");
+  // Vente supprimée par le client : le bordereau (adresse de l'acheteur) n'est pas conservé.
+  if (sale.status === "IGNORED") return { fileId: null, duplicate: false, shipmentId: null, ignored: true };
 
   const duplicate = await db.file.findFirst({ where: { marketplaceSaleId: sale.id, sha256, deletedAt: null } });
   if (duplicate) return { fileId: duplicate.id, duplicate: true, shipmentId: sale.shipmentId };
@@ -411,6 +413,7 @@ export async function matchSaleToItem(actor: Actor, input: { saleId: string; ite
   if (!sale || sale.customerId !== customerId) throw new NotFoundError("Vente introuvable.");
   if (sale.shipmentId || sale.status === "SHIPMENT_CREATED") throw new DomainError("ALREADY_SHIPPED", "Une expédition existe déjà pour cette vente.");
   if (sale.status === "CANCELLED") throw new DomainError("CANCELLED", "Cette vente a été annulée.");
+  if (sale.status === "IGNORED") throw new DomainError("DELETED", "Cette vente a été supprimée.");
   const item = await ownItem(customerId, input.itemId);
   if (item.quantityAvailable < 1) throw new DomainError("STOCK", `« ${item.name} » n'est plus disponible en stock.`);
   await db.marketplaceSale.update({ where: { id: sale.id }, data: { inventoryItemId: item.id, status: "MATCHED", notes: null } });
@@ -425,20 +428,58 @@ export async function matchSaleToItem(actor: Actor, input: { saleId: string; ite
   return db.marketplaceSale.findUniqueOrThrow({ where: { id: sale.id } });
 }
 
-export async function ignoreSale(actor: Actor, saleId: string) {
+/**
+ * « Supprimer » : vente sans rapport avec Packio (article expédié par le client
+ * lui-même). Le nom de l'acheteur et les bordereaux sont effacés ; seule une
+ * trace minimale (plateforme, n° de commande, titre) est conservée pour que la
+ * synchronisation ne recrée pas la vente.
+ */
+export async function deleteSale(actor: Actor, saleId: string) {
   const customerId = assertCustomer(actor);
-  const sale = await db.marketplaceSale.findUnique({ where: { id: saleId } });
-  if (!sale || sale.customerId !== customerId) throw new NotFoundError("Vente introuvable.");
-  if (sale.shipmentId) throw new DomainError("ALREADY_SHIPPED", "Une expédition existe déjà : annulez-la depuis la page de l'expédition.");
-  return db.marketplaceSale.update({ where: { id: sale.id }, data: { status: "IGNORED" } });
+  return withEffects(async (tx, fx) => {
+    const sale = await lockSale(tx, saleId);
+    if (sale.customerId !== customerId) throw new NotFoundError("Vente introuvable.");
+    if (sale.status === "IGNORED") return sale;
+    if (sale.shipmentId) {
+      const shipment = await tx.outboundShipment.findUnique({ where: { id: sale.shipmentId }, select: { status: true } });
+      if (shipment && shipment.status !== "CANCELLED") {
+        throw new DomainError("ALREADY_SHIPPED", "Cette vente est expédiée par Packio : annulez d'abord l'expédition depuis sa page.");
+      }
+    }
+    const labels = await tx.file.findMany({ where: { marketplaceSaleId: sale.id, deletedAt: null }, select: { id: true, storageKey: true } });
+    if (labels.length) {
+      await tx.file.updateMany({ where: { id: { in: labels.map((l) => l.id) } }, data: { deletedAt: new Date() } });
+      fx.after(async () => {
+        for (const l of labels) await storage().delete(l.storageKey);
+      });
+    }
+    const updated = await tx.marketplaceSale.update({ where: { id: sale.id }, data: { status: "IGNORED", buyerName: null, notes: null, inventoryItemId: null } });
+    await audit(
+      { actor, action: "marketplace.sale_deleted", entityType: "customer", entityId: customerId, summary: `Vente ${platformLabel(sale.platform)} n° ${sale.externalOrderId} supprimée (non expédiée par Packio)` },
+      tx,
+    );
+    return updated;
+  });
 }
 
 // -----------------------------------------------------------------------------
 // Lectures
 // -----------------------------------------------------------------------------
 
-export async function listMarketplaceOverview(customerId: string) {
-  const [accounts, tokens, sales, listings, stockItems] = await Promise.all([
+export const SALE_FILTERS = ["toutes", "a-traiter", "packio"] as const;
+export type SaleFilter = (typeof SALE_FILTERS)[number];
+
+const PENDING_SALE: Prisma.MarketplaceSaleWhereInput = { status: { in: ["NEW", "MATCHED"] }, shipmentId: null };
+const saleFilterWhere: Record<SaleFilter, Prisma.MarketplaceSaleWhereInput> = {
+  toutes: { status: { not: "IGNORED" } },
+  "a-traiter": PENDING_SALE,
+  packio: { shipmentId: { not: null }, status: { not: "IGNORED" } },
+};
+
+export async function listMarketplaceOverview(customerId: string, opts: { salesFilter?: SaleFilter; salesLimit?: number } = {}) {
+  const filter = opts.salesFilter ?? "toutes";
+  const limit = Math.min(Math.max(opts.salesLimit ?? 30, 1), 300);
+  const [accounts, tokens, sales, saleCounts, listings, stockItems] = await Promise.all([
     db.marketplaceAccount.findMany({ where: { customerId }, orderBy: { lastSyncAt: "desc" } }),
     db.extensionToken.findMany({
       // Jetons révoqués affichés 7 jours (l'historique complet reste dans le journal d'audit).
@@ -448,16 +489,17 @@ export async function listMarketplaceOverview(customerId: string) {
       take: 20,
     }),
     db.marketplaceSale.findMany({
-      where: { customerId },
+      where: { customerId, ...saleFilterWhere[filter] },
       orderBy: { soldAt: "desc" },
-      take: 50,
+      take: limit + 1,
       include: {
-        inventoryItem: { select: { id: true, name: true, sku: true } },
+        inventoryItem: { select: { id: true, name: true, sku: true, files: { where: { purpose: "PRODUCT_PHOTO", deletedAt: null }, orderBy: { createdAt: "asc" }, take: 1, select: { id: true } } } },
         shipment: { select: { id: true, reference: true, status: true } },
-        listing: { select: { url: true } },
+        listing: { select: { url: true, photoUrl: true } },
         _count: { select: { files: { where: { purpose: "SHIPPING_LABEL", deletedAt: null } } } },
       },
     }),
+    Promise.all(SALE_FILTERS.map((f) => db.marketplaceSale.count({ where: { customerId, ...saleFilterWhere[f] } }))),
     db.marketplaceListing.findMany({
       where: { customerId },
       orderBy: { lastSeenAt: "desc" },
@@ -471,7 +513,16 @@ export async function listMarketplaceOverview(customerId: string) {
       take: 300,
     }),
   ]);
-  return { accounts, tokens, sales, listings, stockItems };
+  return {
+    accounts,
+    tokens,
+    sales: sales.slice(0, limit),
+    salesFilter: filter,
+    hasMoreSales: sales.length > limit,
+    saleCounts: Object.fromEntries(SALE_FILTERS.map((f, i) => [f, saleCounts[i]])) as Record<SaleFilter, number>,
+    listings,
+    stockItems,
+  };
 }
 
 /** Annonces rattachées à un article et annonces disponibles pour un rattachement. */

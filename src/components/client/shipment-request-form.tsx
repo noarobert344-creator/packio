@@ -22,6 +22,9 @@ export type ReturnAddress = {
   country: string;
 } | null;
 
+/** Adresse du préparateur, à indiquer comme expéditeur sur le bordereau d'un retour. */
+export type ReturnSender = { name: string; addressLine1: string; addressLine2: string | null; postalCode: string; city: string } | null;
+
 function ItemsError() {
   const err = useFieldError("items");
   return err ? <p className="text-xs text-destructive">{err}</p> : null;
@@ -35,6 +38,8 @@ export function ShipmentRequestForm({
   returnAddress,
   defaultKind = "SALE",
   shippingHours,
+  returnCredits,
+  returnSender,
 }: {
   items: Item[];
   preselect?: string;
@@ -43,12 +48,14 @@ export function ShipmentRequestForm({
   returnAddress: ReturnAddress;
   defaultKind?: "SALE" | "RETURN_TO_CUSTOMER";
   shippingHours: number;
+  returnCredits: number;
+  returnSender: ReturnSender;
 }) {
   const [selected, setSelected] = useState<Record<string, number>>(() =>
     preselect && items.some((i) => i.id === preselect) ? { [preselect]: defaultKind === "RETURN_TO_CUSTOMER" ? items.find((i) => i.id === preselect)!.available : 1 } : {},
   );
   const [kind, setKind] = useState<"SALE" | "RETURN_TO_CUSTOMER">(defaultKind);
-  const [labelMode, setLabelMode] = useState<"CUSTOMER_PROVIDED" | "PREPARER_PROVIDED">(defaultKind === "RETURN_TO_CUSTOMER" ? "PREPARER_PROVIDED" : "CUSTOMER_PROVIDED");
+  const [labelMode, setLabelMode] = useState<"CUSTOMER_PROVIDED" | "PREPARER_PROVIDED">("CUSTOMER_PROVIDED");
   const isReturn = kind === "RETURN_TO_CUSTOMER";
   const prefill = isReturn ? returnAddress : null;
   const count = Object.values(selected).reduce((s, n) => s + n, 0);
@@ -120,7 +127,7 @@ export function ShipmentRequestForm({
             {(
               [
                 ["SALE", ShoppingBag, "Envoyer à un acheteur", "Vente sur Vinted, Vestiaire Collective ou ailleurs."],
-                ["RETURN_TO_CUSTOMER", Home, "Me renvoyer les articles", "Retour à votre domicile par votre préparateur."],
+                ["RETURN_TO_CUSTOMER", Home, "Me renvoyer les articles", `Chez vous : ${returnCredits} crédit${returnCredits > 1 ? "s" : ""}, frais de port à votre charge.`],
               ] as const
             ).map(([value, Icon, title, text]) => (
               <button
@@ -130,7 +137,7 @@ export function ShipmentRequestForm({
                 aria-checked={kind === value}
                 onClick={() => {
                   setKind(value);
-                  if (value === "RETURN_TO_CUSTOMER") setLabelMode("PREPARER_PROVIDED");
+                  if (value === "RETURN_TO_CUSTOMER") setLabelMode("CUSTOMER_PROVIDED");
                 }}
                 className={cn("flex gap-3 rounded-xl border p-3.5 text-left", kind === value ? "border-brand bg-brand-soft/40" : "hover:bg-muted/40")}
               >
@@ -182,28 +189,53 @@ export function ShipmentRequestForm({
 
         <fieldset className="space-y-4">
           <legend className="mb-2 text-base font-semibold">3. Transport et étiquette</legend>
-          <SelectField name="requestedCarrier" label="Transporteur souhaité" placeholder="Au choix du préparateur" options={CARRIERS.map((c) => ({ value: c.code, label: c.label }))} />
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(
-              [
-                ["CUSTOMER_PROVIDED", "J'ai un bordereau d'expédition", "Par exemple un bordereau Vinted ou une étiquette déjà payée."],
-                ["PREPARER_PROVIDED", "Le préparateur crée l'étiquette", "Les frais de transport éventuels sont facturés séparément des crédits."],
-              ] as const
-            ).map(([value, title, text]) => (
-              <label key={value} className={cn("flex cursor-pointer gap-3 rounded-xl border p-3.5", labelMode === value ? "border-brand bg-brand-soft/40" : "hover:bg-muted/40")}>
-                <input type="radio" name="labelMode" value={value} checked={labelMode === value} onChange={() => setLabelMode(value)} className="mt-1 accent-[var(--brand)]" />
-                <span>
-                  <span className="block text-sm font-medium">{title}</span>
-                  <span className="text-xs text-muted-foreground">{text}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          {labelMode === "CUSTOMER_PROVIDED" && (
-            <div className="grid gap-1.5">
-              <span className="text-[0.8rem] font-medium">Bordereau ou étiquette (PDF ou image) *</span>
-              <FileUploader name="labelFileIds" purpose="SHIPPING_LABEL" max={1} accept="application/pdf,image/*" label="Ajouter le bordereau" hint="PDF, JPEG ou PNG — 10 Mo max." />
-            </div>
+          {isReturn ? (
+            <>
+              <input type="hidden" name="labelMode" value="CUSTOMER_PROVIDED" />
+              <div className="space-y-2 rounded-xl bg-info-soft p-4 text-sm text-info">
+                <p className="font-medium">Frais de port à votre charge</p>
+                <p className="text-xs leading-relaxed">
+                  Achetez un bordereau prépayé (Colissimo, Mondial Relay, Chronopost…) avec votre adresse comme destinataire, puis ajoutez-le ci-dessous : votre préparateur
+                  l&apos;imprime et dépose le colis.
+                </p>
+                {returnSender && (
+                  <p className="text-xs leading-relaxed">
+                    Expéditeur à indiquer : <span className="font-medium">{returnSender.name}</span>, {returnSender.addressLine1}
+                    {returnSender.addressLine2 ? `, ${returnSender.addressLine2}` : ""}, {returnSender.postalCode} {returnSender.city}.
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-1.5">
+                <span className="text-[0.8rem] font-medium">Bordereau prépayé (PDF ou image) *</span>
+                <FileUploader name="labelFileIds" purpose="SHIPPING_LABEL" max={1} accept="application/pdf,image/*" label="Ajouter le bordereau" hint="PDF, JPEG ou PNG — 10 Mo max." />
+              </div>
+            </>
+          ) : (
+            <>
+              <SelectField name="requestedCarrier" label="Transporteur souhaité" placeholder="Au choix du préparateur" options={CARRIERS.map((c) => ({ value: c.code, label: c.label }))} />
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(
+                  [
+                    ["CUSTOMER_PROVIDED", "J'ai un bordereau d'expédition", "Par exemple un bordereau Vinted ou une étiquette déjà payée."],
+                    ["PREPARER_PROVIDED", "Le préparateur crée l'étiquette", "Les frais de transport éventuels sont facturés séparément des crédits."],
+                  ] as const
+                ).map(([value, title, text]) => (
+                  <label key={value} className={cn("flex cursor-pointer gap-3 rounded-xl border p-3.5", labelMode === value ? "border-brand bg-brand-soft/40" : "hover:bg-muted/40")}>
+                    <input type="radio" name="labelMode" value={value} checked={labelMode === value} onChange={() => setLabelMode(value)} className="mt-1 accent-[var(--brand)]" />
+                    <span>
+                      <span className="block text-sm font-medium">{title}</span>
+                      <span className="text-xs text-muted-foreground">{text}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {labelMode === "CUSTOMER_PROVIDED" && (
+                <div className="grid gap-1.5">
+                  <span className="text-[0.8rem] font-medium">Bordereau ou étiquette (PDF ou image) *</span>
+                  <FileUploader name="labelFileIds" purpose="SHIPPING_LABEL" max={1} accept="application/pdf,image/*" label="Ajouter le bordereau" hint="PDF, JPEG ou PNG — 10 Mo max." />
+                </div>
+              )}
+            </>
           )}
         </fieldset>
 
@@ -227,25 +259,51 @@ export function ShipmentRequestForm({
           <span className="text-2xl font-semibold tabular">{count}</span> <span className="text-muted-foreground">article(s) sélectionné(s)</span>
         </p>
         <div className="space-y-2 rounded-xl bg-muted/50 p-3 text-xs">
-          <p className="flex items-center gap-1.5 font-medium">
-            <Info className="size-3.5" /> Coût de préparation
-          </p>
-          <p className="text-muted-foreground">Votre préparateur détermine la taille réelle du colis :</p>
-          <ul className="space-y-1">
-            {sizes.map((s) => (
-              <li key={s.label} className="flex justify-between gap-2">
-                <span>
-                  {s.label} <span className="text-muted-foreground">({s.dims})</span>
-                </span>
+          {isReturn ? (
+            <>
+              <p className="flex items-center gap-1.5 font-medium">
+                <Info className="size-3.5" /> Coût du retour
+              </p>
+              <p className="flex justify-between gap-2">
+                <span>Préparation du retour (forfait)</span>
                 <span className="font-medium whitespace-nowrap">
-                  {s.creditCost} crédit{s.creditCost > 1 ? "s" : ""}
+                  {returnCredits} crédit{returnCredits > 1 ? "s" : ""}
                 </span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-muted-foreground">
-            Solde disponible : <span className="font-medium text-foreground">{available} crédit(s)</span>. Les crédits sont réservés à la classification et débités au dépôt chez le transporteur.
-          </p>
+              </p>
+              <p className="flex justify-between gap-2">
+                <span>Frais de port</span>
+                <span className="font-medium whitespace-nowrap">votre bordereau</span>
+              </p>
+              <p className="text-muted-foreground">
+                Solde disponible : <span className="font-medium text-foreground">{available} crédit(s)</span>. Le crédit est réservé à la demande et débité au dépôt chez le
+                transporteur.
+              </p>
+              {available < returnCredits && <p className="font-medium text-warning">Solde insuffisant : le retour attendra votre recharge.</p>}
+            </>
+          ) : (
+            <>
+              <p className="flex items-center gap-1.5 font-medium">
+                <Info className="size-3.5" /> Coût de préparation
+              </p>
+              <p className="text-muted-foreground">Votre préparateur détermine la taille réelle du colis :</p>
+              <ul className="space-y-1">
+                {sizes.map((s) => (
+                  <li key={s.label} className="flex justify-between gap-2">
+                    <span>
+                      {s.label} <span className="text-muted-foreground">({s.dims})</span>
+                    </span>
+                    <span className="font-medium whitespace-nowrap">
+                      {s.creditCost} crédit{s.creditCost > 1 ? "s" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-muted-foreground">
+                Solde disponible : <span className="font-medium text-foreground">{available} crédit(s)</span>. Les crédits sont réservés à la classification et débités au dépôt
+                chez le transporteur.
+              </p>
+            </>
+          )}
           <p className="flex items-center gap-1.5 font-medium">
             <Timer className="size-3.5 text-brand" /> Expédition sous {shippingHours} h après votre demande
           </p>
