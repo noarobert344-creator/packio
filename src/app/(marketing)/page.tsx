@@ -5,6 +5,7 @@ import { Expat } from "@/components/marketing/expat";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { Preparers } from "@/components/marketing/preparers";
 import { Services } from "@/components/marketing/services";
+import { Testimonials } from "@/components/marketing/testimonials";
 import { Pricing } from "@/components/marketing/pricing";
 import { Faq } from "@/components/marketing/faq";
 import { Contact } from "@/components/marketing/contact";
@@ -45,6 +46,7 @@ export default async function HomePage() {
       </section>
       <Preparers shippingHours={shipping.slaHours} />
       <Services shippingHours={shipping.slaHours} returnCredits={shipping.returnCredits} />
+      <Testimonials />
       <Pricing plans={plans} sizeRules={sizeRules} packs={packs} storage={storage} shippingHours={shipping.slaHours} returnCredits={shipping.returnCredits} />
       <Faq
         ctx={{
