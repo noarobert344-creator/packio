@@ -325,27 +325,20 @@ export const ONBOARDING_LOCKER_NETWORKS = [
 
 export type OnboardingInput = {
   phone: string;
-  addressLine1: string;
-  addressLine2?: string | null;
-  postalCode: string;
-  city: string;
   lockers: { network: (typeof ONBOARDING_LOCKER_NETWORKS)[number]["code"]; relayName: string; addressLine1: string; postalCode: string; city: string }[];
 };
 
 /**
- * Première connexion du préparateur : téléphone, adresse personnelle (privée :
- * jamais montrée aux clients, aucun colis n'y est livré) et au moins un point de
- * réception (locker ou poste restante). Les points restent à valider par Packio
- * avant d'être proposés aux clients.
+ * Première connexion du préparateur : téléphone et au moins un point de
+ * réception (locker ou poste restante). Aucune adresse personnelle n'est
+ * demandée : aucun colis n'est jamais livré chez le préparateur. Les points
+ * restent à valider par Packio avant d'être proposés aux clients.
  */
 export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
   const preparerId = assertPreparer(actor);
   const phone = input.phone.trim();
   const fieldErrors: Record<string, string> = {};
   if (phone.replace(/\D/g, "").length < 9) fieldErrors.phone = "Numéro de téléphone invalide";
-  if (!input.addressLine1.trim()) fieldErrors.addressLine1 = "Adresse requise";
-  if (!/^[0-9A-Za-z -]{3,10}$/.test(input.postalCode.trim())) fieldErrors.postalCode = "Code postal invalide";
-  if (!input.city.trim()) fieldErrors.city = "Ville requise";
   if (Object.keys(fieldErrors).length) throw new DomainError("ONBOARDING", "Complétez les champs obligatoires.", { fieldErrors });
 
   return withEffects(async (tx, fx) => {
@@ -355,20 +348,16 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
       throw new DomainError("POINTS", "Renseignez au moins un point de réception (locker ou bureau de poste) : aucun colis n'est livré chez vous.");
     }
     const name = `${profile.user.firstName} ${profile.user.lastName}`;
-    const address = { addressLine1: input.addressLine1.trim(), addressLine2: input.addressLine2?.trim() || null, postalCode: input.postalCode.trim(), city: input.city.trim() };
     await tx.user.update({ where: { id: actor.userId }, data: { phone } });
     await tx.preparerProfile.update({
       where: { id: preparerId },
       data: {
-        city: address.city,
-        businessAddressLine1: address.addressLine1,
-        businessAddressLine2: address.addressLine2,
-        businessPostalCode: address.postalCode,
-        businessCity: address.city,
+        // Ville affichée : celle du premier point si elle n'était pas renseignée.
+        ...(!profile.city || profile.city === "À compléter" ? { city: input.lockers[0].city.trim() } : {}),
         onboardedAt: new Date(),
       },
     });
-    // L'adresse personnelle reste privée : elle ne devient jamais un point de réception.
+    // Aucun colis n'est livré chez le préparateur : uniquement des lockers et des bureaux de poste.
     let hasPrimary = (await tx.preparerLocation.count({ where: { preparerId, isPrimary: true, isActive: true } })) > 0;
     for (const l of input.lockers) {
       const network = ONBOARDING_LOCKER_NETWORKS.find((n) => n.code === l.network)!;

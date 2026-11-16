@@ -156,6 +156,11 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
               detail: l.relayName ? `${l.relayName}, ${l.city}` : `${l.addressLine1}, ${l.city}`,
               recipientName: l.recipientName,
               phone: l.recipientPhone,
+              type: l.type,
+              relayName: l.relayName,
+              addressLine1: l.addressLine1,
+              postalCode: l.postalCode,
+              city: l.city,
             }))}
             defaultMode={linkedSale || one(sp.mode) === "dropshipping" ? "DROPSHIP" : "STOCK"}
             storage={{

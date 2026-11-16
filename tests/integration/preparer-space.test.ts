@@ -22,7 +22,7 @@ describe("Espace préparateur : fiche, crédits des clients, administrateur pré
     });
     expect(preparer.onboardedAt).toBeNull();
     const actor = await actorFor(preparer.userId);
-    const base = { phone: "06 12 34 56 78", addressLine1: "4 quai de la Fosse", postalCode: "44000", city: "Nantes" };
+    const base = { phone: "06 12 34 56 78" };
 
     await expect(completeOnboarding(actor, { ...base, phone: "12", lockers: [] })).rejects.toMatchObject({ code: "ONBOARDING" });
     // Au moins un point de réception : jamais de livraison au domicile.
@@ -40,8 +40,8 @@ describe("Espace préparateur : fiche, crédits des clients, administrateur pré
       ["LOCKER", "MONDIAL_RELAY", null, "06 12 34 56 78", true],
       ["POST_OFFICE", "LA_POSTE", null, "06 12 34 56 78", false],
     ]);
-    // L'adresse personnelle n'est jamais un point de réception.
-    expect(locations.some((l) => l.addressLine1 === base.addressLine1)).toBe(false);
+    // Aucune adresse personnelle demandée ni enregistrée.
+    expect(await db.preparerProfile.findUniqueOrThrow({ where: { id: preparer.id } })).toMatchObject({ businessAddressLine1: null, city: "Nantes" });
     expect((await db.user.findUniqueOrThrow({ where: { id: preparer.userId } })).phone).toBe("06 12 34 56 78");
     expect((await db.preparerProfile.findUniqueOrThrow({ where: { id: preparer.id } })).onboardedAt).not.toBeNull();
     expect(await db.notification.count({ where: { userId: admin.userId, type: "ADMIN_PREPARER_ONBOARDED" } })).toBe(1);

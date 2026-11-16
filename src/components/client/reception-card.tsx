@@ -1,7 +1,8 @@
-import { Building2, Clock, IdCard, KeyRound, Mail, MapPin, Store } from "lucide-react";
+import { Building2, Clock, KeyRound, Mail, MapPin, Store } from "lucide-react";
 import { CopyButton } from "@/components/shared/copy-button";
 import { LOCATION_TYPE, networkLabel } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import { PosteRestanteGuide } from "./poste-restante-guide";
 
 export type ReceptionLocation = {
   id: string;
@@ -86,13 +87,14 @@ export function ReceptionCard({ location: l, clientCode }: { location: Reception
         )}
       </dl>
       {l.type === "POST_OFFICE" ? (
-        <p className="flex gap-2 rounded-xl bg-info-soft p-3 text-xs text-info">
-          <IdCard className="mt-0.5 size-3.5 shrink-0" />
-          <span>
-            Recopiez l&apos;adresse telle quelle, avec « POSTE RESTANTE » sous le nom : le colis attend au bureau de poste et votre préparateur le retire avec sa pièce
-            d&apos;identité. Rien à lui transmettre.
-          </span>
-        </p>
+        <PosteRestanteGuide
+          recipientName={l.recipientName}
+          officeName={l.relayName}
+          addressLine1={l.addressLine1}
+          postalCode={l.postalCode}
+          city={l.city}
+          phone={l.recipientPhone}
+        />
       ) : isPickup ? (
         <p className="flex gap-2 rounded-xl bg-warning-soft p-3 text-xs text-warning">
           <KeyRound className="mt-0.5 size-3.5 shrink-0" />

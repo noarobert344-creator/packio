@@ -424,10 +424,6 @@ export async function proposeLocationAction(_prev: ActionState, formData: FormDa
 
 const onboardingSchema = z.object({
   phone: requiredText("Téléphone", 6, 30),
-  addressLine1: requiredText("Adresse", 3, 200),
-  addressLine2: optionalText(200),
-  postalCode: requiredText("Code postal", 3, 10),
-  city: requiredText("Ville", 2, 100),
   ...Object.fromEntries(
     ONBOARDING_LOCKER_NETWORKS.flatMap((n) => [
       [`${n.code}_relayName`, optionalText(150)],
@@ -461,14 +457,7 @@ export async function completeOnboardingAction(_prev: ActionState, formData: For
     if (Object.keys(fieldErrors).length) {
       throw new DomainError("LOCKER", "Complétez chaque locker renseigné, ou laissez-le entièrement vide.", { fieldErrors });
     }
-    const res = await completeOnboarding(actor, {
-      phone: data.phone,
-      addressLine1: data.addressLine1,
-      addressLine2: data.addressLine2 ?? null,
-      postalCode: data.postalCode,
-      city: data.city,
-      lockers,
-    });
+    const res = await completeOnboarding(actor, { phone: data.phone, lockers });
     revalidatePath("/preparateur", "layout");
     return {
       ok: true,

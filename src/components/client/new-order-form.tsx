@@ -12,6 +12,7 @@ import { CARRIERS } from "@/lib/labels";
 import { createOrderAction } from "@/server/actions/customer";
 import { cn } from "@/lib/utils";
 import { ARRIVAL_OTHER } from "@/lib/compatibility";
+import { PosteRestanteGuide } from "./poste-restante-guide";
 
 export type OrderStorageInfo = {
   /** null = places illimitées */
@@ -46,7 +47,18 @@ export function NewOrderForm({
   linkedSale = null,
 }: {
   suppliers: OrderSupplier[];
-  locations: { id: string; label: string; detail: string; recipientName: string; phone: string | null }[];
+  locations: {
+    id: string;
+    label: string;
+    detail: string;
+    recipientName: string;
+    phone: string | null;
+    type: "BUSINESS_ADDRESS" | "LOCKER" | "RELAY_POINT" | "POST_OFFICE";
+    relayName: string | null;
+    addressLine1: string;
+    postalCode: string;
+    city: string;
+  }[];
   defaultSupplier?: string;
   storage: OrderStorageInfo;
   defaultMode?: "STOCK" | "DROPSHIP";
@@ -68,7 +80,11 @@ export function NewOrderForm({
     setModeState(next);
     if (!suppliers.find((s) => s.id === supplierId)?.orderModes.includes(next)) setSupplierId(suppliers.find((s) => s.orderModes.includes(next))?.id ?? "");
   };
-  const compatible = useMemo(() => locations.filter((l) => supplier?.compatibility[l.id]?.ok), [locations, supplier]);
+  // Lockers, points relais et poste restante proposés avant une adresse de domiciliation.
+  const compatible = useMemo(() => {
+    const rank = { LOCKER: 0, RELAY_POINT: 1, POST_OFFICE: 2, BUSINESS_ADDRESS: 3 } as const;
+    return locations.filter((l) => supplier?.compatibility[l.id]?.ok).sort((a, b) => rank[a.type] - rank[b.type]);
+  }, [locations, supplier]);
   const [locationId, setLocationId] = useState(compatible[0]?.id ?? (locations.length ? "" : ARRIVAL_OTHER));
   // « Autre point » choisi, ou aucun point du préparateur compatible avec ce fournisseur.
   const arrivalOther = locationId === ARRIVAL_OTHER || compatible.length === 0;
@@ -170,6 +186,19 @@ export function NewOrderForm({
           placeholder={arrivalOther ? "Ex. : Locker Mondial Relay Gare Part-Dieu, 5 place Charles Béraudier, 69003 Lyon" : "Ex. : casier n° 12, livraison prévue en point relais, etc."}
           hint="Votre préparateur voit cette information sur la commande."
         />
+        {(() => {
+          const loc = arrivalOther ? undefined : compatible.find((l) => l.id === effectiveLocation);
+          return loc?.type === "POST_OFFICE" ? (
+            <PosteRestanteGuide
+              recipientName={loc.recipientName}
+              officeName={loc.relayName}
+              addressLine1={loc.addressLine1}
+              postalCode={loc.postalCode}
+              city={loc.city}
+              phone={loc.phone}
+            />
+          ) : null;
+        })()}
         {supplier?.code === "VINTED" &&
           (() => {
             const loc = compatible.find((l) => l.id === effectiveLocation);

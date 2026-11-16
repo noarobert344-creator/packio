@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, MapPin, Phone } from "lucide-react";
+import { MapPin, Phone } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
 import { TextField } from "@/components/shared/form-field";
 import { completeOnboardingAction } from "@/server/actions/preparer";
@@ -26,25 +26,10 @@ export function OnboardingForm({ defaultPhone }: { defaultPhone: string | null }
 
       <fieldset className="grid gap-4">
         <legend className="mb-1 flex items-center gap-2 text-base font-semibold">
-          <Lock className="size-4 text-brand" /> Votre adresse (privée)
-        </legend>
-        <p className="-mt-2 text-sm text-muted-foreground">
-          Connue seulement de l&apos;équipe Packio : elle n&apos;est jamais montrée à vos clients et aucun colis n&apos;y est livré.
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TextField name="addressLine1" label="Adresse" required autoComplete="address-line1" className="sm:col-span-2" />
-          <TextField name="addressLine2" label="Complément" placeholder="Bâtiment, étage, digicode…" autoComplete="address-line2" className="sm:col-span-2" />
-          <TextField name="postalCode" label="Code postal" required autoComplete="postal-code" />
-          <TextField name="city" label="Ville" required autoComplete="address-level2" />
-        </div>
-      </fieldset>
-
-      <fieldset className="grid gap-4">
-        <legend className="mb-1 flex items-center gap-2 text-base font-semibold">
           <MapPin className="size-4 text-brand" /> Vos points de réception (au moins un)
         </legend>
         <p className="-mt-2 text-sm text-muted-foreground">
-          Vos clients font livrer leurs achats dans ces lockers ou en poste restante au bureau de poste, jamais chez vous. Le bureau de poste sert notamment pour
+          Vos clients font livrer leurs achats dans ces lockers ou en poste restante au bureau de poste, jamais chez vous : votre adresse n&apos;est jamais demandée. Le bureau de poste sert notamment pour
           ZenMarket : le colis vous attend au guichet et vous le retirez avec votre pièce d&apos;identité. Laissez vides ceux que vous n&apos;utilisez pas.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
