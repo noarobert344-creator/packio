@@ -4,6 +4,9 @@ import { Coins, Gauge, Hourglass, Timer } from "lucide-react";
 import { requireAdmin } from "@/server/auth/current";
 import { db } from "@/server/db";
 import { getOperationsSeries, getRevenueSeries } from "@/server/services/stats";
+import { getAccountingSeries } from "@/server/queries/stats";
+import { CsvLink } from "@/components/shared/stats-ui";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { assignmentSlaStats, creditsConsumedTotal, shipmentsBySize, topPreparers } from "@/server/queries/admin-ops";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -21,7 +24,7 @@ function monthLabel(key: string) {
 
 export default async function AdminStatsPage() {
   await requireAdmin("stats.read");
-  const [revenue, operations, sla, sizes, consumed, top, planMix] = await Promise.all([
+  const [revenue, operations, sla, sizes, consumed, top, planMix, accounting] = await Promise.all([
     getRevenueSeries(6),
     getOperationsSeries(30),
     assignmentSlaStats(90),
@@ -29,6 +32,7 @@ export default async function AdminStatsPage() {
     creditsConsumedTotal(),
     topPreparers(5),
     db.subscription.groupBy({ by: ["planId"], where: { status: { in: ["ACTIVE", "TRIALING"] } }, _count: true }),
+    getAccountingSeries(6),
   ]);
   const plans = await db.plan.findMany({ where: { id: { in: planMix.map((p) => p.planId) } }, select: { id: true, name: true, sortOrder: true } });
   const revenueTotal = revenue.reduce((s, r) => s + r.subscriptions + r.credits, 0);
@@ -94,6 +98,47 @@ export default async function AdminStatsPage() {
           />
         </Section>
       </div>
+      <Section
+        title="Comptabilité mensuelle"
+        description="Encaissements Whop (TTC), remboursements et crédits consommés. Le détail ligne à ligne se télécharge en CSV."
+        className="mt-6"
+        contentClassName="p-0"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <CsvLink href="/api/admin/export/paiements" label="Paiements" />
+            <CsvLink href="/api/admin/export/credits" label="Crédits" />
+          </div>
+        }
+      >
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-5">Mois</TableHead>
+                <TableHead className="text-right">Paiements</TableHead>
+                <TableHead className="text-right">Abonnements</TableHead>
+                <TableHead className="text-right">Recharges</TableHead>
+                <TableHead className="text-right">Remboursements</TableHead>
+                <TableHead className="text-right">Net encaissé</TableHead>
+                <TableHead className="pr-5 text-right">Crédits consommés</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[...accounting].reverse().map((r) => (
+                <TableRow key={r.month}>
+                  <TableCell className="pl-5 capitalize">{formatDate(new Date(`${r.month}-01T12:00:00`), "MMMM yyyy")}</TableCell>
+                  <TableCell className="text-right tabular">{r.payments}</TableCell>
+                  <TableCell className="text-right tabular">{formatMoney(r.subscriptionCents)}</TableCell>
+                  <TableCell className="text-right tabular">{formatMoney(r.creditPackCents)}</TableCell>
+                  <TableCell className="text-right tabular">{r.refundedCents ? `−${formatMoney(r.refundedCents)}` : formatMoney(0)}</TableCell>
+                  <TableCell className="text-right font-medium tabular">{formatMoney(r.netCents)}</TableCell>
+                  <TableCell className="pr-5 text-right tabular">{r.creditsConsumed}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Section>
       <Section title="Préparateurs les plus actifs" description="Colis traités (réceptions mises en stock et expéditions déposées)." className="mt-6">
         {top.length === 0 ? (
           <p className="text-sm text-muted-foreground">Aucun préparateur.</p>

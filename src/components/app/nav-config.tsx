@@ -60,6 +60,7 @@ export const NAV: Record<"CUSTOMER" | "PREPARER" | "ADMIN", NavGroup[]> = {
       items: [
         { href: "/client/messages", label: "Messages", icon: MessagesSquare, badgeKey: "messages" },
         { href: "/client/credits", label: "Mes crédits", icon: Coins },
+        { href: "/client/statistiques", label: "Statistiques", icon: BarChart3 },
         { href: "/client/facturation", label: "Facturation", icon: Receipt },
         { href: "/client/parametres", label: "Paramètres", icon: Settings },
       ],
@@ -91,7 +92,10 @@ export const NAV: Record<"CUSTOMER" | "PREPARER" | "ADMIN", NavGroup[]> = {
     },
     {
       label: "Suivi",
-      items: [{ href: "/preparateur/incidents", label: "Incidents", icon: Siren }],
+      items: [
+        { href: "/preparateur/statistiques", label: "Statistiques", icon: BarChart3 },
+        { href: "/preparateur/incidents", label: "Incidents", icon: Siren },
+      ],
     },
     {
       label: "Compte",
