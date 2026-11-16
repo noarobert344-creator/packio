@@ -159,6 +159,7 @@ export const MARKETPLACE_SALE_STATUS: Record<MarketplaceSaleStatus, Labeled> = {
   NEW: { label: "À traiter", tone: "warning" },
   MATCHED: { label: "Article identifié", tone: "info" },
   SHIPMENT_CREATED: { label: "Vendu avec Packio", tone: "success" },
+  DROPSHIP: { label: "Vendu en dropshipping", tone: "brand" },
   IGNORED: { label: "Supprimée", tone: "neutral" },
   CANCELLED: { label: "Annulée", tone: "neutral" },
 };

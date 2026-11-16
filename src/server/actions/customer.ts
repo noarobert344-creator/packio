@@ -133,6 +133,7 @@ const orderSchema = z.object({
   buyerCity: optionalText(100),
   buyerCountry: optionalText(2),
   labelFileIds: stringArray(),
+  marketplaceSaleId: optionalText(40),
 });
 
 export async function createOrderAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -143,6 +144,7 @@ export async function createOrderAction(_prev: ActionState, formData: FormData):
       mode: data.mode,
       salePlatform: dropship ? (data.salePlatform ?? null) : null,
       labelFileId: dropship ? (data.labelFileIds[0] ?? null) : null,
+      marketplaceSaleId: dropship ? (data.marketplaceSaleId ?? null) : null,
     });
     revalidatePath("/client", "layout");
     return {

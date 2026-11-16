@@ -333,7 +333,10 @@ export async function attachSaleLabel(customerId: string, input: { platform: Mar
     const locked = await lockSale(tx, sale.id);
     const again = await tx.file.findFirst({ where: { marketplaceSaleId: sale.id, sha256, deletedAt: null } });
     if (again) return { fileId: again.id, duplicate: true, shipmentId: locked.shipmentId };
-    const shipment = locked.shipmentId ? await tx.outboundShipment.findUnique({ where: { id: locked.shipmentId } }) : null;
+    // Vente en dropshipping : le bordereau suit la commande, puis son expédition à l'acheteur.
+    const dropOrder = locked.dropshipOrderId ? await tx.supplierOrder.findUnique({ where: { id: locked.dropshipOrderId } }) : null;
+    const shipmentId = locked.shipmentId ?? dropOrder?.dropshipShipmentId ?? null;
+    const shipment = shipmentId ? await tx.outboundShipment.findUnique({ where: { id: shipmentId } }) : null;
     const file = await tx.file.create({
       data: {
         storageKey,
@@ -347,6 +350,7 @@ export async function attachSaleLabel(customerId: string, input: { platform: Mar
         preparerId: shipment?.preparerId ?? customer.currentPreparerId,
         marketplaceSaleId: sale.id,
         shipmentId: shipment?.id ?? null,
+        supplierOrderId: !shipment && dropOrder && dropOrder.status !== "CANCELLED" ? dropOrder.id : null,
       },
     });
     if (shipment) {
@@ -364,6 +368,15 @@ export async function attachSaleLabel(customerId: string, input: { platform: Mar
         });
       }
       return { fileId: file.id, duplicate: false, shipmentId: shipment.id };
+    }
+    if (dropOrder && dropOrder.status !== "CANCELLED") {
+      const prep = await tx.preparerProfile.findUniqueOrThrow({ where: { id: dropOrder.preparerId }, select: { userId: true } });
+      fx.notify(prep.userId, {
+        type: "SHIPMENT_UPDATED",
+        title: "Bordereau reçu (dropshipping)",
+        body: `${dropOrder.reference} : le bordereau ${platformLabel(locked.platform)} est arrivé ; il sera joint à l'expédition dès la réception de l'article.`,
+        link: `/preparateur/receptions/${dropOrder.id}`,
+      });
     }
     return { fileId: file.id, duplicate: false, shipmentId: null as string | null, pending: locked.status === "MATCHED" };
   });
@@ -414,6 +427,7 @@ export async function matchSaleToItem(actor: Actor, input: { saleId: string; ite
   if (sale.shipmentId || sale.status === "SHIPMENT_CREATED") throw new DomainError("ALREADY_SHIPPED", "Une expédition existe déjà pour cette vente.");
   if (sale.status === "CANCELLED") throw new DomainError("CANCELLED", "Cette vente a été annulée.");
   if (sale.status === "IGNORED") throw new DomainError("DELETED", "Cette vente a été supprimée.");
+  if (sale.status === "DROPSHIP" || sale.dropshipOrderId) throw new DomainError("DROPSHIP", "Cette vente est déjà traitée en dropshipping.");
   const item = await ownItem(customerId, input.itemId);
   if (item.quantityAvailable < 1) throw new DomainError("STOCK", `« ${item.name} » n'est plus disponible en stock.`);
   await db.marketplaceSale.update({ where: { id: sale.id }, data: { inventoryItemId: item.id, status: "MATCHED", notes: null } });
@@ -440,6 +454,12 @@ export async function deleteSale(actor: Actor, saleId: string) {
     const sale = await lockSale(tx, saleId);
     if (sale.customerId !== customerId) throw new NotFoundError("Vente introuvable.");
     if (sale.status === "IGNORED") return sale;
+    if (sale.dropshipOrderId) {
+      const order = await tx.supplierOrder.findUnique({ where: { id: sale.dropshipOrderId }, select: { status: true } });
+      if (order && order.status !== "CANCELLED") {
+        throw new DomainError("ALREADY_SHIPPED", "Une commande en dropshipping existe pour cette vente : annulez-la d'abord depuis la page de la commande.");
+      }
+    }
     if (sale.shipmentId) {
       const shipment = await tx.outboundShipment.findUnique({ where: { id: sale.shipmentId }, select: { status: true } });
       if (shipment && shipment.status !== "CANCELLED") {
@@ -466,14 +486,15 @@ export async function deleteSale(actor: Actor, saleId: string) {
 // Lectures
 // -----------------------------------------------------------------------------
 
-export const SALE_FILTERS = ["toutes", "a-traiter", "packio"] as const;
+export const SALE_FILTERS = ["toutes", "a-traiter", "packio", "dropshipping"] as const;
 export type SaleFilter = (typeof SALE_FILTERS)[number];
 
-const PENDING_SALE: Prisma.MarketplaceSaleWhereInput = { status: { in: ["NEW", "MATCHED"] }, shipmentId: null };
+const PENDING_SALE: Prisma.MarketplaceSaleWhereInput = { status: { in: ["NEW", "MATCHED"] }, shipmentId: null, dropshipOrderId: null };
 const saleFilterWhere: Record<SaleFilter, Prisma.MarketplaceSaleWhereInput> = {
   toutes: { status: { not: "IGNORED" } },
   "a-traiter": PENDING_SALE,
-  packio: { shipmentId: { not: null }, status: { not: "IGNORED" } },
+  packio: { shipmentId: { not: null }, status: { notIn: ["IGNORED", "DROPSHIP"] } },
+  dropshipping: { status: "DROPSHIP" },
 };
 
 export async function listMarketplaceOverview(customerId: string, opts: { salesFilter?: SaleFilter; salesLimit?: number } = {}) {
@@ -494,7 +515,17 @@ export async function listMarketplaceOverview(customerId: string, opts: { salesF
       take: limit + 1,
       include: {
         inventoryItem: { select: { id: true, name: true, sku: true, files: { where: { purpose: "PRODUCT_PHOTO", deletedAt: null }, orderBy: { createdAt: "asc" }, take: 1, select: { id: true } } } },
-        shipment: { select: { id: true, reference: true, status: true } },
+        shipment: { select: { id: true, reference: true, status: true, carrier: true, trackingNumber: true } },
+        dropshipOrder: {
+          select: {
+            id: true,
+            reference: true,
+            status: true,
+            carrier: true,
+            trackingNumber: true,
+            dropshipShipment: { select: { id: true, reference: true, status: true, carrier: true, trackingNumber: true } },
+          },
+        },
         listing: { select: { url: true, photoUrl: true } },
         _count: { select: { files: { where: { purpose: "SHIPPING_LABEL", deletedAt: null } } } },
       },

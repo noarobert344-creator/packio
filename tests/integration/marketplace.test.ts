@@ -151,13 +151,52 @@ describe("Comptes liés Vinted / Vestiaire et extension", () => {
     await expect(deleteSale(client.actor, v1.id)).rejects.toThrow(/annulez d'abord/);
   });
 
+  it("« Vendu en dropshipping » : commande liée à la vente, bordereau repris (reçu avant ou après), expédié à l'acheteur avec ce bordereau", async () => {
+    const { prep, client } = await setup();
+    await syncFromExtension(client.customerId, {
+      platform: "VINTED",
+      account: { externalUserId: "u-ds" },
+      sales: [
+        { externalOrderId: "DS-1", title: "Robe longue", buyerName: "Acheteuse", soldAt: new Date().toISOString() },
+        { externalOrderId: "DS-2", title: "Sac bandoulière", soldAt: new Date().toISOString() },
+      ],
+    });
+    const [s1, s2] = await Promise.all(["DS-1", "DS-2"].map((id) => db.marketplaceSale.findFirstOrThrow({ where: { customerId: client.customerId, externalOrderId: id } })));
+    const aliexpress = await db.supplier.findUniqueOrThrow({ where: { code: "ALIEXPRESS" } });
+    const base = { supplierId: aliexpress.id, locationId: prep.location.id, quantity: 1, mode: "DROPSHIP" as const };
+
+    // Bordereau reçu avant la commande : repris automatiquement.
+    const { fileId } = await attachSaleLabel(client.customerId, { platform: "VINTED", externalOrderId: "DS-1", filename: "b.pdf", data: PDF });
+    const order1 = await createSupplierOrder(client.actor, { ...base, description: "Robe longue", marketplaceSaleId: s1.id });
+    expect(order1).toMatchObject({ salePlatform: "VINTED", saleReference: "DS-1", buyerName: "Acheteuse" });
+    expect((await db.file.findUniqueOrThrow({ where: { id: fileId! } })).supplierOrderId).toBe(order1.id);
+    expect(await db.marketplaceSale.findUniqueOrThrow({ where: { id: s1.id } })).toMatchObject({ status: "DROPSHIP", dropshipOrderId: order1.id });
+    await expect(createSupplierOrder(client.actor, { ...base, description: "Encore", marketplaceSaleId: s1.id })).rejects.toThrow(/déjà traitée/);
+    await expect(matchSaleToItem(client.actor, { saleId: s1.id, itemId: "x" })).rejects.toThrow(/dropshipping/);
+    await expect(deleteSale(client.actor, s1.id)).rejects.toThrow(/dropshipping existe/);
+
+    // Bordereau reçu après la commande : rattaché à la commande, puis à l'expédition.
+    const order2 = await createSupplierOrder(client.actor, { ...base, description: "Sac bandoulière", marketplaceSaleId: s2.id });
+    const late = await attachSaleLabel(client.customerId, { platform: "VINTED", externalOrderId: "DS-2", filename: "b2.pdf", data: Buffer.concat([PDF, Buffer.from("2")]) });
+    expect((await db.file.findUniqueOrThrow({ where: { id: late.fileId! } })).supplierOrderId).toBe(order2.id);
+    await markPickedUp(prep.actor, { orderId: order2.id });
+    await receiveOrder(prep.actor, { orderId: order2.id, quantityReceived: 1, conditionOk: true });
+    const { shipment } = await stockOrder(prep.actor, { orderId: order2.id, items: [{ name: "Sac bandoulière", quantity: 1 }] });
+    expect(shipment).toMatchObject({ kind: "DROPSHIP", labelMode: "CUSTOMER_PROVIDED" });
+    expect((await db.file.findUniqueOrThrow({ where: { id: late.fileId! } })).shipmentId).toBe(shipment!.id);
+
+    const overview = await listMarketplaceOverview(client.customerId, { salesFilter: "dropshipping" });
+    expect(overview.saleCounts).toMatchObject({ toutes: 2, "a-traiter": 0, packio: 0, dropshipping: 2 });
+    expect(overview.sales.find((x) => x.id === s2.id)?.dropshipOrder?.dropshipShipment?.id).toBe(shipment!.id);
+  });
+
   it("« Supprimer » : acheteur et bordereau effacés, vente masquée, ni recréée ni réactivée par la synchronisation", async () => {
     const { client } = await setup();
     const sale = { externalOrderId: "VT-9", title: "Robe vendue en direct", buyerName: "Acheteuse Test", soldAt: new Date().toISOString() };
     await syncFromExtension(client.customerId, { platform: "VINTED", account: { externalUserId: "u9" }, sales: [sale] });
     const row = await db.marketplaceSale.findFirstOrThrow({ where: { customerId: client.customerId, externalOrderId: "VT-9" } });
     const { fileId } = await attachSaleLabel(client.customerId, { platform: "VINTED", externalOrderId: "VT-9", filename: "b.pdf", data: PDF });
-    expect((await listMarketplaceOverview(client.customerId, { salesFilter: "a-traiter" })).saleCounts).toMatchObject({ toutes: 1, "a-traiter": 1, packio: 0 });
+    expect((await listMarketplaceOverview(client.customerId, { salesFilter: "a-traiter" })).saleCounts).toMatchObject({ toutes: 1, "a-traiter": 1, packio: 0, dropshipping: 0 });
 
     await deleteSale(client.actor, row.id);
     const deleted = await db.marketplaceSale.findUniqueOrThrow({ where: { id: row.id } });
@@ -166,7 +205,7 @@ describe("Comptes liés Vinted / Vestiaire et extension", () => {
     expect(await db.auditLog.count({ where: { action: "marketplace.sale_deleted", entityId: client.customerId } })).toBe(1);
     const overview = await listMarketplaceOverview(client.customerId);
     expect(overview.sales).toHaveLength(0);
-    expect(overview.saleCounts).toEqual({ toutes: 0, "a-traiter": 0, packio: 0 });
+    expect(overview.saleCounts).toEqual({ toutes: 0, "a-traiter": 0, packio: 0, dropshipping: 0 });
 
     // Nouvelle synchronisation et nouveau bordereau : rien n'est recréé ni conservé.
     expect((await syncFromExtension(client.customerId, { platform: "VINTED", account: { externalUserId: "u9" }, sales: [sale] })).newSales).toBe(0);

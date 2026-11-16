@@ -131,10 +131,17 @@ export type CreateOrderInput = {
   buyerCountry?: string | null;
   /** Bordereau d'expédition de la vente (ex. bordereau Vinted). */
   labelFileId?: string | null;
+  /**
+   * Vente d'un compte lié (Packio Connect) déclarée « Vendu en dropshipping » :
+   * plateforme et référence reprises, bordereau joint automatiquement (déjà
+   * reçu ou à venir).
+   */
+  marketplaceSaleId?: string | null;
 };
 
 function validateDropship(input: CreateOrderInput) {
   if (input.mode !== "DROPSHIP") return;
+  if (input.marketplaceSaleId) return; // Bordereau transmis par Packio Connect.
   const hasAddress = !!(input.buyerName?.trim() && input.buyerAddressLine1?.trim() && input.buyerPostalCode?.trim() && input.buyerCity?.trim());
   if (!input.labelFileId && !hasAddress) {
     throw new DomainError("DROPSHIP_RECIPIENT", "Ajoutez le bordereau de la vente, ou l'adresse complète de l'acheteur.", {
@@ -177,6 +184,27 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
       if (!file || file.uploadedById !== actor.userId || file.shipmentId || file.supplierOrderId || file.deletedAt) throw new DomainError("LABEL", "Bordereau invalide.");
     }
 
+    // Vente d'un compte lié : une seule commande par vente, encore à traiter.
+    let sale: { id: string; platform: MarketplacePlatform; externalOrderId: string; buyerName: string | null } | null = null;
+    let saleLabelId: string | null = null;
+    if (input.marketplaceSaleId) {
+      if (!dropship) throw new DomainError("SALE_MODE", "Une vente ne peut être liée qu'à une commande en dropshipping.");
+      await tx.$queryRaw`SELECT "id" FROM "marketplace_sales" WHERE "id" = ${input.marketplaceSaleId} FOR UPDATE`;
+      const row = await tx.marketplaceSale.findUnique({ where: { id: input.marketplaceSaleId } });
+      if (!row || row.customerId !== customerId) throw new NotFoundError("Vente introuvable.");
+      if (row.shipmentId || row.dropshipOrderId || !["NEW", "MATCHED"].includes(row.status)) {
+        throw new DomainError("SALE_HANDLED", "Cette vente est déjà traitée (expédition ou commande existante, ou vente supprimée).");
+      }
+      sale = row;
+      if (!input.labelFileId) {
+        const label = await tx.file.findFirst({
+          where: { marketplaceSaleId: row.id, purpose: "SHIPPING_LABEL", deletedAt: null, shipmentId: null, supplierOrderId: null },
+          orderBy: { createdAt: "desc" },
+        });
+        saleLabelId = label?.id ?? null;
+      }
+    }
+
     // Places de stock : au-delà de la capacité, des places sont achetées avec
     // des crédits (accord explicite du client). Le dropshipping n'en occupe pas.
     const ref = reference("CMD", 7);
@@ -191,9 +219,9 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
         storageCreditsCharged: storage.credits,
         ...(dropship
           ? {
-              salePlatform: input.salePlatform ?? null,
-              saleReference: input.saleReference?.trim() || null,
-              buyerName: input.buyerName?.trim() || null,
+              salePlatform: sale?.platform ?? input.salePlatform ?? null,
+              saleReference: sale?.externalOrderId ?? (input.saleReference?.trim() || null),
+              buyerName: input.buyerName?.trim() || sale?.buyerName || null,
               buyerPhone: input.buyerPhone?.trim() || null,
               buyerAddressLine1: input.buyerAddressLine1?.trim() || null,
               buyerAddressLine2: input.buyerAddressLine2?.trim() || null,
@@ -238,6 +266,10 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
     if (input.photoIds?.length) await linkPhotos(tx, actor, input.photoIds, { supplierOrderId: order.id, customerId });
     if (input.labelFileId) {
       await tx.file.update({ where: { id: input.labelFileId }, data: { supplierOrderId: order.id, customerId, purpose: "SHIPPING_LABEL" } });
+    }
+    if (sale) {
+      if (saleLabelId) await tx.file.update({ where: { id: saleLabelId }, data: { supplierOrderId: order.id, preparerId } });
+      await tx.marketplaceSale.update({ where: { id: sale.id }, data: { status: "DROPSHIP", dropshipOrderId: order.id, notes: null } });
     }
     fx.notify(await preparerUserId(tx, preparerId), {
       type: "ORDER_CREATED",

@@ -42,12 +42,15 @@ export function NewOrderForm({
   defaultSupplier,
   storage,
   defaultMode = "STOCK",
+  linkedSale = null,
 }: {
   suppliers: OrderSupplier[];
   locations: { id: string; label: string; detail: string; recipientName: string; phone: string | null }[];
   defaultSupplier?: string;
   storage: OrderStorageInfo;
   defaultMode?: "STOCK" | "DROPSHIP";
+  /** Vente d'un compte lié déclarée « Vendu en dropshipping ». */
+  linkedSale?: { id: string; title: string; platformLabel: string; externalOrderId: string; hasLabel: boolean } | null;
 }) {
   const [mode, setModeState] = useState<"STOCK" | "DROPSHIP">(defaultMode);
   const modeSuppliers = useMemo(() => suppliers.filter((s) => s.orderModes.includes(mode)), [suppliers, mode]);
@@ -176,7 +179,7 @@ export function NewOrderForm({
               );
             })()}
           <div className="grid gap-4 sm:grid-cols-2">
-            <TextField name="description" label="Description du produit" required placeholder="Ex. : Veste en jean Levi's taille M" className="sm:col-span-2" />
+            <TextField name="description" label="Description du produit" required placeholder="Ex. : Veste en jean Levi's taille M" className="sm:col-span-2" defaultValue={linkedSale?.title} />
             <TextField name="articleUrl" label="Lien de l'article" type="url" placeholder="https://…" className="sm:col-span-2" />
             <TextField name="supplierOrderNumber" label="Numéro de commande" placeholder="Facultatif" />
             <TextField name="quantity" label="Quantité" type="number" min={1} max={999} value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
@@ -192,9 +195,24 @@ export function NewOrderForm({
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Vous gérez l&apos;échange avec votre acheteur sur la plateforme. Ajoutez le bordereau de la vente (ex. bordereau Vinted) : votre préparateur l&apos;imprime et
-                  expédie l&apos;article dès réception. Sans bordereau, indiquez l&apos;adresse de l&apos;acheteur. Aucune place de stock n&apos;est utilisée.
+                  expédie l&apos;article dès réception. Sans bordereau, indiquez l&apos;adresse de l&apos;acheteur. Aucune place de stock n&apos;est utilisée ; les crédits
+                  dépendent de la taille du colis.
                 </p>
               </div>
+              {linkedSale ? (
+                <div className="rounded-lg border bg-background/70 p-3 text-sm">
+                  <input type="hidden" name="marketplaceSaleId" value={linkedSale.id} />
+                  <p className="font-medium">
+                    Vente {linkedSale.platformLabel} : « {linkedSale.title} »
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Commande n° {linkedSale.externalOrderId}</p>
+                  <p className="mt-2 text-xs text-success">
+                    {linkedSale.hasLabel
+                      ? "Bordereau déjà reçu : il est joint automatiquement à cette commande."
+                      : "Le bordereau sera joint automatiquement dès que Packio Connect le reçoit."}
+                  </p>
+                </div>
+              ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 <SelectField
                   name="salePlatform"
@@ -208,8 +226,9 @@ export function NewOrderForm({
                 />
                 <TextField name="saleReference" label="Référence de la vente" placeholder="Ex. : n° de commande Vinted" />
               </div>
+              )}
               <div className="grid gap-1.5">
-                <span className="text-[0.8rem] font-medium">Bordereau d&apos;expédition</span>
+                <span className="text-[0.8rem] font-medium">Bordereau d&apos;expédition{linkedSale ? " (facultatif)" : ""}</span>
                 <FileUploader name="labelFileIds" purpose="SHIPPING_LABEL" max={1} accept="application/pdf,image/*" label="Ajouter le bordereau" hint="PDF, JPEG ou PNG — 10 Mo max." />
               </div>
               <details className="rounded-lg border bg-background/60 p-3 text-sm">

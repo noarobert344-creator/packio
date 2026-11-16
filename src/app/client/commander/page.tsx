@@ -12,7 +12,8 @@ import { getReceptionInfo } from "@/server/services/orders";
 import { getStorageOverview } from "@/server/services/storage";
 import { getWalletOverview } from "@/server/services/credits";
 import { getSetting } from "@/server/services/settings";
-import { LOCATION_TYPE } from "@/lib/labels";
+import { db } from "@/server/db";
+import { LOCATION_TYPE, MARKETPLACE_PLATFORM } from "@/lib/labels";
 import { one, type SearchParams } from "@/lib/params";
 
 export const metadata: Metadata = { title: "Commander des articles" };
@@ -32,7 +33,23 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
       </div>
     );
   }
-  const [info, storage, wallet, shipping] = await Promise.all([getReceptionInfo(customer.id), getStorageOverview(customer.id), getWalletOverview(customer.id), getSetting("shipping")]);
+  const saleId = one(sp.vente);
+  const [info, storage, wallet, shipping, sale] = await Promise.all([
+    getReceptionInfo(customer.id),
+    getStorageOverview(customer.id),
+    getWalletOverview(customer.id),
+    getSetting("shipping"),
+    // Vente d'un compte lié déclarée « Vendu en dropshipping » (encore à traiter).
+    saleId
+      ? db.marketplaceSale.findFirst({
+          where: { id: saleId, customerId: customer.id, status: { in: ["NEW", "MATCHED"] }, shipmentId: null, dropshipOrderId: null },
+          select: { id: true, title: true, platform: true, externalOrderId: true, _count: { select: { files: { where: { purpose: "SHIPPING_LABEL", deletedAt: null } } } } },
+        })
+      : null,
+  ]);
+  const linkedSale = sale
+    ? { id: sale.id, title: sale.title, platformLabel: MARKETPLACE_PLATFORM[sale.platform], externalOrderId: sale.externalOrderId, hasLabel: sale._count.files > 0 }
+    : null;
   return (
     <div className="space-y-8">
       <PageHeader
@@ -122,6 +139,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
         <Section title="Nouvelle commande" description="Ces informations permettent à votre préparateur d'identifier et de contrôler votre colis.">
           <NewOrderForm
             defaultSupplier={one(sp.fournisseur)?.toUpperCase()}
+            linkedSale={linkedSale}
             suppliers={info.suppliers.map((s) => ({
               id: s.id,
               code: s.code,
@@ -139,7 +157,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
               recipientName: l.recipientName,
               phone: l.recipientPhone,
             }))}
-            defaultMode={one(sp.mode) === "dropshipping" ? "DROPSHIP" : "STOCK"}
+            defaultMode={linkedSale || one(sp.mode) === "dropshipping" ? "DROPSHIP" : "STOCK"}
             storage={{
               capacity: storage.capacity,
               used: storage.used,

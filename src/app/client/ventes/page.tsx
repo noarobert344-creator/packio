@@ -61,7 +61,7 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
 
       <Section
         title="Toutes les ventes"
-        description="Toutes les ventes de vos comptes liés. Sous chaque article : « Vendu avec Packio » pour que votre préparateur l'expédie, ou « Supprimer » si vous l'expédiez vous-même."
+        description="Toutes vos ventes Vinted et Vestiaire Collective. Sous chaque article : « Vendu avec Packio » (expédié depuis votre stock), « Vendu en dropshipping » (commandé chez le fournisseur, expédié dès réception) ou « Supprimer » si vous l'expédiez vous-même."
       >
         <div className="space-y-4">
           <FilterTabs
@@ -69,7 +69,8 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
             options={[
               { value: "", label: "Toutes", count: saleCounts.toutes },
               { value: "a-traiter", label: "À traiter", count: saleCounts["a-traiter"] },
-              { value: "packio", label: "Vendues avec Packio", count: saleCounts.packio },
+              { value: "packio", label: "Ventes Packio", count: saleCounts.packio },
+              { value: "dropshipping", label: "Ventes dropshipping", count: saleCounts.dropshipping },
             ]}
           />
           {sales.length ? (
@@ -88,7 +89,15 @@ export default async function SalesPage({ searchParams }: { searchParams: Search
           ) : (
             <EmptyState
               icon={Store}
-              title={salesFilter === "a-traiter" ? "Aucune vente à traiter" : salesFilter === "packio" ? "Aucune vente expédiée par Packio" : "Aucune vente pour l'instant"}
+              title={
+                salesFilter === "a-traiter"
+                  ? "Aucune vente à traiter"
+                  : salesFilter === "packio"
+                    ? "Aucune vente expédiée depuis votre stock"
+                    : salesFilter === "dropshipping"
+                      ? "Aucune vente en dropshipping"
+                      : "Aucune vente pour l'instant"
+              }
               description="Installez l'extension et restez connecté à Vinted ou Vestiaire Collective : vos ventes apparaîtront ici."
             />
           )}

@@ -68,34 +68,34 @@ model User {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  staffRole               Role?                     @relation(fields: [staffRoleId], references: [id])
-  avatar                  File?                     @relation("UserAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
-  sessions                Session[]
-  authTokens              AuthToken[]
-  customerProfile         CustomerProfile?
-  preparerProfile         PreparerProfile?
-  uploadedFiles           File[]                    @relation("FileUploader")
-  notifications           Notification[]
-  notificationPreferences NotificationPreference[]
+  staffRole                Role?                     @relation(fields: [staffRoleId], references: [id])
+  avatar                   File?                     @relation("UserAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull)
+  sessions                 Session[]
+  authTokens               AuthToken[]
+  customerProfile          CustomerProfile?
+  preparerProfile          PreparerProfile?
+  uploadedFiles            File[]                    @relation("FileUploader")
+  notifications            Notification[]
+  notificationPreferences  NotificationPreference[]
   conversationParticipants ConversationParticipant[]
-  messages                Message[]
-  auditLogs               AuditLog[]
-  assignmentsMade         PreparerAssignment[]      @relation("AssignmentAssignedBy")
-  assignmentsEnded        PreparerAssignment[]      @relation("AssignmentEndedBy")
-  locationsValidated      PreparerLocation[]        @relation("LocationValidatedBy")
-  incidentsReported       Incident[]                @relation("IncidentReporter")
-  incidentsAssigned       Incident[]                @relation("IncidentAssignee")
-  incidentUpdates         IncidentUpdate[]
-  creditTransactions      CreditTransaction[]
-  inventoryMovements      InventoryMovement[]
-  shipmentEvents          ShipmentEvent[]
-  shipmentClassifications ShipmentClassification[]
-  supplierOrderEvents     SupplierOrderEvent[]
-  accessGrants            ConversationAccessGrant[]
-  absencesCreated         PreparerAbsence[]
-  inventoryCounts         InventoryCount[]
-  contactRequestsHandled  ContactRequest[]
-  settingsUpdated         AppSetting[]
+  messages                 Message[]
+  auditLogs                AuditLog[]
+  assignmentsMade          PreparerAssignment[]      @relation("AssignmentAssignedBy")
+  assignmentsEnded         PreparerAssignment[]      @relation("AssignmentEndedBy")
+  locationsValidated       PreparerLocation[]        @relation("LocationValidatedBy")
+  incidentsReported        Incident[]                @relation("IncidentReporter")
+  incidentsAssigned        Incident[]                @relation("IncidentAssignee")
+  incidentUpdates          IncidentUpdate[]
+  creditTransactions       CreditTransaction[]
+  inventoryMovements       InventoryMovement[]
+  shipmentEvents           ShipmentEvent[]
+  shipmentClassifications  ShipmentClassification[]
+  supplierOrderEvents      SupplierOrderEvent[]
+  accessGrants             ConversationAccessGrant[]
+  absencesCreated          PreparerAbsence[]
+  inventoryCounts          InventoryCount[]
+  contactRequestsHandled   ContactRequest[]
+  settingsUpdated          AppSetting[]
 
   @@index([role, status])
   @@map("users")
@@ -172,52 +172,52 @@ enum AssignmentState {
 }
 
 model CustomerProfile {
-  id                       String          @id @default(cuid())
-  userId                   String          @unique
+  id                        String          @id @default(cuid())
+  userId                    String          @unique
   /// Code client imprimé sur les colis pour identification par le préparateur.
-  referenceCode            String          @unique
-  companyName              String?
-  status                   CustomerStatus  @default(PENDING_PAYMENT)
-  assignmentState          AssignmentState @default(NOT_REQUESTED)
-  assignmentRequestedAt    DateTime?
-  assignmentDueAt          DateTime?
-  assignmentAdminAlertedAt DateTime?
+  referenceCode             String          @unique
+  companyName               String?
+  status                    CustomerStatus  @default(PENDING_PAYMENT)
+  assignmentState           AssignmentState @default(NOT_REQUESTED)
+  assignmentRequestedAt     DateTime?
+  assignmentDueAt           DateTime?
+  assignmentAdminAlertedAt  DateTime?
   assignmentDelayNotifiedAt DateTime?
-  currentPreparerId        String?
+  currentPreparerId         String?
   /// Identifiant du client chez le prestataire de paiement (utilisateur Whop).
-  billingCustomerId        String?         @unique
+  billingCustomerId         String?         @unique
   /// Adresse de retour à domicile (renvoi d'articles par le préparateur).
-  returnName               String?
-  returnPhone              String?
-  returnAddressLine1       String?
-  returnAddressLine2       String?
-  returnPostalCode         String?
-  returnCity               String?
-  returnCountry            String?         @default("FR")
-  adminNotes               String?
-  createdAt                DateTime        @default(now())
-  updatedAt                DateTime        @updatedAt
+  returnName                String?
+  returnPhone               String?
+  returnAddressLine1        String?
+  returnAddressLine2        String?
+  returnPostalCode          String?
+  returnCity                String?
+  returnCountry             String?         @default("FR")
+  adminNotes                String?
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
 
-  user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
-  currentPreparer    PreparerProfile?     @relation("CurrentPreparer", fields: [currentPreparerId], references: [id], onDelete: SetNull)
-  assignments        PreparerAssignment[]
-  subscriptions      Subscription[]
-  wallet             CreditWallet?
-  supplierOrders     SupplierOrder[]
-  inboundParcels     InboundParcel[]
-  inventoryItems     InventoryItem[]
-  shipments          OutboundShipment[]
-  conversations      Conversation[]
-  payments           Payment[]
-  invoices           Invoice[]
-  incidents          Incident[]
-  files              File[]
-  inventoryCounts    InventoryCount[]
-  storagePurchases   StoragePurchase[]
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  currentPreparer     PreparerProfile?     @relation("CurrentPreparer", fields: [currentPreparerId], references: [id], onDelete: SetNull)
+  assignments         PreparerAssignment[]
+  subscriptions       Subscription[]
+  wallet              CreditWallet?
+  supplierOrders      SupplierOrder[]
+  inboundParcels      InboundParcel[]
+  inventoryItems      InventoryItem[]
+  shipments           OutboundShipment[]
+  conversations       Conversation[]
+  payments            Payment[]
+  invoices            Invoice[]
+  incidents           Incident[]
+  files               File[]
+  inventoryCounts     InventoryCount[]
+  storagePurchases    StoragePurchase[]
   marketplaceAccounts MarketplaceAccount[]
   marketplaceListings MarketplaceListing[]
-  marketplaceSales   MarketplaceSale[]
-  extensionTokens    ExtensionToken[]
+  marketplaceSales    MarketplaceSale[]
+  extensionTokens     ExtensionToken[]
 
   @@index([assignmentState, assignmentDueAt])
   @@index([status])
@@ -287,33 +287,33 @@ enum LocationType {
 /// Points de réception d'un préparateur (adresse pro, lockers, points relais).
 /// Seuls les lieux validés par un administrateur sont communiqués aux clients.
 model PreparerLocation {
-  id              String       @id @default(cuid())
-  preparerId      String
-  type            LocationType
-  isPrimary       Boolean      @default(false)
-  label           String
+  id             String       @id @default(cuid())
+  preparerId     String
+  type           LocationType
+  isPrimary      Boolean      @default(false)
+  label          String
   /// Réseau / transporteur (MONDIAL_RELAY, INPOST, RELAIS_COLIS, ...).
-  network         String?
+  network        String?
   /// Nom exact du point relais ou du locker.
-  relayName       String?
-  addressLine1    String
-  addressLine2    String?
-  postalCode      String
-  city            String
-  country         String       @default("FR")
+  relayName      String?
+  addressLine1   String
+  addressLine2   String?
+  postalCode     String
+  city           String
+  country        String       @default("FR")
   /// Identifiant du point relais chez le transporteur, si disponible.
-  externalId      String?
+  externalId     String?
   /// Nom du destinataire à indiquer sur les commandes.
-  recipientName   String
+  recipientName  String
   /// Téléphone à indiquer sur les commandes (Vinted l'exige ; le code de retrait est envoyé par SMS).
-  recipientPhone  String?
-  openingHours    String?
-  instructions    String?
-  isActive        Boolean      @default(true)
-  validatedAt     DateTime?
-  validatedById   String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  recipientPhone String?
+  openingHours   String?
+  instructions   String?
+  isActive       Boolean      @default(true)
+  validatedAt    DateTime?
+  validatedById  String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   preparer       PreparerProfile @relation(fields: [preparerId], references: [id], onDelete: Cascade)
   validatedBy    User?           @relation("LocationValidatedBy", fields: [validatedById], references: [id], onDelete: SetNull)
@@ -377,8 +377,8 @@ model PreparerAbsence {
 // -----------------------------------------------------------------------------
 
 model Supplier {
-  id                    String         @id @default(cuid())
-  code                  String         @unique
+  id                    String          @id @default(cuid())
+  code                  String          @unique
   name                  String
   websiteUrl            String?
   description           String?
@@ -387,14 +387,14 @@ model Supplier {
   /// Réseaux de lockers / points relais acceptés (pour LOCKER et RELAY_POINT).
   acceptedNetworks      String[]
   /// Le retrait au locker nécessite un code transmis au client.
-  requiresPickupCode    Boolean        @default(false)
+  requiresPickupCode    Boolean         @default(false)
   compatibilityNotes    String?
   /// Types de commande pour lesquels le fournisseur est proposé (stock, dropshipping).
-  orderModes            OrderMode[]    @default([STOCK, DROPSHIP])
-  isActive              Boolean        @default(true)
-  sortOrder             Int            @default(0)
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+  orderModes            OrderMode[]     @default([STOCK, DROPSHIP])
+  isActive              Boolean         @default(true)
+  sortOrder             Int             @default(0)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
   orders                SupplierOrder[]
 
   @@map("suppliers")
@@ -405,28 +405,28 @@ model Supplier {
 // -----------------------------------------------------------------------------
 
 model Plan {
-  id              String         @id @default(cuid())
-  code            String         @unique
-  name            String
-  tagline         String?
-  priceCents      Int
-  currency        String         @default("eur")
-  monthlyCredits  Int
+  id                   String         @id @default(cuid())
+  code                 String         @unique
+  name                 String
+  tagline              String?
+  priceCents           Int
+  currency             String         @default("eur")
+  monthlyCredits       Int
   /// Nombre maximal d'articles en stock (null = illimité).
-  storageLimit    Int?
-  features        String[]
-  highlighted     Boolean        @default(false)
-  isActive        Boolean        @default(true)
-  sortOrder       Int            @default(0)
+  storageLimit         Int?
+  features             String[]
+  highlighted          Boolean        @default(false)
+  isActive             Boolean        @default(true)
+  sortOrder            Int            @default(0)
   /// Plan Whop (plan_…) facultatif ; sinon le plan est créé à la volée au checkout.
-  whopPlanId      String?        @unique
+  whopPlanId           String?        @unique
   /// Prix de la formule annuelle (null = formule annuelle non proposée).
-  annualPriceCents Int?
+  annualPriceCents     Int?
   /// Plan Whop annuel (plan_…) facultatif ; sinon créé à la volée au checkout.
-  whopAnnualPlanId String?       @unique
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  subscriptions   Subscription[] @relation("SubscriptionPlan")
+  whopAnnualPlanId     String?        @unique
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  subscriptions        Subscription[] @relation("SubscriptionPlan")
   pendingSubscriptions Subscription[] @relation("SubscriptionPendingPlan")
 
   @@map("plans")
@@ -449,38 +449,38 @@ enum SubscriptionStatus {
 }
 
 model Subscription {
-  id                 String             @id @default(cuid())
-  customerId         String
-  planId             String
-  status             SubscriptionStatus
+  id                     String             @id @default(cuid())
+  customerId             String
+  planId                 String
+  status                 SubscriptionStatus
   /// "whop" en production, "dev" pour le mode de paiement de démonstration.
-  provider           String             @default("whop")
-  externalId         String             @unique
-  currentPeriodStart DateTime?
-  currentPeriodEnd   DateTime?
-  cancelAtPeriodEnd  Boolean            @default(false)
+  provider               String             @default("whop")
+  externalId             String             @unique
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean            @default(false)
   /// Périodicité de facturation : mensuelle ou annuelle.
-  billingInterval    BillingInterval    @default(MONTHLY)
+  billingInterval        BillingInterval    @default(MONTHLY)
   /// Offre qui s'appliquera au prochain renouvellement (changement d'offre programmé).
-  pendingPlanId      String?
+  pendingPlanId          String?
   /// Date de transmission à Whop de la baisse de prix programmée (après quoi elle n'est plus annulable).
-  pendingSyncedAt    DateTime?
+  pendingSyncedAt        DateTime?
   /// Périodicité choisie pour l'après-échéance (passage de l'annuel au mensuel).
   pendingBillingInterval BillingInterval?
   /// Formule annuelle : point de départ de la distribution mensuelle des crédits.
-  creditAnchorAt     DateTime?
+  creditAnchorAt         DateTime?
   /// Formule annuelle : distributions mensuelles déjà effectuées sur la période (0 à 12).
-  creditMonthsGranted Int               @default(0)
+  creditMonthsGranted    Int                @default(0)
   /// Formule annuelle : date de la prochaine distribution mensuelle de crédits.
-  nextCreditGrantAt  DateTime?
+  nextCreditGrantAt      DateTime?
   /// Remplacée par une nouvelle souscription (changement d'offre immédiat) : n'est plus renouvelée.
-  supersededAt       DateTime?
-  canceledAt         DateTime?
-  endedAt            DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  supersededAt           DateTime?
+  canceledAt             DateTime?
+  endedAt                DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
-  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customer    CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Restrict)
   plan        Plan            @relation("SubscriptionPlan", fields: [planId], references: [id], onDelete: Restrict)
   pendingPlan Plan?           @relation("SubscriptionPendingPlan", fields: [pendingPlanId], references: [id], onDelete: SetNull)
   invoices    Invoice[]
@@ -491,18 +491,18 @@ model Subscription {
 }
 
 model CreditPack {
-  id            String    @id @default(cuid())
-  name          String
-  credits       Int
-  priceCents    Int
-  currency      String    @default("eur")
+  id         String    @id @default(cuid())
+  name       String
+  credits    Int
+  priceCents Int
+  currency   String    @default("eur")
   /// Plan Whop « paiement unique » facultatif ; sinon créé à la volée au checkout.
-  whopPlanId    String?   @unique
-  isActive      Boolean   @default(true)
-  sortOrder     Int       @default(0)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  payments      Payment[]
+  whopPlanId String?   @unique
+  isActive   Boolean   @default(true)
+  sortOrder  Int       @default(0)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  payments   Payment[]
 
   @@map("credit_packs")
 }
@@ -658,8 +658,8 @@ enum SupplierOrderStatus {
 }
 
 model SupplierOrder {
-  id                     String              @id @default(cuid())
-  reference              String              @unique
+  id                     String               @id @default(cuid())
+  reference              String               @unique
   customerId             String
   preparerId             String
   supplierId             String
@@ -672,13 +672,13 @@ model SupplierOrder {
   /// Code de retrait locker (visible uniquement par le client et son préparateur).
   pickupCode             String?
   description            String
-  quantity               Int                 @default(1)
+  quantity               Int                  @default(1)
   expectedArrivalAt      DateTime?
   instructions           String?
-  status                 SupplierOrderStatus @default(REGISTERED)
-  statusChangedAt        DateTime            @default(now())
-  compatibilityConfirmed Boolean             @default(false)
-  mode                   OrderMode           @default(STOCK)
+  status                 SupplierOrderStatus  @default(REGISTERED)
+  statusChangedAt        DateTime             @default(now())
+  compatibilityConfirmed Boolean              @default(false)
+  mode                   OrderMode            @default(STOCK)
   /// Dropshipping : plateforme et référence de la vente, destinataire final.
   salePlatform           MarketplacePlatform?
   saleReference          String?
@@ -690,23 +690,24 @@ model SupplierOrder {
   buyerCity              String?
   buyerCountry           String?
   /// Places de stock supplémentaires achetées lors de la commande.
-  storageCreditsCharged  Int                 @default(0)
+  storageCreditsCharged  Int                  @default(0)
   /// Expédition créée automatiquement à la réception (dropshipping).
-  dropshipShipmentId     String?             @unique
-  createdAt              DateTime            @default(now())
-  updatedAt              DateTime            @updatedAt
+  dropshipShipmentId     String?              @unique
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
 
-  customer       CustomerProfile      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  preparer       PreparerProfile      @relation(fields: [preparerId], references: [id], onDelete: Restrict)
-  dropshipShipment OutboundShipment?  @relation("DropshipOrder", fields: [dropshipShipmentId], references: [id], onDelete: SetNull)
-  supplier       Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  location       PreparerLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  parcels        InboundParcel[]
-  events         SupplierOrderEvent[]
-  inventoryItems InventoryItem[]
-  files          File[]
-  messages       Message[]
-  incidents      Incident[]
+  customer         CustomerProfile      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer         PreparerProfile      @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  dropshipShipment OutboundShipment?    @relation("DropshipOrder", fields: [dropshipShipmentId], references: [id], onDelete: SetNull)
+  marketplaceSale  MarketplaceSale?     @relation("SaleDropshipOrder")
+  supplier         Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location         PreparerLocation     @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  parcels          InboundParcel[]
+  events           SupplierOrderEvent[]
+  inventoryItems   InventoryItem[]
+  files            File[]
+  messages         Message[]
+  incidents        Incident[]
 
   @@index([customerId, status])
   @@index([preparerId, status])
@@ -780,40 +781,40 @@ enum InventoryStatus {
 }
 
 model InventoryItem {
-  id                String          @id @default(cuid())
-  sku               String          @unique
-  customerId        String
-  preparerId        String
-  supplierOrderId   String?
-  name              String
-  description       String?
-  supplierName      String?
-  quantityReceived  Int             @default(0)
-  quantityAvailable Int             @default(0)
-  quantityReserved  Int             @default(0)
-  quantityShipped   Int             @default(0)
-  quantityDamaged   Int             @default(0)
-  quantityMissing   Int             @default(0)
-  storageLocation   String?
-  receivedAt        DateTime        @default(now())
-  status            InventoryStatus @default(IN_STOCK)
-  notes             String?
+  id                  String          @id @default(cuid())
+  sku                 String          @unique
+  customerId          String
+  preparerId          String
+  supplierOrderId     String?
+  name                String
+  description         String?
+  supplierName        String?
+  quantityReceived    Int             @default(0)
+  quantityAvailable   Int             @default(0)
+  quantityReserved    Int             @default(0)
+  quantityShipped     Int             @default(0)
+  quantityDamaged     Int             @default(0)
+  quantityMissing     Int             @default(0)
+  storageLocation     String?
+  receivedAt          DateTime        @default(now())
+  status              InventoryStatus @default(IN_STOCK)
+  notes               String?
   /// Article de dropshipping : en transit, hors places et hors frais de stockage.
-  dropship          Boolean         @default(false)
+  dropship            Boolean         @default(false)
   /// Fin de la durée de stockage incluse ou payée (2 semaines, prolongeables).
-  storagePaidUntil  DateTime?
+  storagePaidUntil    DateTime?
   /// Prolongation impayée faute de crédits.
   storageOverdueSince DateTime?
   /// Dernier rappel d'échéance envoyé (pour la période en cours).
-  storageReminderAt DateTime?
+  storageReminderAt   DateTime?
   /// Dernier ajout de photos par le préparateur.
-  photosUpdatedAt   DateTime?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  photosUpdatedAt     DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
-  customer      CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  preparer      PreparerProfile     @relation(fields: [preparerId], references: [id], onDelete: Restrict)
-  supplierOrder SupplierOrder?      @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+  customer      CustomerProfile      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer      PreparerProfile      @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  supplierOrder SupplierOrder?       @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
   movements     InventoryMovement[]
   shipmentItems ShipmentItem[]
   files         File[]
@@ -866,13 +867,13 @@ model InventoryMovement {
 }
 
 model InventoryCount {
-  id          String    @id @default(cuid())
-  preparerId  String
-  customerId  String
+  id            String   @id @default(cuid())
+  preparerId    String
+  customerId    String
   performedById String
-  notes       String?
-  discrepancies Int     @default(0)
-  completedAt DateTime  @default(now())
+  notes         String?
+  discrepancies Int      @default(0)
+  completedAt   DateTime @default(now())
 
   preparer    PreparerProfile     @relation(fields: [preparerId], references: [id], onDelete: Restrict)
   customer    CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Restrict)
@@ -949,64 +950,64 @@ enum LabelMode {
 }
 
 model OutboundShipment {
-  id                String              @id @default(cuid())
-  reference         String              @unique
-  customerId        String
-  preparerId        String
-  status            ShipmentStatus      @default(REQUESTED)
-  kind              ShipmentKind        @default(SALE)
+  id                    String              @id @default(cuid())
+  reference             String              @unique
+  customerId            String
+  preparerId            String
+  status                ShipmentStatus      @default(REQUESTED)
+  kind                  ShipmentKind        @default(SALE)
   /// Échéance d'expédition (engagement « expédié sous 48 h »).
-  dueAt             DateTime?
-  lateAlertedAt     DateTime?
-  recipientName     String
-  recipientCompany  String?
-  recipientPhone    String?
-  recipientEmail    String?
-  addressLine1      String
-  addressLine2      String?
-  postalCode        String
-  city              String
-  country           String              @default("FR")
-  requestedCarrier  String?
-  labelMode         LabelMode           @default(CUSTOMER_PROVIDED)
-  instructions      String?
-  options           String[]
-  sizeCategory      ParcelSize?
-  weightGrams       Int?
-  lengthCm          Int?
-  widthCm           Int?
-  heightCm          Int?
-  classifiedAt      DateTime?
-  classifiedById    String?
-  classificationVersion Int             @default(0)
+  dueAt                 DateTime?
+  lateAlertedAt         DateTime?
+  recipientName         String
+  recipientCompany      String?
+  recipientPhone        String?
+  recipientEmail        String?
+  addressLine1          String
+  addressLine2          String?
+  postalCode            String
+  city                  String
+  country               String              @default("FR")
+  requestedCarrier      String?
+  labelMode             LabelMode           @default(CUSTOMER_PROVIDED)
+  instructions          String?
+  options               String[]
+  sizeCategory          ParcelSize?
+  weightGrams           Int?
+  lengthCm              Int?
+  widthCm               Int?
+  heightCm              Int?
+  classifiedAt          DateTime?
+  classifiedById        String?
+  classificationVersion Int                 @default(0)
   /// Coût de préparation en crédits (distinct des frais de transport).
-  creditCost        Int?
-  creditState       ShipmentCreditState @default(NONE)
-  carrier           String?
-  trackingNumber    String?
-  trackingUrl       String?
+  creditCost            Int?
+  creditState           ShipmentCreditState @default(NONE)
+  carrier               String?
+  trackingNumber        String?
+  trackingUrl           String?
   /// Frais de transport éventuels, facturés séparément des crédits.
-  shippingFeeCents  Int?
-  shippingFeeNote   String?
-  droppedOffAt      DateTime?
-  deliveredAt       DateTime?
-  cancelledAt       DateTime?
-  cancelReason      String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  shippingFeeCents      Int?
+  shippingFeeNote       String?
+  droppedOffAt          DateTime?
+  deliveredAt           DateTime?
+  cancelledAt           DateTime?
+  cancelReason          String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
 
-  customer        CustomerProfile          @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  preparer        PreparerProfile          @relation(fields: [preparerId], references: [id], onDelete: Restrict)
-  items           ShipmentItem[]
-  events          ShipmentEvent[]
-  classifications ShipmentClassification[]
-  reservations    CreditReservation[]
+  customer           CustomerProfile          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer           PreparerProfile          @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  items              ShipmentItem[]
+  events             ShipmentEvent[]
+  classifications    ShipmentClassification[]
+  reservations       CreditReservation[]
   creditTransactions CreditTransaction[]
-  files           File[]
-  messages        Message[]
-  incidents       Incident[]
-  dropshipOrder   SupplierOrder?           @relation("DropshipOrder")
-  marketplaceSale MarketplaceSale?
+  files              File[]
+  messages           Message[]
+  incidents          Incident[]
+  dropshipOrder      SupplierOrder?           @relation("DropshipOrder")
+  marketplaceSale    MarketplaceSale?
 
   @@index([customerId, status])
   @@index([preparerId, status])
@@ -1438,39 +1439,39 @@ enum FilePurpose {
 }
 
 model File {
-  id              String      @id @default(cuid())
-  storageKey      String      @unique
-  filename        String
-  mimeType        String
-  sizeBytes       Int
-  sha256          String
-  purpose         FilePurpose
-  uploadedById    String
-  customerId      String?
-  preparerId      String?
-  conversationId  String?
-  messageId       String?
-  supplierOrderId String?
-  inboundParcelId String?
-  inventoryItemId String?
-  shipmentId      String?
-  incidentId      String?
+  id                String      @id @default(cuid())
+  storageKey        String      @unique
+  filename          String
+  mimeType          String
+  sizeBytes         Int
+  sha256            String
+  purpose           FilePurpose
+  uploadedById      String
+  customerId        String?
+  preparerId        String?
+  conversationId    String?
+  messageId         String?
+  supplierOrderId   String?
+  inboundParcelId   String?
+  inventoryItemId   String?
+  shipmentId        String?
+  incidentId        String?
   marketplaceSaleId String?
-  deletedAt       DateTime?
-  createdAt       DateTime    @default(now())
+  deletedAt         DateTime?
+  createdAt         DateTime    @default(now())
 
-  uploadedBy    User              @relation("FileUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
-  avatarOf      User?             @relation("UserAvatar")
-  customer      CustomerProfile?  @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  preparer      PreparerProfile?  @relation(fields: [preparerId], references: [id], onDelete: Restrict)
-  conversation  Conversation?     @relation(fields: [conversationId], references: [id], onDelete: Restrict)
-  message       Message?          @relation(fields: [messageId], references: [id], onDelete: SetNull)
-  supplierOrder SupplierOrder?    @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
-  inboundParcel InboundParcel?    @relation(fields: [inboundParcelId], references: [id], onDelete: SetNull)
-  inventoryItem InventoryItem?    @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
-  shipment      OutboundShipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
-  incident      Incident?         @relation(fields: [incidentId], references: [id], onDelete: SetNull)
-  marketplaceSale MarketplaceSale? @relation(fields: [marketplaceSaleId], references: [id], onDelete: SetNull)
+  uploadedBy      User              @relation("FileUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  avatarOf        User?             @relation("UserAvatar")
+  customer        CustomerProfile?  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  preparer        PreparerProfile?  @relation(fields: [preparerId], references: [id], onDelete: Restrict)
+  conversation    Conversation?     @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  message         Message?          @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  supplierOrder   SupplierOrder?    @relation(fields: [supplierOrderId], references: [id], onDelete: SetNull)
+  inboundParcel   InboundParcel?    @relation(fields: [inboundParcelId], references: [id], onDelete: SetNull)
+  inventoryItem   InventoryItem?    @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  shipment        OutboundShipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  incident        Incident?         @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  marketplaceSale MarketplaceSale?  @relation(fields: [marketplaceSaleId], references: [id], onDelete: SetNull)
 
   @@index([customerId])
   @@index([marketplaceSaleId])
@@ -1498,6 +1499,8 @@ enum MarketplaceSaleStatus {
   MATCHED
   /// Expédition créée chez le préparateur.
   SHIPMENT_CREATED
+  /// Vendu en dropshipping : commande fournisseur passée vers le préparateur.
+  DROPSHIP
   IGNORED
   CANCELLED
 }
@@ -1554,8 +1557,8 @@ model MarketplaceListing {
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
-  customer      CustomerProfile  @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  inventoryItem InventoryItem?   @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  customer      CustomerProfile   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  inventoryItem InventoryItem?    @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
   sales         MarketplaceSale[]
 
   @@unique([customerId, platform, externalId])
@@ -1578,6 +1581,8 @@ model MarketplaceSale {
   status          MarketplaceSaleStatus @default(NEW)
   inventoryItemId String?
   shipmentId      String?               @unique
+  /// Commande en dropshipping passée pour cette vente.
+  dropshipOrderId String?               @unique
   notes           String?
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
@@ -1586,6 +1591,7 @@ model MarketplaceSale {
   listing       MarketplaceListing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
   inventoryItem InventoryItem?      @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
   shipment      OutboundShipment?   @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  dropshipOrder SupplierOrder?      @relation("SaleDropshipOrder", fields: [dropshipOrderId], references: [id], onDelete: SetNull)
   files         File[]
 
   @@unique([customerId, platform, externalOrderId])

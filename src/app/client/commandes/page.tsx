@@ -28,15 +28,18 @@ export default async function OrdersPage({ searchParams }: { searchParams: Searc
   const group = one(sp.statut) as keyof typeof GROUPS | undefined;
   const q = one(sp.q)?.trim();
   const page = parsePage(sp.page);
+  const type = one(sp.type);
+  const mode = type === "stock" ? "STOCK" : type === "dropshipping" ? "DROPSHIP" : undefined;
   const where: Prisma.SupplierOrderWhereInput = {
     customerId: customer.id,
+    ...(mode ? { mode } : {}),
     ...(group && GROUPS[group] ? { status: { in: [...GROUPS[group]] } } : {}),
     ...(q ? { OR: [{ description: { contains: q, mode: "insensitive" } }, { reference: { contains: q, mode: "insensitive" } }, { trackingNumber: { contains: q, mode: "insensitive" } }, { supplierOrderNumber: { contains: q, mode: "insensitive" } }] } : {}),
   };
   const [orders, total, counts] = await Promise.all([
     db.supplierOrder.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * 20, take: 20, include: { supplier: true, location: { select: { label: true } } } }),
     db.supplierOrder.count({ where }),
-    db.supplierOrder.groupBy({ by: ["status"], where: { customerId: customer.id }, _count: true }),
+    db.supplierOrder.groupBy({ by: ["status"], where: { customerId: customer.id, ...(mode ? { mode } : {}) }, _count: true }),
   ]);
   const count = (statuses: readonly string[]) => counts.filter((c) => statuses.includes(c.status)).reduce((s, c) => s + c._count, 0);
 
@@ -52,6 +55,14 @@ export default async function OrdersPage({ searchParams }: { searchParams: Searc
             </Link>
           </Button>
         }
+      />
+      <FilterTabs
+        param="type"
+        options={[
+          { value: "", label: "Toutes les commandes" },
+          { value: "stock", label: "Pour mon stock" },
+          { value: "dropshipping", label: "Dropshipping" },
+        ]}
       />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <FilterTabs

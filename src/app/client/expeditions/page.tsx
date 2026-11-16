@@ -28,8 +28,12 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Se
   const group = one(sp.statut) as keyof typeof GROUPS | undefined;
   const q = one(sp.q)?.trim();
   const page = parsePage(sp.page);
+  const type = one(sp.type);
+  const KIND = { stock: "SALE", dropshipping: "DROPSHIP", retours: "RETURN_TO_CUSTOMER" } as const;
+  const kind = type && type in KIND ? KIND[type as keyof typeof KIND] : undefined;
   const where: Prisma.OutboundShipmentWhereInput = {
     customerId: customer.id,
+    ...(kind ? { kind } : {}),
     ...(group && GROUPS[group] ? { status: { in: [...GROUPS[group]] } } : {}),
     ...(q ? { OR: [{ reference: { contains: q, mode: "insensitive" } }, { recipientName: { contains: q, mode: "insensitive" } }, { trackingNumber: { contains: q, mode: "insensitive" } }, { city: { contains: q, mode: "insensitive" } }] } : {}),
   };
@@ -49,6 +53,15 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Se
             </Link>
           </Button>
         }
+      />
+      <FilterTabs
+        param="type"
+        options={[
+          { value: "", label: "Tous les envois" },
+          { value: "stock", label: "Depuis mon stock" },
+          { value: "dropshipping", label: "Dropshipping" },
+          { value: "retours", label: "Retours chez moi" },
+        ]}
       />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <FilterTabs
