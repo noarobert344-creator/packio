@@ -1,5 +1,6 @@
 import { db } from "@/server/db";
-import { authenticate, errorResponse, json, preflight } from "@/server/extension-api";
+import { authenticate, bearerToken, errorResponse, json, preflight } from "@/server/extension-api";
+import { revokeOwnExtensionToken } from "@/server/services/marketplace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,16 @@ export async function GET(request: Request) {
       customer: { referenceCode: customer.referenceCode, firstName: customer.user.firstName, hasPreparer: !!customer.currentPreparerId },
       accounts: customer.marketplaceAccounts,
     });
+  } catch (err) {
+    return errorResponse(request, err);
+  }
+}
+
+/** Déconnexion : l'extension révoque le jeton qu'elle présente (et lui seul). */
+export async function DELETE(request: Request) {
+  try {
+    const revoked = await revokeOwnExtensionToken(bearerToken(request));
+    return json(request, { ok: true, revoked });
   } catch (err) {
     return errorResponse(request, err);
   }

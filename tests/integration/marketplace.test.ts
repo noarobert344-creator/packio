@@ -12,7 +12,7 @@ import {
   syncFromExtension,
 } from "@/server/services/marketplace";
 import { POST as syncRoute } from "@/app/api/extension/sync/route";
-import { GET as statusRoute } from "@/app/api/extension/status/route";
+import { DELETE as disconnectRoute, GET as statusRoute } from "@/app/api/extension/status/route";
 import type { Actor } from "@/server/auth/actor";
 import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb } from "../helpers";
 
@@ -215,5 +215,22 @@ describe("Comptes liés Vinted / Vestiaire et extension", () => {
     const status = await statusRoute(request("/api/extension/status", { token, method: "GET" }));
     expect(await status.json()).toMatchObject({ ok: true, accounts: [expect.objectContaining({ platform: "VINTED" })] });
     expect(await db.marketplaceListing.count({ where: { customerId } })).toBe(1);
+  });
+
+  it("déconnexion par l'extension : seul le jeton présenté est révoqué, une seule fois, et c'est journalisé", async () => {
+    const { actor, customerId } = await createCustomer({ plan: "STARTER" });
+    const old = await createExtensionToken(actor, "Connexion automatique (navigateur)");
+    const fresh = await createExtensionToken(actor, "Connexion automatique (navigateur)");
+
+    const res = await disconnectRoute(request("/api/extension/status", { token: old.token, method: "DELETE", origin: "chrome-extension://abcdefghijklmnop" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, revoked: true });
+    expect(res.headers.get("access-control-allow-methods")).toContain("DELETE");
+    expect(await authenticateExtensionToken(old.token)).toBeNull();
+    expect(await authenticateExtensionToken(fresh.token)).toBe(customerId);
+
+    expect(await (await disconnectRoute(request("/api/extension/status", { token: old.token, method: "DELETE" }))).json()).toEqual({ ok: true, revoked: false });
+    expect(await (await disconnectRoute(request("/api/extension/status", { method: "DELETE" }))).json()).toEqual({ ok: true, revoked: false });
+    expect(await db.auditLog.count({ where: { action: "extension.token_revoked", entityId: customerId } })).toBe(1);
   });
 });

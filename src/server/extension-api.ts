@@ -15,7 +15,7 @@ export function corsHeaders(request: Request): Record<string, string> {
   return allowed
     ? {
         "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Authorization, Content-Type",
         "Access-Control-Max-Age": "600",
         Vary: "Origin",
@@ -31,10 +31,14 @@ export function json(request: Request, body: unknown, status = 200) {
   return Response.json(body, { status, headers: { ...corsHeaders(request), "Cache-Control": "no-store" } });
 }
 
+export function bearerToken(request: Request): string | null {
+  const header = request.headers.get("authorization") ?? "";
+  return header.startsWith("Bearer ") ? header.slice(7).trim() : null;
+}
+
 /** Authentifie la requête ; renvoie l'identifiant client ou une réponse 401. */
 export async function authenticate(request: Request): Promise<{ customerId: string } | { response: Response }> {
-  const header = request.headers.get("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : null;
+  const token = bearerToken(request);
   const customerId = await authenticateExtensionToken(token);
   if (!customerId) return { response: json(request, { ok: false, error: "Jeton invalide ou révoqué." }, 401) };
   return { customerId };

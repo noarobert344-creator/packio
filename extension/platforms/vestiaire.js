@@ -15,9 +15,12 @@ import { NotLoggedInError, currencyOf, getJson, toCents, toIso } from "./common.
 export const PLATFORM = "VESTIAIRE";
 const API = "https://apiv2.vestiairecollective.com";
 
-/** À VÉRIFIER : /users/me et forme { data: { id, firstname } }. */
+/**
+ * À VÉRIFIER : /users/me et forme { data: { id, firstname } }.
+ * Sans session, l'API répond 404 (constaté) : traité comme « non connecté ».
+ */
 async function currentUser() {
-  const res = await getJson(`${API}/users/me`);
+  const res = await getJson(`${API}/users/me`, {}, [404]);
   if (res.unauthorized) return null;
   const user = res.data?.data ?? res.data;
   return user && user.id ? { id: String(user.id), name: user.firstname ?? user.username ?? null } : null;

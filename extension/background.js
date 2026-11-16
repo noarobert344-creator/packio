@@ -1,6 +1,7 @@
 import * as vinted from "./platforms/vinted.js";
 import * as vestiaire from "./platforms/vestiaire.js";
 import { NotLoggedInError, arrayBufferToBase64 } from "./platforms/common.js";
+import { PACKIO_URL } from "./config.js";
 
 /**
  * Packio Connect : synchronisation périodique (toutes les 15 minutes) ou à la
@@ -17,7 +18,8 @@ let running = null;
 
 async function getConfig() {
   const cfg = await chrome.storage.sync.get({ packioUrl: "", token: "", vintedDomain: "www.vinted.fr", enableVinted: true, enableVestiaire: true });
-  cfg.packioUrl = String(cfg.packioUrl || "").replace(/\/+$/, "");
+  // Version publique : l'adresse de Packio est intégrée et ne se modifie pas.
+  cfg.packioUrl = String(PACKIO_URL || cfg.packioUrl || "").replace(/\/+$/, "");
   return cfg;
 }
 
@@ -109,9 +111,36 @@ chrome.runtime.onStartup.addListener(ensureAlarm);
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM) syncOnce("alarm");
 });
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+/**
+ * Connexion en un clic depuis la page Packio (script connect.js) : le jeton
+ * n'est accepté que s'il vient du site Packio intégré à l'extension.
+ */
+async function connectFromPage(token, sender) {
+  if (!PACKIO_URL) throw new Error("Connexion automatique indisponible : configurez l'extension dans ses options.");
+  const expected = new URL(PACKIO_URL).origin;
+  const from = sender?.origin || (sender?.url ? new URL(sender.url).origin : "");
+  if (from !== expected) throw new Error("Origine non autorisée.");
+  const res = await fetch(`${expected}/api/extension/status`, { headers: { Authorization: `Bearer ${token}` } });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || `Packio : HTTP ${res.status}`);
+  const previous = await chrome.storage.sync.get(["packioUrl", "token"]);
+  await chrome.storage.sync.set({ packioUrl: expected, token });
+  // Reconnexion : l'ancien jeton de ce navigateur est révoqué, pour ne pas
+  // accumuler des accès inutilisés dans le compte.
+  if (previous.token && previous.token !== token && (!previous.packioUrl || new URL(previous.packioUrl).origin === expected)) {
+    fetch(`${expected}/api/extension/status`, { method: "DELETE", headers: { Authorization: `Bearer ${previous.token}` } }).catch(() => undefined);
+  }
+  syncOnce("connect").catch(() => undefined);
+  return { ok: true, referenceCode: json.customer?.referenceCode ?? null };
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "sync-now") {
     syncOnce("manual").then(sendResponse, (err) => sendResponse({ error: String(err) }));
+    return true;
+  }
+  if (message?.type === "connect" && typeof message.token === "string") {
+    connectFromPage(message.token, sender).then(sendResponse, (err) => sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) }));
     return true;
   }
   return false;

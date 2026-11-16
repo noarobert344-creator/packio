@@ -29,11 +29,13 @@ const DEMO_DOMAIN = "demo.packio.local";
 const PASSWORD = process.env.SEED_DEMO_PASSWORD ?? "Demo-Packio-2026";
 
 function guard() {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Refus : les données de démonstration ne doivent jamais être créées en production.");
+  // DEMO_DATA=1 : déploiement de démonstration assumé (ex. Render, voir README).
+  const demoDeployment = process.env.DEMO_DATA === "1";
+  if (process.env.NODE_ENV === "production" && !demoDeployment) {
+    throw new Error("Refus : les données de démonstration ne doivent jamais être créées en production (DEMO_DATA=1 pour un site de démonstration).");
   }
   const url = process.env.DATABASE_URL ?? "";
-  if (!/localhost|127\.0\.0\.1|@db:|@postgres:/.test(url) && process.env.SEED_ALLOW_REMOTE !== "1") {
+  if (!/localhost|127\.0\.0\.1|@db:|@postgres:/.test(url) && process.env.SEED_ALLOW_REMOTE !== "1" && !demoDeployment) {
     throw new Error("Refus : base distante détectée. Définissez SEED_ALLOW_REMOTE=1 si cette base est bien une base de développement.");
   }
 }

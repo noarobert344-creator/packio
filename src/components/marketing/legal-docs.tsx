@@ -382,6 +382,12 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
         <li>Notifications de service par e-mail et dans l&apos;application — exécution du contrat (préférences modifiables).</li>
         <li>Réponse aux demandes de contact — intérêt légitime / mesures précontractuelles.</li>
       </ul>
+      <p>
+        Les données lues par l&apos;extension Packio Connect servent uniquement à cette fonction : elles ne sont ni vendues, ni utilisées à des fins publicitaires,
+        de profilage ou d&apos;évaluation de solvabilité, ni transmises à d&apos;autres destinataires que ceux listés ci-dessous. Elles ne sont consultées par une
+        personne de l&apos;équipe Packio qu&apos;avec votre accord, pour un besoin de sécurité ou en cas d&apos;obligation légale. Cet usage respecte le règlement du
+        Chrome Web Store relatif aux données des utilisateurs, y compris ses exigences d&apos;utilisation limitée.
+      </p>
       <h2>4. Destinataires et sous-traitants</h2>
       <ul>
         <li>
@@ -394,7 +400,7 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
           <Fill value={ctx.legal.hostName} label="hébergeur" /> — hébergement de l&apos;application et de la base de données.
         </li>
         <li>Resend — envoi des e-mails transactionnels.</li>
-        <li>Prestataire de stockage compatible S3 — conservation privée des photos et documents.</li>
+        <li>L&apos;hébergeur ci-dessus ou un prestataire de stockage compatible S3 — conservation privée des photos et documents.</li>
         <li>Transporteurs — données du destinataire figurant sur l&apos;étiquette d&apos;expédition.</li>
       </ul>
       <p>Lorsque des données sont transférées hors de l&apos;Union européenne, ces transferts sont encadrés par des garanties appropriées (clauses contractuelles types).</p>

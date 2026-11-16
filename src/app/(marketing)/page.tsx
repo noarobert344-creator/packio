@@ -13,7 +13,8 @@ import { FinalCta } from "@/components/marketing/final-cta";
 import { Container, SectionHeading } from "@/components/marketing/section";
 import { commonAnnualBadge } from "@/lib/billing-intervals";
 
-export const revalidate = 300;
+// Rendu à chaque requête : les prix et réglages viennent de la base (aucun accès à la base pendant la construction).
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const [plans, sizeRules, packs, suppliers, assignment, credits, support, storage, shipping] = await Promise.all([

@@ -11,13 +11,17 @@ export class NotLoggedInError extends Error {
   }
 }
 
-export async function getJson(url, init = {}) {
+/**
+ * `anonymousStatuses` : codes à traiter comme « pas de session » (certaines
+ * API répondent 404 au lieu de 401 quand personne n'est connecté).
+ */
+export async function getJson(url, init = {}, anonymousStatuses = []) {
   const res = await fetch(url, {
     credentials: "include",
     headers: { Accept: "application/json, text/plain, */*", ...(init.headers || {}) },
     ...init,
   });
-  if (res.status === 401 || res.status === 403) return { unauthorized: true, status: res.status };
+  if (res.status === 401 || res.status === 403 || anonymousStatuses.includes(res.status)) return { unauthorized: true, status: res.status };
   if (!res.ok) throw new Error(`HTTP ${res.status} sur ${new URL(url).pathname}`);
   return { data: await res.json(), status: res.status };
 }

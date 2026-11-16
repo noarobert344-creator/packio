@@ -1,0 +1,76 @@
+# Déploiement sur Render (Blueprint) : New → Blueprint → choisir ce dépôt.
+# Guide pas à pas : README, section « Déployer sur Render ».
+#
+# Contenu : le site (service web avec un disque pour les photos et bordereaux),
+# la base PostgreSQL et une tâche planifiée toutes les 15 minutes.
+# Les clés secrètes (Whop, Resend…) s'ajoutent ensuite dans le tableau de bord
+# Render (onglet Environment), jamais dans ce fichier.
+
+envVarGroups:
+  - name: packio-commun
+    envVars:
+      # Adresse publique du site. Si Render attribue une autre adresse que
+      # celle-ci (nom déjà pris), corrigez-la dans le groupe puis redéployez.
+      - key: APP_URL
+        value: https://packio.onrender.com
+      # Secret partagé entre le site et la tâche planifiée (généré par Render).
+      - key: CRON_SECRET
+        generateValue: true
+
+services:
+  - type: web
+    name: packio
+    runtime: node
+    plan: 0.5c-512mb
+    region: frankfurt
+    # Dépendances de développement incluses : TypeScript et tsx servent à la
+    # construction et aux scripts de pré-déploiement.
+    buildCommand: npm ci --include=dev && npm run build
+    # Migrations, données de référence et compte administrateur (lien
+    # d'activation dans les journaux du déploiement), puis données de
+    # démonstration si DEMO_DATA vaut 1.
+    preDeployCommand: npx prisma migrate deploy && npm run db:bootstrap && if [ "$DEMO_DATA" = "1" ]; then npm run db:seed; fi
+    startCommand: npm start
+    healthCheckPath: /connexion
+    autoDeployTrigger: commit
+    disk:
+      name: packio-fichiers
+      mountPath: /var/data
+      sizeGB: 5
+    envVars:
+      - fromGroup: packio-commun
+      - key: DATABASE_URL
+        fromDatabase:
+          name: packio-db
+          property: connectionString
+      - key: STORAGE_DRIVER
+        value: local
+      - key: LOCAL_STORAGE_DIR
+        value: /var/data/fichiers
+      # Votre adresse e-mail : compte super administrateur créé au premier déploiement.
+      - key: INITIAL_ADMIN_EMAIL
+        sync: false
+      # Site de démonstration : comptes de démo et paiements simulés (aucun
+      # encaissement). Pour le lancement réel, voir le README (base neuve,
+      # DEMO_DATA supprimé, BILLING_MODE=whop).
+      - key: DEMO_DATA
+        value: "1"
+      - key: BILLING_MODE
+        value: dev
+      - key: ALLOW_DEV_BILLING_IN_PRODUCTION
+        value: "1"
+
+  - type: cron
+    name: packio-taches
+    runtime: node
+    region: frankfurt
+    schedule: "*/15 * * * *"
+    buildCommand: node --version
+    startCommand: node scripts/cron-ping.mjs
+    envVars:
+      - fromGroup: packio-commun
+
+databases:
+  - name: packio-db
+    plan: 0.1c-256mb
+    region: frankfurt

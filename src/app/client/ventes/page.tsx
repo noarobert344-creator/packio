@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ActionButton, ActionDialog } from "@/components/shared/action-dialog";
 import { SelectField } from "@/components/shared/form-field";
 import { ExtensionTokenForm } from "@/components/client/extension-token-form";
+import { ExtensionConnect } from "@/components/client/extension-connect";
 import { requireSubscribedCustomer } from "@/server/customer-page";
 import { listMarketplaceOverview } from "@/server/services/marketplace";
 import { createExtensionTokenAction, ignoreSaleAction, linkListingAction, matchSaleAction, revokeExtensionTokenAction } from "@/server/actions/marketplace";
@@ -145,18 +146,13 @@ export default async function SalesPage() {
       </Section>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Section title="Extension Packio Connect" description="Elle relie votre navigateur à votre compte Packio grâce à un jeton personnel.">
-          <ol className="mb-5 list-decimal space-y-1.5 pl-5 text-sm text-muted-foreground">
-            <li>
-              Récupérez le dossier <code className="rounded bg-muted px-1 py-0.5 text-xs">extension</code> de Packio Connect auprès du support (une publication sur le Chrome Web Store est prévue).
-            </li>
-            <li>
-              Dans Chrome, ouvrez <code className="rounded bg-muted px-1 py-0.5 text-xs">chrome://extensions</code>, activez le mode développeur puis « Charger l&apos;extension non empaquetée ».
-            </li>
-            <li>Créez un jeton ci-dessous et collez-le dans les options de l&apos;extension, avec l&apos;adresse de Packio.</li>
-            <li>Restez connecté à Vinted ou Vestiaire Collective dans ce navigateur : la synchronisation a lieu toutes les 15 minutes.</li>
-          </ol>
-          <ExtensionTokenForm action={createExtensionTokenAction} />
+        <Section title="Extension Packio Connect" description="Elle relie vos comptes Vinted et Vestiaire Collective à Packio, depuis votre navigateur, sans jamais connaître vos mots de passe.">
+          <ExtensionConnect storeUrl={process.env.EXTENSION_STORE_URL?.startsWith("https://") ? process.env.EXTENSION_STORE_URL : null} />
+          <details className="mt-5 rounded-xl border p-4 text-sm">
+            <summary className="cursor-pointer font-medium">Connexion manuelle (jeton personnel)</summary>
+            <p className="mt-2 mb-3 text-xs text-muted-foreground">À utiliser si la connexion en un clic n&apos;est pas possible : créez un jeton et collez-le dans les options de l&apos;extension.</p>
+            <ExtensionTokenForm action={createExtensionTokenAction} />
+          </details>
           {tokens.length > 0 && (
             <ul className="mt-5 divide-y rounded-xl border">
               {tokens.map((t) => (

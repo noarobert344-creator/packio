@@ -8,18 +8,35 @@ Packio Connect relie les comptes **Vinted** et **Vestiaire Collective** d'un cli
 
 Version 0.1.0 : extension Chrome (Manifest V3), sans étape de compilation.
 
-## Installation (mode développeur)
+## Installation pour les clients (version publique)
 
-1. Ouvrez `chrome://extensions` dans Chrome (ou Edge, Brave : même principe).
-2. Activez le **mode développeur** (en haut à droite).
-3. Cliquez sur **Charger l'extension non empaquetée** et choisissez ce dossier `extension/`.
-4. La page d'options s'ouvre :
-   - **Adresse de Packio** : l'adresse de l'application (par exemple `https://app.packio.fr`, ou `http://localhost:3000` en développement) ;
-   - **Jeton personnel** : créé dans Packio, menu **Ventes → Extension Packio Connect** (il n'est affiché qu'une fois) ;
-   - le site Vinted utilisé (vinted.fr par défaut) et les plateformes à synchroniser.
-5. **Enregistrer et tester la connexion** : Chrome demande l'autorisation de joindre l'adresse de Packio, puis l'extension vérifie le jeton.
+1. Installer **Packio Connect** depuis le Chrome Web Store (bouton dans Packio, page **Ventes et comptes liés**). Fonctionne aussi avec Edge et Brave.
+2. Dans Packio, page **Ventes et comptes liés**, cliquer sur **Connecter l'extension** : la page crée un jeton personnel et le transmet à l'extension, sans copier-coller.
+3. Rester connecté à Vinted et/ou Vestiaire Collective dans ce navigateur. La synchronisation a lieu toutes les 15 minutes, ou à la demande (**Synchroniser maintenant** dans la fenêtre de l'extension).
 
-Restez connecté à Vinted et/ou Vestiaire Collective dans ce navigateur. La synchronisation a lieu toutes les 15 minutes, ou à la demande depuis la fenêtre de l'extension (**Synchroniser maintenant**).
+Une nouvelle connexion depuis le même navigateur révoque l'ancien jeton. Le bouton **Déconnecter ce navigateur de Packio** (options de l'extension) révoque le jeton et arrête tout envoi.
+
+## Construire la version publique
+
+```bash
+npm run extension:build -- https://packio.onrender.com
+```
+
+Le script (`scripts/build-extension.mjs`) copie ce dossier dans `dist/packio-connect/`, puis :
+
+- inscrit l'adresse de Packio dans `config.js` (champ non modifiable dans les options) ;
+- déclare l'accès à cette seule adresse (`host_permissions`) et retire l'accès optionnel à tous les sites ;
+- limite le script de connexion `connect.js` à la page `/client/ventes` de cette adresse ;
+- crée l'archive `dist/packio-connect-<version>.zip` à envoyer sur le Chrome Web Store.
+
+Fiche, textes de confidentialité, justification des autorisations et images : [`store/fiche-chrome-web-store.md`](store/fiche-chrome-web-store.md). Le dossier `store/` n'est pas inclus dans le paquet.
+
+Une fois l'extension publiée, renseigner son adresse dans la variable `EXTENSION_STORE_URL` du site : le bouton d'installation apparaît dans Packio.
+
+## Développement (mode développeur)
+
+- **Connexion en un clic** : `npm run extension:build -- http://localhost:3000`, puis dans `chrome://extensions`, activer le **mode développeur** et **Charger l'extension non empaquetée** en choisissant `dist/packio-connect/`.
+- **Connexion manuelle** : charger directement ce dossier `extension/` (aucune adresse intégrée). Dans les options, saisir l'adresse de Packio et un jeton personnel créé dans **Ventes et comptes liés → Connexion manuelle**. Chrome demande alors l'autorisation de joindre cette adresse.
 
 ## Données lues et transmises
 
@@ -40,13 +57,15 @@ Vinted et Vestiaire Collective ne proposent pas d'API ouverte aux vendeurs parti
 
 | Fichier | Rôle |
 | --- | --- |
-| `manifest.json` | Déclaration (permissions : `storage`, `alarms`, sites Vinted et Vestiaire ; l'accès à Packio est demandé dans les options) |
-| `background.js` | Service worker : synchronisation planifiée et à la demande, envoi des bordereaux, journal de la dernière synchronisation |
+| `manifest.json` | Déclaration (permissions : `storage`, `alarms`, sites Vinted et Vestiaire ; l'accès à Packio est ajouté par le script de construction, ou demandé dans les options en développement) |
+| `config.js` | Adresse de Packio intégrée à la version publique (vide dans ce dossier) |
+| `connect.js` | Script de la page « Ventes » de Packio : détection de l'extension et connexion en un clic (origine vérifiée) |
+| `background.js` | Service worker : connexion en un clic, synchronisation planifiée et à la demande, envoi des bordereaux, journal de la dernière synchronisation |
 | `platforms/vinted.js`, `platforms/vestiaire.js` | Toutes les adresses et correspondances de champs propres à chaque plateforme |
 | `platforms/common.js` | Requêtes avec la session du navigateur, conversions de prix et de dates |
 | `popup.*`, `options.*`, `styles.css` | Interface de l'extension |
 
-API Packio utilisée (authentification `Authorization: Bearer pkx_…`) : `GET /api/extension/status`, `POST /api/extension/sync`, `POST /api/extension/label`.
+API Packio utilisée (authentification `Authorization: Bearer pkx_…`) : `GET /api/extension/status`, `DELETE /api/extension/status` (déconnexion : révoque le jeton présenté), `POST /api/extension/sync`, `POST /api/extension/label`.
 
 ## À valider avec un vrai compte avant la mise en production
 
@@ -67,4 +86,4 @@ Les adresses des plateformes ne sont pas documentées publiquement. Chaque point
 3. Ventes : `GET /orders/sales` et URL du bordereau (`shippingLabelUrl`).
 4. Mode d'authentification : si l'API exige un jeton lu dans le stockage du site, ajouter un script de contenu sur `vestiairecollective.com`.
 
-Une publication sur le Chrome Web Store (puis Firefox) est prévue une fois ces points validés.
+Publier ou mettre à jour l'extension une fois ces points validés (voir « Construire la version publique »).

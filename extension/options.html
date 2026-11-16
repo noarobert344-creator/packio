@@ -9,7 +9,7 @@
   <body>
     <main class="stack">
       <div class="brand"><img src="icons/icon48.png" alt="" /><h1>Packio Connect</h1></div>
-      <p class="muted">Créez un jeton personnel dans Packio (Ventes et comptes liés), puis collez-le ici. Le jeton reste dans votre navigateur ; vos identifiants Vinted et Vestiaire Collective ne sont jamais lus ni transmis.</p>
+      <p class="muted">Le plus simple : dans Packio, ouvrez « Ventes et comptes liés » et cliquez sur « Connecter l'extension ». Sinon, créez-y un jeton personnel et collez-le ici. Le jeton reste dans votre navigateur ; vos identifiants Vinted et Vestiaire Collective ne sont jamais lus ni transmis.</p>
       <form id="form" class="card stack">
         <label>Adresse de Packio<input id="packioUrl" type="url" placeholder="https://app.packio.fr" required /></label>
         <label>Jeton personnel<input id="token" type="password" placeholder="pkx_…" autocomplete="off" required /></label>
@@ -26,6 +26,7 @@
         <label class="check"><input id="enableVinted" type="checkbox" /> Synchroniser Vinted</label>
         <label class="check"><input id="enableVestiaire" type="checkbox" /> Synchroniser Vestiaire Collective</label>
         <button type="submit">Enregistrer et tester la connexion</button>
+        <button id="disconnect" type="button" class="secondary" hidden>Déconnecter ce navigateur de Packio</button>
         <p id="result" class="result"></p>
       </form>
       <p class="muted">Ces plateformes n'autorisent pas toujours les outils automatisés : vous utilisez cette extension sur vos propres comptes, sous votre responsabilité. Elle ne lit que vos annonces, vos ventes et vos bordereaux.</p>

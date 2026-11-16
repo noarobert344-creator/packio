@@ -297,6 +297,44 @@ En production serverless, le disque n'est pas persistant : utilisez `STORAGE_DRI
 
 Définissez `CRON_SECRET` : Vercel l'envoie en `Authorization: Bearer`. (Le plan Hobby de Vercel limite les crons à une exécution quotidienne : utilisez le plan Pro ou un ordonnanceur externe.)
 
+## Déployer sur Render (recommandé)
+
+Le fichier [`render.yaml`](render.yaml) décrit tout : le site (service web avec un disque de 5 Go pour les photos et bordereaux), la base PostgreSQL et une tâche planifiée toutes les 15 minutes (délais d'attribution et d'expédition, crédits, stockage, ménage quotidien). Région : Francfort.
+
+**Première mise en ligne (site de démonstration, environ 10 minutes) :**
+
+1. Créez un compte sur [render.com](https://render.com) avec votre compte GitHub, puis autorisez l'accès au dépôt `packio`.
+2. **New → Blueprint**, choisissez le dépôt et la branche, puis **Apply**.
+3. Render demande `INITIAL_ADMIN_EMAIL` : saisissez votre adresse e-mail.
+4. Attendez la fin du premier déploiement. Dans **packio → Logs**, copiez le lien « Lien d'activation » affiché : il permet de choisir le mot de passe du compte super administrateur.
+5. Vérifiez l'adresse du site (en haut de la page du service, par exemple `https://packio.onrender.com`). Si elle diffère, corrigez `APP_URL` dans **Env Groups → packio-commun**, puis **Manual Deploy**.
+
+Ce premier site contient les **comptes de démonstration** (mot de passe `Demo-Packio-2026`) et des **paiements simulés** (aucun encaissement), comme en développement.
+
+**Lancement réel :**
+
+1. Créez une nouvelle base (ou un nouveau Blueprint) pour ne pas garder les données de démonstration.
+2. Dans **packio → Environment** : supprimez `DEMO_DATA` et `ALLOW_DEV_BILLING_IN_PRODUCTION`, passez `BILLING_MODE` à `whop`, ajoutez `WHOP_API_KEY`, `WHOP_ACCOUNT_ID`, `WHOP_WEBHOOK_SECRET` (voir « Paiements avec Whop »), `RESEND_API_KEY` et `EMAIL_FROM` pour les e-mails, et `EXTENSION_STORE_URL` (lien de Packio Connect sur le Chrome Web Store).
+3. Déclarez le webhook Whop sur `https://<votre-adresse>/api/webhooks/whop`.
+4. Domaine personnalisé (facultatif) : **Settings → Custom Domains**, puis mettez `APP_URL` à jour.
+5. Back-office → **Paramètres → Informations légales** : éditeur, et hébergeur « Render » avec l'adresse de la société indiquée sur render.com (reprise dans la politique de confidentialité).
+
+Remarques : l'offre gratuite de Render n'est pas adaptée (le site s'endort après 15 minutes d'inactivité, la base gratuite expire après 30 jours, pas de disque ni de commande de pré-déploiement). Les plans indiqués dans `render.yaml` sont les plus petits plans payants ; le disque impose un court arrêt à chaque déploiement. Les noms de plans peuvent évoluer : en cas d'erreur à l'application du Blueprint, choisissez le plus petit plan payant proposé.
+
+### Publier l'extension Packio Connect (Chrome Web Store)
+
+L'extension publique est liée à **une seule adresse** du site : choisissez l'adresse définitive (domaine personnalisé compris) avant de la publier. Si l'adresse change ensuite, il faut reconstruire et republier l'extension.
+
+1. Créez le paquet avec l'adresse du site :
+
+```bash
+npm run extension:build -- https://packio.onrender.com
+```
+
+2. Ouvrez un compte développeur sur la [console du Chrome Web Store](https://chrome.google.com/webstore/devconsole) (5 $, une fois), au nom de l'éditeur de Packio.
+3. **Nouvel élément** : envoyez `dist/packio-connect-0.1.0.zip`, puis remplissez la fiche avec les textes et images de [`extension/store/`](extension/store/fiche-chrome-web-store.md) et soumettez-la à l'examen (quelques jours en général).
+4. Une fois l'extension publiée, ajoutez `EXTENSION_STORE_URL` (adresse de la fiche) dans **packio → Environment**, puis redéployez : les clients voient le bouton **Installer depuis le Chrome Web Store**, puis **Connecter l'extension**, dans **Ventes et comptes liés**.
+
 ## Déploiement (Vercel)
 
 1. Créez une base PostgreSQL managée (Neon, Supabase, Scaleway, RDS…). Utilisez l'URL **poolée** pour `DATABASE_URL` et, si nécessaire, l'URL directe pour `DIRECT_DATABASE_URL`.
@@ -319,7 +357,7 @@ npm run admin:create -- --email vous@votre-domaine.fr --first Prénom --last Nom
 
 5. Configurez Whop (ci-dessus), puis dans le back-office : paramètres légaux, fournisseurs, préparateurs et leurs points de réception (à valider).
 
-`npm run build` exécute `prisma generate` puis `next build`. Ne lancez **jamais** `npm run db:seed` en production (le script le refuse).
+`npm run build` exécute `prisma generate` puis `next build`. Ne lancez **jamais** `npm run db:seed` en production (le script le refuse, sauf `DEMO_DATA=1` pour un site de démonstration assumé). `INITIAL_ADMIN_EMAIL` permet aussi de créer le compte propriétaire lors de `npm run db:bootstrap`.
 
 ## Tests
 

@@ -1,3 +1,4 @@
+import { PACKIO_URL } from "./config.js";
 const LABELS = { VINTED: "Vinted", VESTIAIRE: "Vestiaire Collective" };
 const STATUS = {
   ok: ["ok", "Synchronisé"],
@@ -39,8 +40,9 @@ function render(report) {
 }
 
 async function init() {
-  const cfg = await chrome.storage.sync.get({ packioUrl: "", token: "" });
+  const cfg = await chrome.storage.sync.get({ packioUrl: PACKIO_URL, token: "" });
   document.getElementById("config-warning").hidden = !!(cfg.packioUrl && cfg.token);
+  cfg.packioUrl = PACKIO_URL || cfg.packioUrl;
   const open = document.getElementById("open-packio");
   if (cfg.packioUrl) open.href = `${cfg.packioUrl.replace(/\/+$/, "")}/client/ventes`;
   else open.hidden = true;

@@ -1,3 +1,5 @@
+import { PACKIO_URL } from "./config.js";
+
 const FIELDS = ["packioUrl", "token", "vintedDomain", "enableVinted", "enableVestiaire"];
 const DEFAULTS = { packioUrl: "", token: "", vintedDomain: "www.vinted.fr", enableVinted: true, enableVestiaire: true };
 
@@ -12,6 +14,12 @@ async function load() {
     if (input.type === "checkbox") input.checked = !!cfg[f];
     else input.value = cfg[f];
   }
+  el("disconnect").hidden = !cfg.token;
+  // Version publique : adresse intégrée, non modifiable.
+  if (PACKIO_URL) {
+    el("packioUrl").value = PACKIO_URL;
+    el("packioUrl").readOnly = true;
+  }
 }
 
 async function save(event) {
@@ -25,8 +33,9 @@ async function save(event) {
     result.textContent = "Adresse de Packio invalide.";
     return;
   }
-  // Autorise l'extension à joindre ce serveur Packio (demandé à l'utilisateur).
-  const granted = await chrome.permissions.request({ origins: [`${origin}/*`] });
+  // Autorise l'extension à joindre ce serveur Packio (demandé à l'utilisateur),
+  // sauf en version publique où l'accès au site Packio est déjà déclaré.
+  const granted = PACKIO_URL ? true : await chrome.permissions.request({ origins: [`${origin}/*`] });
   if (!granted) {
     result.textContent = "Autorisation refusée : l'extension ne peut pas joindre Packio.";
     return;
@@ -51,5 +60,21 @@ async function save(event) {
   }
 }
 
+/** Révoque le jeton de ce navigateur dans Packio, puis l'oublie localement. */
+async function disconnect() {
+  const result = el("result");
+  const { packioUrl, token } = await chrome.storage.sync.get(["packioUrl", "token"]);
+  const base = PACKIO_URL || packioUrl;
+  if (token && base) {
+    await fetch(`${new URL(base).origin}/api/extension/status`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }).catch(() => undefined);
+  }
+  await chrome.storage.sync.set({ token: "" });
+  await chrome.storage.local.remove("lastSync");
+  el("token").value = "";
+  el("disconnect").hidden = true;
+  result.textContent = "Extension déconnectée : plus aucune donnée n'est envoyée à Packio depuis ce navigateur.";
+}
+
 el("form").addEventListener("submit", save);
+el("disconnect").addEventListener("click", disconnect);
 load();

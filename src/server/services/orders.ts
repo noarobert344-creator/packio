@@ -7,7 +7,7 @@ import { reference } from "@/server/lib/ids";
 import { checkCompatibility } from "@/lib/compatibility";
 import { SUPPLIER_ORDER_STATUS } from "@/lib/labels";
 import { withEffects, type Effects } from "./notifications";
-import { assertCustomerOperational, getActiveSubscription } from "./customers";
+import { assertCustomerOperational } from "./customers";
 import { createStockItem, linkPhotos } from "./inventory";
 import { createIncidentTx } from "./incidents";
 import { ensureCapacityForOrder } from "./storage";

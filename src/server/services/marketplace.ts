@@ -63,6 +63,25 @@ export async function revokeExtensionToken(actor: Actor, id: string) {
   return updated;
 }
 
+/**
+ * Révocation par l'extension de son propre jeton (remplacé lors d'une
+ * reconnexion en un clic, ou déconnexion). Sans effet si le jeton est inconnu.
+ */
+export async function revokeOwnExtensionToken(raw: string | null | undefined): Promise<boolean> {
+  if (!raw || !TOKEN_RE.test(raw)) return false;
+  const row = await db.extensionToken.findUnique({ where: { tokenHash: hashToken(raw) }, include: { customer: { select: { userId: true } } } });
+  if (!row || row.revokedAt) return false;
+  await db.extensionToken.update({ where: { id: row.id }, data: { revokedAt: new Date() } });
+  await audit({
+    actor: { userId: row.customer.userId, role: "CUSTOMER" },
+    action: "extension.token_revoked",
+    entityType: "customer",
+    entityId: row.customerId,
+    summary: `${row.label} (${row.prefix}…), révoqué par l'extension`,
+  });
+  return true;
+}
+
 /** Authentifie un appel de l'extension ; renvoie l'identifiant client ou null. */
 export async function authenticateExtensionToken(raw: string | null | undefined): Promise<string | null> {
   if (!raw || !TOKEN_RE.test(raw)) return null;
@@ -422,7 +441,8 @@ export async function listMarketplaceOverview(customerId: string) {
   const [accounts, tokens, sales, listings, stockItems] = await Promise.all([
     db.marketplaceAccount.findMany({ where: { customerId }, orderBy: { lastSyncAt: "desc" } }),
     db.extensionToken.findMany({
-      where: { customerId },
+      // Jetons révoqués affichés 7 jours (l'historique complet reste dans le journal d'audit).
+      where: { customerId, OR: [{ revokedAt: null }, { revokedAt: { gte: new Date(Date.now() - 7 * 86_400_000) } }] },
       orderBy: [{ revokedAt: { sort: "asc", nulls: "first" } }, { createdAt: "desc" }],
       select: { id: true, prefix: true, label: true, lastUsedAt: true, revokedAt: true, createdAt: true },
       take: 20,
