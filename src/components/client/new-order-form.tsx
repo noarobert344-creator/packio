@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BadgeEuro, CircleCheck, CircleX, ExternalLink, PackagePlus, Warehouse, Zap } from "lucide-react";
+import { BadgeEuro, CircleCheck, CircleX, ExternalLink, PackagePlus, Phone, Warehouse, Zap } from "lucide-react";
+import { CopyButton } from "@/components/shared/copy-button";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "@/components/shared/form-field";
 import { FileUploader } from "@/components/shared/file-uploader";
@@ -43,7 +44,7 @@ export function NewOrderForm({
   defaultMode = "STOCK",
 }: {
   suppliers: OrderSupplier[];
-  locations: { id: string; label: string; detail: string }[];
+  locations: { id: string; label: string; detail: string; recipientName: string; phone: string | null }[];
   defaultSupplier?: string;
   storage: OrderStorageInfo;
   defaultMode?: "STOCK" | "DROPSHIP";
@@ -151,6 +152,29 @@ export function NewOrderForm({
             onChange={(e) => setLocationId(e.target.value)}
             options={compatible.map((l) => ({ value: l.id, label: `${l.label} — ${l.detail}` }))}
           />
+          {supplier?.code === "VINTED" &&
+            (() => {
+              const loc = compatible.find((l) => l.id === effectiveLocation);
+              return (
+                <div className="grid gap-2 rounded-xl border border-brand/40 bg-brand-soft/60 p-4 text-sm">
+                  <p className="flex items-center gap-2 font-semibold">
+                    <Phone className="size-4 text-brand" /> Sur Vinted, indiquez le numéro de votre préparateur
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    À l&apos;étape livraison, saisissez le destinataire « {loc?.recipientName} » et ce numéro de téléphone : c&apos;est votre préparateur qui reçoit le SMS avec le code de
+                    retrait.
+                  </p>
+                  {loc?.phone ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-lg bg-background px-3 py-1.5 font-mono text-base font-semibold tracking-wide">{loc.phone}</span>
+                      <CopyButton value={loc.phone} label="Copier le numéro" />
+                    </div>
+                  ) : (
+                    <p className="text-xs font-medium text-warning">Numéro non renseigné pour ce point de réception : contactez le support avant de commander.</p>
+                  )}
+                </div>
+              );
+            })()}
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField name="description" label="Description du produit" required placeholder="Ex. : Veste en jean Levi's taille M" className="sm:col-span-2" />
             <TextField name="articleUrl" label="Lien de l'article" type="url" placeholder="https://…" className="sm:col-span-2" />

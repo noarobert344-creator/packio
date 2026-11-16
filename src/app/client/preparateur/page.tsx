@@ -46,7 +46,7 @@ export default async function MyPreparerPage() {
     db.preparerProfile.findUniqueOrThrow({
       where: { id: customer.currentPreparerId },
       include: {
-        user: { select: { firstName: true, lastName: true, avatarFileId: true } },
+        user: { select: { firstName: true, lastName: true, avatarFileId: true, phone: true } },
         locations: { where: { isActive: true, validatedAt: { not: null } }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
         absences: { where: { cancelledAt: null, endsAt: { gte: now } }, orderBy: { startsAt: "asc" }, take: 3 },
       },
@@ -128,7 +128,7 @@ export default async function MyPreparerPage() {
         {preparer.locations.length ? (
           <div className="grid gap-4 lg:grid-cols-2">
             {preparer.locations.map((l) => (
-              <ReceptionCard key={l.id} location={l} clientCode={customer.referenceCode} />
+              <ReceptionCard key={l.id} location={{ ...l, recipientPhone: l.recipientPhone ?? preparer.user.phone }} clientCode={customer.referenceCode} />
             ))}
           </div>
         ) : (

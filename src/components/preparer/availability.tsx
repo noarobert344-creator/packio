@@ -95,7 +95,7 @@ export function AbsenceDialog() {
   );
 }
 
-export function ProposeLocationDialog({ defaultRecipient, defaultCity }: { defaultRecipient: string; defaultCity: string }) {
+export function ProposeLocationDialog({ defaultRecipient, defaultCity, defaultPhone }: { defaultRecipient: string; defaultCity: string; defaultPhone?: string | null }) {
   const [type, setType] = useState<"BUSINESS_ADDRESS" | "LOCKER" | "RELAY_POINT">("LOCKER");
   const relay = type !== "BUSINESS_ADDRESS";
   return (
@@ -135,6 +135,7 @@ export function ProposeLocationDialog({ defaultRecipient, defaultCity }: { defau
         <TextField name="city" label="Ville" required defaultValue={defaultCity} />
         <TextField name="country" label="Pays (code ISO)" required defaultValue="FR" maxLength={2} />
         <TextField name="recipientName" label="Nom du destinataire à indiquer" required defaultValue={defaultRecipient} />
+        <TextField name="recipientPhone" label="Téléphone à indiquer" type="tel" defaultValue={defaultPhone ?? ""} hint="Vinted l'exige : vous recevez le code de retrait par SMS." />
       </div>
       <TextAreaField name="instructions" label="Instructions pour les clients" rows={2} placeholder="Facultatif" />
     </StepDialog>

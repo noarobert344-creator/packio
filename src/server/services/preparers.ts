@@ -165,6 +165,8 @@ export type LocationInput = {
   country: string;
   externalId?: string | null;
   recipientName: string;
+  /** Téléphone à indiquer sur les commandes (Vinted l'exige ; le code de retrait arrive par SMS). */
+  recipientPhone?: string | null;
   openingHours?: string | null;
   instructions?: string | null;
   isPrimary: boolean;
@@ -198,6 +200,7 @@ export async function saveLocation(actor: Actor, input: LocationInput & { prepar
       country: input.country.trim().toUpperCase() || "FR",
       externalId: input.externalId?.trim() || null,
       recipientName: input.recipientName.trim(),
+      recipientPhone: input.recipientPhone?.trim() || null,
       openingHours: input.openingHours?.trim() || null,
       instructions: input.instructions?.trim() || null,
       isPrimary: input.isPrimary,

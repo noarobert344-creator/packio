@@ -51,12 +51,12 @@ async function drain(admin: Actor, customerId: string) {
 describe("Stockage, retours, dropshipping et délai de 48 h", () => {
   beforeEach(resetDb);
 
-  it("offres : 39 €, 95 €, 171 € (1,90 € minimum le crédit) ; 20, 50, 90 crédits ; 5, 10, 20 places ; recharges réévaluées", async () => {
+  it("offres : 49 €, 95 €, 179 € (1,90 € minimum le crédit) ; 20, 40, 80 crédits ; 5, 10, 20 places ; recharges réévaluées", async () => {
     const plans = await db.plan.findMany({ orderBy: { sortOrder: "asc" } });
     expect(plans.map((p) => [p.code, p.priceCents, p.monthlyCredits, p.storageLimit, p.annualPriceCents])).toEqual([
-      ["STARTER", 3900, 20, 5, 42900],
-      ["PRO", 9500, 50, 10, 104500],
-      ["BUSINESS", 17100, 90, 20, 188100],
+      ["STARTER", 4900, 20, 5, 53900],
+      ["PRO", 9500, 40, 10, 104500],
+      ["BUSINESS", 17900, 80, 20, 196900],
     ]);
     const packs = await db.creditPack.findMany({ where: { isActive: true }, orderBy: { credits: "asc" } });
     expect(packs.map((p) => [p.credits, p.priceCents])).toEqual([

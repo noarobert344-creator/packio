@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { db } from "@/server/db";
 import { CalendarOff, CircleCheck, Clock, MapPin } from "lucide-react";
 import { requirePreparer } from "@/server/auth/current";
 import { getAvailabilityData } from "@/server/queries/preparer";
@@ -15,7 +16,10 @@ export const metadata: Metadata = { title: "Disponibilités" };
 
 export default async function AvailabilityPage() {
   const actor = await requirePreparer();
-  const { profile, absences, locations } = await getAvailabilityData(actor.preparerId);
+  const [{ profile, absences, locations }, me] = await Promise.all([
+    getAvailabilityData(actor.preparerId),
+    db.user.findUniqueOrThrow({ where: { id: actor.userId }, select: { phone: true } }),
+  ]);
   const availability = { ...DEFAULT_AVAILABILITY, ...((profile.availability as Partial<Availability> | null) ?? {}) } as Availability;
   const now = new Date();
 
@@ -72,7 +76,7 @@ export default async function AvailabilityPage() {
           <Section
             title="Mes points de réception"
             description="Adresses communiquées à vos clients une fois validées par Packio."
-            actions={<ProposeLocationDialog defaultRecipient={`${actor.firstName} ${actor.lastName}`} defaultCity={profile.city} />}
+            actions={<ProposeLocationDialog defaultRecipient={`${actor.firstName} ${actor.lastName}`} defaultCity={profile.city} defaultPhone={me.phone} />}
             contentClassName="p-0"
           >
             {locations.length ? (

@@ -8,8 +8,8 @@ import { SYSTEM_ROLES } from "@/server/auth/permissions";
  */
 
 /**
- * Prix : au moins 1,90 € le crédit en mensuel (Starter 1,95 €, Pro et Business
- * 1,90 €). Formule annuelle : 11 mois facturés, 1 mois offert.
+ * Prix : au moins 1,90 € le crédit en mensuel (Starter 2,45 €, Pro 2,38 €,
+ * Business 2,24 €). Formule annuelle : 11 mois facturés, 1 mois offert.
  */
 const plan = (code: string, name: string, tagline: string, priceCents: number, monthlyCredits: number, storageLimit: number, highlighted: boolean, sortOrder: number) => ({
   code,
@@ -32,9 +32,9 @@ const plan = (code: string, name: string, tagline: string, priceCents: number, m
 });
 
 export const DEFAULT_PLANS = [
-  plan("STARTER", "Starter", "Pour lancer votre activité sans gérer un seul colis.", 3900, 20, 5, false, 1),
-  plan("PRO", "Pro", "Pour les vendeurs réguliers qui expédient chaque semaine.", 9500, 50, 10, true, 2),
-  plan("BUSINESS", "Business", "Pour les boutiques à fort volume.", 17100, 90, 20, false, 3),
+  plan("STARTER", "Starter", "Pour lancer votre activité sans gérer un seul colis.", 4900, 20, 5, false, 1),
+  plan("PRO", "Pro", "Pour les vendeurs réguliers qui expédient chaque semaine.", 9500, 40, 10, true, 2),
+  plan("BUSINESS", "Business", "Pour les boutiques à fort volume.", 17900, 80, 20, false, 3),
 ];
 
 export const DEFAULT_SIZE_RULES = [
@@ -72,7 +72,7 @@ export const DEFAULT_SUPPLIERS = [
     orderModes: STOCK,
     sortOrder: 2,
     compatibilityNotes:
-      "Les modes de livraison proposés dépendent du vendeur et du pays. Choisissez au paiement le point relais ou le locker de votre préparateur, avec le nom de destinataire indiqué. Transmettez ensuite le code de retrait reçu.",
+      "Les modes de livraison proposés dépendent du vendeur et du pays. Choisissez au paiement le point relais ou le locker de votre préparateur, avec le nom de destinataire et le numéro de téléphone indiqués : votre préparateur reçoit ainsi le SMS avec le code de retrait.",
   },
   {
     code: "ZENMARKET",

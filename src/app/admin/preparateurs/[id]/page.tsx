@@ -127,7 +127,7 @@ export default async function AdminPreparerPage({ params }: { params: Promise<{ 
           <Section
             title="Lieux de réception"
             description="Adresse professionnelle, locker principal et lockers secondaires. Seuls les lieux validés sont communiqués aux clients."
-            actions={canManage ? <LocationDialog preparerId={preparer.id} defaultRecipient={name} /> : null}
+            actions={canManage ? <LocationDialog preparerId={preparer.id} defaultRecipient={name} defaultPhone={preparer.user.phone} /> : null}
           >
             {activeLocations.length === 0 ? (
               <EmptyState icon={MapPin} title="Aucun lieu de réception" description="Ajoutez et validez au moins un lieu pour pouvoir attribuer des clients à ce préparateur." />
@@ -154,6 +154,7 @@ export default async function AdminPreparerPage({ params }: { params: Promise<{ 
                         </p>
                         <p className="text-xs text-muted-foreground">
                           Destinataire : <span className="text-foreground">{l.recipientName}</span>
+                          {" · "}Tél. : {l.recipientPhone ?? preparer.user.phone ?? <span className="text-warning">non renseigné</span>}
                           {l.openingHours && ` · ${l.openingHours}`}
                         </p>
                         {l.validatedAt && (
@@ -169,6 +170,7 @@ export default async function AdminPreparerPage({ params }: { params: Promise<{ 
                           <LocationDialog
                             preparerId={preparer.id}
                             defaultRecipient={name}
+                            defaultPhone={preparer.user.phone}
                             location={{
                               id: l.id,
                               type: l.type,
@@ -182,6 +184,7 @@ export default async function AdminPreparerPage({ params }: { params: Promise<{ 
                               country: l.country,
                               externalId: l.externalId,
                               recipientName: l.recipientName,
+                              recipientPhone: l.recipientPhone,
                               openingHours: l.openingHours,
                               instructions: l.instructions,
                               isPrimary: l.isPrimary,

@@ -16,6 +16,7 @@ export type ReceptionLocation = {
   country: string;
   externalId: string | null;
   recipientName: string;
+  recipientPhone: string | null;
   openingHours: string | null;
   instructions: string | null;
   isPrimary: boolean;
@@ -25,6 +26,7 @@ export function formatReceptionAddress(l: ReceptionLocation, clientCode: string)
   return [
     l.recipientName,
     l.type === "BUSINESS_ADDRESS" ? `Réf. client ${clientCode}` : null,
+    l.recipientPhone ? `Tél. ${l.recipientPhone}` : null,
     l.relayName,
     l.addressLine1,
     l.addressLine2,
@@ -62,6 +64,13 @@ export function ReceptionCard({ location: l, clientCode }: { location: Reception
         <div className="flex gap-2">
           <dt className="text-muted-foreground">Destinataire à indiquer :</dt>
           <dd className="font-medium">{l.recipientName}</dd>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <dt className="text-muted-foreground">Téléphone à indiquer :</dt>
+          <dd className="flex items-center gap-2 font-medium">
+            {l.recipientPhone ?? <span className="text-warning">non renseigné, contactez le support</span>}
+            {l.recipientPhone && <CopyButton value={l.recipientPhone} label="Copier" variant="ghost" size="sm" />}
+          </dd>
         </div>
         {l.relayName && (
           <div className="flex gap-2">

@@ -132,7 +132,13 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
               compatibility: s.compatibility,
               orderModes: s.orderModes,
             }))}
-            locations={info.locations.map((l) => ({ id: l.id, label: l.label, detail: l.relayName ? `${l.relayName}, ${l.city}` : `${l.addressLine1}, ${l.city}` }))}
+            locations={info.locations.map((l) => ({
+              id: l.id,
+              label: l.label,
+              detail: l.relayName ? `${l.relayName}, ${l.city}` : `${l.addressLine1}, ${l.city}`,
+              recipientName: l.recipientName,
+              phone: l.recipientPhone,
+            }))}
             defaultMode={one(sp.mode) === "dropshipping" ? "DROPSHIP" : "STOCK"}
             storage={{
               capacity: storage.capacity,

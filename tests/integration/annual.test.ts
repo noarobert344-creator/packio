@@ -18,9 +18,9 @@ describe("Formule annuelle", () => {
   it("prix annuels par défaut : 11 mois facturés, 1 mois offert", async () => {
     const plans = await db.plan.findMany({ orderBy: { sortOrder: "asc" } });
     expect(plans.map((p) => [p.code, p.annualPriceCents])).toEqual([
-      ["STARTER", 42900],
+      ["STARTER", 53900],
       ["PRO", 104500],
-      ["BUSINESS", 188100],
+      ["BUSINESS", 196900],
     ]);
   });
 
@@ -32,7 +32,7 @@ describe("Formule annuelle", () => {
     expect(sub.nextCreditGrantAt?.getTime()).toBe(addMonths(sub.creditAnchorAt!, 1).getTime());
     expect(sub.currentPeriodEnd!.getTime() - sub.currentPeriodStart!.getTime()).toBeGreaterThan(360 * 86_400_000);
     const payment = await db.payment.findFirstOrThrow({ where: { customerId, kind: "SUBSCRIPTION" } });
-    expect(payment.amountCents).toBe(42900);
+    expect(payment.amountCents).toBe(53900);
     expect((await wallet(customerId)).monthlyBalance).toBe(20);
   });
 
@@ -96,7 +96,7 @@ describe("Formule annuelle", () => {
       ["PRO", false, false],
     ]);
     expect((await getActiveSubscription(customerId))?.plan.code).toBe("PRO");
-    expect((await wallet(customerId)).monthlyBalance).toBe(70); // 20 Starter conservés + 50 Pro
+    expect((await wallet(customerId)).monthlyBalance).toBe(60); // 20 Starter conservés + 40 Pro
     expect((await listSubscriptions({ page: 1 })).kpis.mrrCents).toBe(9500);
 
     // Fin de période de l'ancienne offre : pas d'avis de résiliation, le client reste actif.
@@ -132,11 +132,11 @@ describe("Formule annuelle", () => {
     await devCompleteSubscription(actor, business.id, "YEARLY", { change: true });
     const old = await db.subscription.findFirstOrThrow({ where: { customerId, supersededAt: { not: null } } });
     expect(old.nextCreditGrantAt).not.toBeNull();
-    expect((await wallet(customerId)).monthlyBalance).toBe(110); // 20 + 90
+    expect((await wallet(customerId)).monthlyBalance).toBe(100); // 20 + 80
 
     // Mois suivant : chaque formule verse ses crédits, sans faire expirer ceux de l'autre.
     expect((await grantDueAnnualCredits(addDays(new Date(), 32))).annualGrants).toBe(2);
-    expect((await wallet(customerId)).monthlyBalance).toBe(110);
+    expect((await wallet(customerId)).monthlyBalance).toBe(100);
   });
 
   it("baisse d'offre programmée au renouvellement, annulable avant l'échéance", async () => {
@@ -154,7 +154,7 @@ describe("Formule annuelle", () => {
     expect(sub.plan.code).toBe("STARTER");
     expect((await wallet(customerId)).monthlyBalance).toBe(20);
     const last = await db.payment.findFirstOrThrow({ where: { customerId, kind: "SUBSCRIPTION" }, orderBy: { createdAt: "desc" } });
-    expect(last.amountCents).toBe(3900);
+    expect(last.amountCents).toBe(4900);
   });
 
   it("passage de l'annuel au mensuel : à l'échéance, puis activation du mensuel en un clic", async () => {

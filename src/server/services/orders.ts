@@ -81,7 +81,7 @@ export async function getReceptionInfo(customerId: string) {
       user: { select: { firstName: true, lastName: true } },
       currentPreparer: {
         include: {
-          user: { select: { firstName: true, lastName: true, avatarFileId: true } },
+          user: { select: { firstName: true, lastName: true, avatarFileId: true, phone: true } },
           locations: { where: { isActive: true, validatedAt: { not: null } }, orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
         },
       },
@@ -89,7 +89,8 @@ export async function getReceptionInfo(customerId: string) {
   });
   if (!customer) throw new NotFoundError();
   const suppliers = await db.supplier.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } });
-  const locations = customer.currentPreparer?.locations ?? [];
+  // Téléphone à indiquer sur les commandes : celui du lieu, sinon celui du préparateur.
+  const locations = (customer.currentPreparer?.locations ?? []).map((l) => ({ ...l, recipientPhone: l.recipientPhone ?? customer.currentPreparer?.user.phone ?? null }));
   return {
     customer,
     preparer: customer.currentPreparer,

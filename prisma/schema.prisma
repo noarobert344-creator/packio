@@ -305,6 +305,8 @@ model PreparerLocation {
   externalId      String?
   /// Nom du destinataire à indiquer sur les commandes.
   recipientName   String
+  /// Téléphone à indiquer sur les commandes (Vinted l'exige ; le code de retrait est envoyé par SMS).
+  recipientPhone  String?
   openingHours    String?
   instructions    String?
   isActive        Boolean      @default(true)

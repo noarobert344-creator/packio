@@ -4,6 +4,8 @@ import { createSupplierOrder, markPickedUp, receiveOrder, stockOrder } from "@/s
 import { updateItemDetails } from "@/server/services/inventory";
 import { listForSale, listLabelBoard } from "@/server/queries/sales-board";
 import { navBadges } from "@/server/badges";
+import { getReceptionInfo } from "@/server/services/orders";
+import { saveLocation } from "@/server/services/preparers";
 import type { Actor } from "@/server/auth/actor";
 import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb } from "../helpers";
 
@@ -72,5 +74,30 @@ describe("Bordereaux et À vendre", () => {
     expect(forClient.ready.map((i) => i.id)).toEqual([items[0].id]);
     expect((await listForSale({ preparerId: other.preparer.id })).ready).toHaveLength(0);
     expect((await navBadges(prep.actor)).photos).toBe(0);
+  });
+
+  it("Vinted : le numéro du préparateur est donné au client (numéro du point, sinon celui du préparateur)", async () => {
+    const { admin, prep, client } = await setup();
+    await db.user.update({ where: { id: prep.actor.userId }, data: { phone: "+33 6 11 22 33 44" } });
+    let info = await getReceptionInfo(client.customerId);
+    expect(info.locations[0].recipientPhone).toBe("+33 6 11 22 33 44");
+    await saveLocation(admin, {
+      preparerId: prep.preparer.id,
+      locationId: prep.location.id,
+      type: "BUSINESS_ADDRESS",
+      label: "Adresse professionnelle",
+      addressLine1: "10 rue de la République",
+      postalCode: "69002",
+      city: "Lyon",
+      country: "FR",
+      recipientName: "Paul P.",
+      recipientPhone: "+33 7 55 66 77 88",
+      isPrimary: true,
+      validate: true,
+    });
+    info = await getReceptionInfo(client.customerId);
+    expect(info.locations[0].recipientPhone).toBe("+33 7 55 66 77 88");
+    const vinted = info.suppliers.find((s) => s.code === "VINTED");
+    expect(vinted?.compatibilityNotes).toMatch(/numéro de téléphone/);
   });
 });

@@ -211,6 +211,7 @@ const locationSchema = z.object({
   country: requiredText("Pays", 2, 2),
   externalId: optionalText(80),
   recipientName: requiredText("Nom du destinataire", 2, 120),
+  recipientPhone: optionalText(40),
   openingHours: optionalText(200),
   instructions: optionalText(1000),
   isPrimary: checkbox(),

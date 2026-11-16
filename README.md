@@ -151,6 +151,8 @@ Contraintes notables (migration `integrity_constraints`) :
 
 Fournisseurs proposés par type de commande (réglable dans `Admin → Paramètres → Fournisseurs`, contrôlé côté serveur) : **commandes vers le stock** : ZenMarket, Vinted, Vestiaire Collective ; **dropshipping** : Temu, SHEIN, AliExpress.
 
+Chaque point de réception indique le **téléphone à saisir sur les commandes** (Vinted l'exige) : par défaut celui du préparateur, modifiable par lieu. Le préparateur reçoit ainsi directement le SMS avec le code de retrait ; le formulaire de commande le rappelle au client dès qu'il choisit Vinted.
+
 Seuls les lieux **validés par un administrateur** sont communiqués aux clients. Chaque fournisseur déclare les types de points (adresse professionnelle, locker, point relais) et les réseaux acceptés ; une commande vers un point incompatible est refusée. Les valeurs initiales sont volontairement prudentes et **doivent être vérifiées** dans `Admin → Paramètres → Fournisseurs`. Pour les lockers, le client transmet le **code de retrait** depuis la fiche de la commande (visible uniquement par lui et son préparateur). Chaque client dispose d'un **code client** (`PK-XXXXX`) à indiquer sur ses colis.
 
 ### Crédits
@@ -166,11 +168,11 @@ Seuls les lieux **validés par un administrateur** sont communiqués aux clients
 
 | Offre | Mensuel | Annuel (1 mois offert) | Crédits / mois | Places de stockage |
 | --- | --- | --- | --- | --- |
-| Starter | 39 € / mois | 429 € / an (≈ 35,75 € / mois) | 20 | 5 articles |
-| Pro | 95 € / mois | 1 045 € / an (≈ 87,08 € / mois) | 50 | 10 articles |
-| Business | 171 € / mois | 1 881 € / an (≈ 156,75 € / mois) | 90 | 20 articles |
+| Starter | 49 € / mois | 539 € / an (≈ 44,92 € / mois) | 20 | 5 articles |
+| Pro | 95 € / mois | 1 045 € / an (≈ 87,08 € / mois) | 40 | 10 articles |
+| Business | 179 € / mois | 1 969 € / an (≈ 164,08 € / mois) | 80 | 20 articles |
 
-**Prix minimum d'un crédit : 1,90 €** en abonnement mensuel comme en recharge (Starter 1,95 €, Pro et Business 1,90 €, recharges de 1,99 € à 2,49 €). Le back-office refuse un prix inférieur ; seule la formule annuelle (1 mois offert) descend en dessous.
+**Prix minimum d'un crédit : 1,90 €** en abonnement mensuel comme en recharge (Starter 2,45 €, Pro 2,38 €, Business 2,24 €, recharges de 1,99 € à 2,49 €). Le back-office refuse un prix inférieur ; seule la formule annuelle (1 mois offert) descend en dessous.
 
 Les places de stockage correspondent au nombre d'articles stockés **en même temps** (voir [Stockage](#stockage)). Ce sont des valeurs par défaut, modifiables par offre ; une valeur modifiée dans le back-office n'est jamais écrasée par une migration. La formule mensuelle se renouvelle tous les **30 jours**, la formule annuelle tous les **365 jours** (périodes de facturation Whop). Un prix annuel vide dans le back-office retire la formule annuelle de l'offre.
 

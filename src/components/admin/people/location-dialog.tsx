@@ -21,13 +21,14 @@ export type LocationValues = {
   country: string;
   externalId: string | null;
   recipientName: string;
+  recipientPhone: string | null;
   openingHours: string | null;
   instructions: string | null;
   isPrimary: boolean;
   validated: boolean;
 };
 
-export function LocationDialog({ preparerId, location, defaultRecipient }: { preparerId: string; location?: LocationValues; defaultRecipient: string }) {
+export function LocationDialog({ preparerId, location, defaultRecipient, defaultPhone }: { preparerId: string; location?: LocationValues; defaultRecipient: string; defaultPhone?: string | null }) {
   const [type, setType] = useState<LocationValues["type"]>(location?.type ?? "LOCKER");
   const isRelay = type !== "BUSINESS_ADDRESS";
   return (
@@ -76,6 +77,7 @@ export function LocationDialog({ preparerId, location, defaultRecipient }: { pre
           <TextField name="city" label="Ville" required defaultValue={location?.city} />
           <TextField name="country" label="Pays (code ISO)" required defaultValue={location?.country ?? "FR"} maxLength={2} />
           <TextField name="recipientName" label="Nom du destinataire à indiquer" required defaultValue={location?.recipientName ?? defaultRecipient} />
+          <TextField name="recipientPhone" label="Téléphone à indiquer" type="tel" defaultValue={location?.recipientPhone ?? defaultPhone ?? ""} hint="Exigé par Vinted : le préparateur reçoit le code de retrait par SMS." />
         </div>
         <TextField name="openingHours" label="Horaires" defaultValue={location?.openingHours ?? ""} placeholder="Ex. : 24 h/24, 7 j/7" />
         <TextAreaField name="instructions" label="Instructions pour le client" defaultValue={location?.instructions ?? ""} rows={2} />
