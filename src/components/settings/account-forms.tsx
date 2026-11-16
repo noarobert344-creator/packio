@@ -85,7 +85,7 @@ export function PasswordForm() {
   return (
     <ActionForm action={changePasswordAction} resetOnSuccess className="grid max-w-md gap-4">
       <PasswordField name="currentPassword" label="Mot de passe actuel" />
-      <PasswordField name="newPassword" label="Nouveau mot de passe" autoComplete="new-password" hint="Au moins 10 caractères, dont une lettre et un chiffre." />
+      <PasswordField name="newPassword" label="Nouveau mot de passe" autoComplete="new-password" hint="Au moins 8 caractères." />
       <PasswordField name="confirm" label="Confirmation" autoComplete="new-password" />
       <div>
         <SubmitButton pendingLabel="Modification…">Modifier le mot de passe</SubmitButton>

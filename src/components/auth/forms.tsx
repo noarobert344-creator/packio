@@ -34,11 +34,7 @@ export function RegisterForm({ offre, periodicite }: { offre?: string; periodici
         <TextField name="lastName" label="Nom" autoComplete="family-name" required />
       </div>
       <TextField name="email" label="Adresse e-mail" type="email" autoComplete="email" required placeholder="vous@exemple.fr" />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <TextField name="phone" label="Téléphone" type="tel" autoComplete="tel" placeholder="Facultatif" />
-        <TextField name="companyName" label="Boutique / société" placeholder="Facultatif" />
-      </div>
-      <PasswordField name="password" label="Mot de passe" autoComplete="new-password" hint="Au moins 10 caractères, dont une lettre et un chiffre." />
+      <PasswordField name="password" label="Mot de passe" autoComplete="new-password" hint="Au moins 8 caractères." />
       <CheckboxField
         name="acceptTerms"
         required
@@ -82,7 +78,7 @@ export function NewPasswordForm({ token, mode }: { token: string; mode: "reset" 
   return (
     <ActionForm action={mode === "reset" ? resetPasswordAction : acceptInvitationAction} silent className="grid gap-4">
       <input type="hidden" name="token" value={token} />
-      <PasswordField name="password" label="Nouveau mot de passe" autoComplete="new-password" hint="Au moins 10 caractères, dont une lettre et un chiffre." />
+      <PasswordField name="password" label="Nouveau mot de passe" autoComplete="new-password" hint="Au moins 8 caractères." />
       <PasswordField name="confirm" label="Confirmation" autoComplete="new-password" />
       <SubmitButton size="lg" className="h-10 w-full" pendingLabel="Enregistrement…">
         {mode === "reset" ? "Réinitialiser le mot de passe" : "Activer mon compte"}

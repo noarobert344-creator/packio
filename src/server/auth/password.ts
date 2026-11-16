@@ -33,8 +33,9 @@ export async function verifyPassword(password: string, stored: string | null | u
   return key.length === expected.length && timingSafeEqual(key, expected);
 }
 
-export const PASSWORD_RULES = "Au moins 10 caractères, dont une lettre et un chiffre.";
+/** Seule règle : 8 caractères au minimum (recommandation de la CNIL, avec la limitation des tentatives de connexion). */
+export const PASSWORD_RULES = "Au moins 8 caractères.";
 
 export function isStrongPassword(password: string) {
-  return password.length >= 10 && password.length <= 200 && /[A-Za-z]/.test(password) && /\d/.test(password);
+  return password.length >= 8 && password.length <= 200;
 }
