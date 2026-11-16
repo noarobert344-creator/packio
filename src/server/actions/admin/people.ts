@@ -12,7 +12,7 @@ import { DomainError, NotFoundError } from "@/server/errors";
 import { assignPreparer, notifyCustomerOfDelay, reassignCustomer, startReassignment } from "@/server/services/assignments";
 import { adminAdjustCredits } from "@/server/services/credits";
 import { anonymizeCustomer, setCustomerStatus, updateCustomerNotes } from "@/server/services/catalog";
-import { cancelAbsence, createPreparer, deactivateLocation, declareAbsence, saveLocation, setLocationValidation, setParcelsProcessed, setPreparerStatus, updatePreparer } from "@/server/services/preparers";
+import { cancelAbsence, clearPreparerAddress, createPreparer, deactivateLocation, declareAbsence, saveLocation, setLocationValidation, setParcelsProcessed, setPreparerStatus, updatePreparer } from "@/server/services/preparers";
 import { sendInvitation } from "@/server/services/auth";
 import { sendMessage } from "@/server/services/messaging";
 import { assignIncident } from "@/server/services/incidents";
@@ -135,11 +135,10 @@ const preparerSchema = z.object({
   phone: phoneField(),
   city: requiredText("Ville", 1, 80),
   country: requiredText("Pays", 2, 2),
-  businessAddressLine1: optionalText(160),
-  businessAddressLine2: optionalText(160),
-  businessPostalCode: optionalText(20),
-  businessCity: optionalText(80),
-  businessCountry: optionalText(2),
+  postOfficeName: optionalText(150),
+  postOfficeAddress: optionalText(200),
+  postOfficePostalCode: optionalText(10),
+  postOfficeCity: optionalText(80),
   compatibleCarriers: stringArray(),
   storageCapacity: intField("Capacité de stockage", { min: 0, max: 100000 }),
   maxClients: intField("Nombre maximal de clients", { min: 0, max: 1000 }),
@@ -149,7 +148,17 @@ const preparerSchema = z.object({
 
 export async function createPreparerAction(_prev: ActionState<{ invitationUrl: string; preparerId: string }>, formData: FormData): Promise<ActionState<{ invitationUrl: string; preparerId: string }>> {
   return runAction<typeof preparerSchema, { invitationUrl: string; preparerId: string }>(preparerSchema, formToObject(formData), async (actor, data) => {
-    const { preparer, invitationUrl } = await createPreparer(actor, data);
+    const { postOfficeName, postOfficeAddress, postOfficePostalCode, postOfficeCity, ...input } = data;
+    const office = { postOfficeName, postOfficeAddress, postOfficePostalCode, postOfficeCity };
+    const filled = Object.values(office).filter(Boolean).length;
+    if (filled > 0 && filled < 4) {
+      const fieldErrors = Object.fromEntries(Object.entries(office).filter(([, v]) => !v).map(([k]) => [k, "Requis pour le bureau de poste"]));
+      throw new DomainError("POST_OFFICE", "Complétez le bureau de poste, ou laissez-le entièrement vide.", { fieldErrors });
+    }
+    const { preparer, invitationUrl } = await createPreparer(actor, {
+      ...input,
+      postOffice: filled ? { name: postOfficeName!, addressLine1: postOfficeAddress!, postalCode: postOfficePostalCode!, city: postOfficeCity! } : null,
+    });
     revalidatePath("/admin/preparateurs");
     return { ok: true, message: "Préparateur créé. Une invitation lui a été envoyée.", data: { invitationUrl, preparerId: preparer.id } };
   });
@@ -163,6 +172,14 @@ export async function updatePreparerAction(_prev: ActionState, formData: FormDat
     revalidatePath(`/admin/preparateurs/${preparerId}`);
     revalidatePath("/admin/preparateurs");
     return { ok: true, message: "Fiche préparateur mise à jour." };
+  });
+}
+
+export async function clearPreparerAddressAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  return runAction(z.object({ preparerId: z.string().min(1) }), formToObject(formData), async (actor, data) => {
+    await clearPreparerAddress(actor, data.preparerId);
+    revalidatePath(`/admin/preparateurs/${data.preparerId}`);
+    return { ok: true, message: "Adresse personnelle effacée." };
   });
 }
 

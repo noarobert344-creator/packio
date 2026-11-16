@@ -73,7 +73,7 @@ export type OrderCardData = {
   arrivalNote: string | null;
   supplier: { name: string; code: string };
   customer: CustomerRef;
-  location: { label: string; relayName: string | null; city: string };
+  location: { label: string; relayName: string | null; city: string; type?: string };
 };
 
 export function OrderCard({ order }: { order: OrderCardData }) {
@@ -116,6 +116,16 @@ export function OrderCard({ order }: { order: OrderCardData }) {
           </span>
         )}
       </div>
+      {order.status === "AT_LOCKER" && (
+        <p className="flex items-center gap-1.5 rounded-xl bg-brand-soft px-3 py-2 text-xs font-medium text-brand">
+          <KeyRound className="size-3.5 shrink-0" />
+          {order.pickupCode
+            ? "Colis arrivé : le client vous a donné le code de retrait."
+            : order.location.type === "POST_OFFICE"
+              ? "Colis arrivé au bureau de poste : retrait avec votre pièce d'identité."
+              : "Colis arrivé, sans code de retrait pour l'instant."}
+        </p>
+      )}
       <div className="flex items-center justify-between gap-2 border-t pt-3">
         {order.pickupCode ? <PickupCode code={order.pickupCode} size="sm" /> : <span className="text-xs text-muted-foreground">Mis à jour {formatRelative(order.statusChangedAt)}</span>}
         <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />

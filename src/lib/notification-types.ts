@@ -13,7 +13,7 @@ export const NOTIFICATION_TYPES = {
   CLIENT_UNASSIGNED: { label: "Client réattribué", audience: ["PREPARER"], email: true },
   ORDER_CREATED: { label: "Nouvelle commande enregistrée", audience: ["CUSTOMER", "PREPARER"], email: false },
   ORDER_UPDATED: { label: "Commande mise à jour", audience: ["CUSTOMER", "PREPARER"], email: false },
-  PARCEL_AT_LOCKER: { label: "Colis disponible au locker", audience: ["PREPARER"], email: true },
+  PARCEL_AT_LOCKER: { label: "Colis arrivé : code de retrait du client", audience: ["PREPARER"], email: true },
   PARCEL_PICKED_UP: { label: "Colis récupéré", audience: ["CUSTOMER"], email: false },
   PARCEL_RECEIVED: { label: "Colis réceptionné", audience: ["CUSTOMER"], email: true },
   STOCK_UPDATED: { label: "Stock mis à jour", audience: ["CUSTOMER"], email: false },

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 const ORDER_STEPS = [
   { label: "Commande enregistrée", done: true },
-  { label: "Disponible au locker", done: true },
+  { label: "Arrivé, à récupérer", done: true },
   { label: "Récupérée par le préparateur", done: true },
   { label: "Contrôle qualité en cours", active: true },
   { label: "En stock" },

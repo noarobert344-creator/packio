@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { toActor } from "@/server/auth/session-store";
 import { assignPreparer } from "@/server/services/assignments";
 import { createSupplierOrder } from "@/server/services/orders";
-import { deactivateLocation, enableAdminPreparerProfile, saveLocation, setPrimaryLocation, syncLocationContact } from "@/server/services/preparers";
+import { clearPreparerAddress, createPreparer, deactivateLocation, enableAdminPreparerProfile, saveLocation, setPrimaryLocation, syncLocationContact } from "@/server/services/preparers";
 import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb } from "../helpers";
 
 const locker = (preparerId: string) => ({
@@ -103,5 +103,31 @@ describe("Points de réception modifiables par le préparateur (Paramètres)", (
       recipientPhone: "0699999999",
       isActive: true,
     });
+  });
+
+  it("création par l'administration : bureau de poste au lieu d'une adresse ; ancienne adresse effaçable", async () => {
+    const admin = await createAdmin();
+    const { preparer } = await createPreparer(admin, {
+      firstName: "Inès",
+      lastName: "Poste",
+      email: "ines.poste@test.local",
+      phone: "0611223344",
+      city: "Lyon",
+      country: "FR",
+      postOffice: { name: "Bureau de poste Lyon Bellecour", addressLine1: "10 place Antonin Poncet", postalCode: "69002", city: "Lyon" },
+      compatibleCarriers: [],
+      storageCapacity: 100,
+      maxClients: 10,
+    });
+    const points = await db.preparerLocation.findMany({ where: { preparerId: preparer.id } });
+    expect(points).toHaveLength(1);
+    expect(points[0]).toMatchObject({ type: "POST_OFFICE", network: "LA_POSTE", relayName: "Bureau de poste Lyon Bellecour", recipientName: "Inès Poste", isPrimary: true });
+    expect(points[0].validatedAt).not.toBeNull();
+
+    await db.preparerProfile.update({ where: { id: preparer.id }, data: { businessAddressLine1: "3 rue de chez moi", businessPostalCode: "69001", businessCity: "Lyon" } });
+    await clearPreparerAddress(admin, preparer.id);
+    expect(await db.preparerProfile.findUniqueOrThrow({ where: { id: preparer.id } })).toMatchObject({ businessAddressLine1: null, businessPostalCode: null, businessCity: null });
+    const prep = await createPreparerWithLocation(admin);
+    await expect(clearPreparerAddress(prep.actor, preparer.id)).rejects.toThrow();
   });
 });

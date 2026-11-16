@@ -241,11 +241,7 @@ export function OrderActionsPanel({ orderId, customerId, status, quantity, descr
       {canReceive && <ReceiveForm orderId={orderId} customerId={customerId} quantity={quantity} primary={status === "PICKED_UP" || directDelivery} />}
       {canStock && <StockForm orderId={orderId} customerId={customerId} quantity={quantity} description={description} />}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {status === "IN_TRANSIT" && !directDelivery && (
-          <StepButton action={setOrderStatusAction} fields={{ orderId, status: "AT_LOCKER" }} variant="outline" className="h-11 w-full justify-start" successMessage="Colis indiqué disponible au locker.">
-            <MapPin /> Disponible au locker
-          </StepButton>
-        )}
+        {/* L'arrivée au point de retrait est signalée par le client, qui a le code. */}
         {canQuality && (
           <StepButton action={setOrderStatusAction} fields={{ orderId, status: "QUALITY_CHECK" }} variant="outline" className="h-11 w-full justify-start">
             <ClipboardCheck /> Contrôle qualité en cours

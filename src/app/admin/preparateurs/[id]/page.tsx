@@ -17,6 +17,8 @@ import { DemoBadge, KeyValue } from "@/components/admin/people/display";
 import { CapacityBar } from "@/components/admin/people/capacity-bar";
 import { EditPreparerDialog, MessagePreparerDialog, ParcelsProcessedDialog, PreparerStatusDialog, ResendInvitationButton } from "@/components/admin/people/preparer-forms";
 import { LocationDialog } from "@/components/admin/people/location-dialog";
+import { ActionButton } from "@/components/shared/action-dialog";
+import { clearPreparerAddressAction } from "@/server/actions/admin/people";
 import { AbsenceDialog } from "@/components/admin/people/misc-actions";
 import { AssignCustomerDialog, CancelAbsenceButton, DeactivateLocationButton, LocationValidationButton } from "@/components/admin/people/preparer-actions";
 import { LOCATION_TYPE, PREPARER_STATUS, SHIPMENT_STATUS, SUPPLIER_ORDER_STATUS, carrierLabel, networkLabel } from "@/lib/labels";
@@ -87,11 +89,6 @@ export default async function AdminPreparerPage({ params }: { params: Promise<{ 
                   phone: preparer.user.phone,
                   city: preparer.city,
                   country: preparer.country,
-                  businessAddressLine1: preparer.businessAddressLine1,
-                  businessAddressLine2: preparer.businessAddressLine2,
-                  businessPostalCode: preparer.businessPostalCode,
-                  businessCity: preparer.businessCity,
-                  businessCountry: preparer.businessCountry,
                   compatibleCarriers: preparer.compatibleCarriers,
                   storageCapacity: preparer.storageCapacity,
                   maxClients: preparer.maxClients,
@@ -330,10 +327,22 @@ export default async function AdminPreparerPage({ params }: { params: Promise<{ 
             description="Visible uniquement par l'administration."
           >
             <dl className="grid gap-3">
-              <KeyValue label="Adresse professionnelle de réception">
-                {preparer.businessAddressLine1
-                  ? [preparer.businessAddressLine1, preparer.businessAddressLine2, `${preparer.businessPostalCode ?? ""} ${preparer.businessCity ?? ""}`.trim(), preparer.businessCountry].filter(Boolean).join(", ")
-                  : "—"}
+              <KeyValue label="Adresse personnelle">
+                {preparer.businessAddressLine1 ? (
+                  <div className="grid gap-2">
+                    <span>
+                      {[preparer.businessAddressLine1, preparer.businessAddressLine2, `${preparer.businessPostalCode ?? ""} ${preparer.businessCity ?? ""}`.trim()].filter(Boolean).join(", ")}
+                    </span>
+                    <span className="text-xs text-warning">Ancienne adresse, plus utilisée : les colis arrivent en lockers, points relais ou poste restante.</span>
+                    {canManage && (
+                      <ActionButton action={clearPreparerAddressAction} fields={{ preparerId: preparer.id }} variant="outline" size="sm" className="w-fit">
+                        Effacer cette adresse
+                      </ActionButton>
+                    )}
+                  </div>
+                ) : (
+                  "Aucune : jamais demandée"
+                )}
               </KeyValue>
               <KeyValue label="Notes internes">{preparer.adminNotes ? <span className="whitespace-pre-wrap">{preparer.adminNotes}</span> : "—"}</KeyValue>
             </dl>

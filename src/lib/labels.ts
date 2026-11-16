@@ -28,7 +28,7 @@ export const SUPPLIER_ORDER_STATUS: Record<SupplierOrderStatus, Labeled> = {
   REGISTERED: { label: "Commande enregistrée", tone: "neutral" },
   SUPPLIER_CONFIRMED: { label: "Commande fournisseur confirmée", tone: "info" },
   IN_TRANSIT: { label: "En cours d'acheminement", tone: "info" },
-  AT_LOCKER: { label: "Disponible au locker", tone: "brand" },
+  AT_LOCKER: { label: "Arrivé, à récupérer", tone: "brand" },
   PICKED_UP: { label: "Récupérée par le préparateur", tone: "brand" },
   RECEIVED: { label: "Réceptionnée", tone: "success" },
   QUALITY_CHECK: { label: "Contrôle qualité en cours", tone: "warning" },

@@ -39,7 +39,7 @@ export async function getTodayLists(preparerId: string) {
       where: { preparerId, status: { in: ["AT_LOCKER", "IN_TRANSIT"] } },
       orderBy: [{ status: "asc" }, { statusChangedAt: "asc" }],
       take: 12,
-      include: { customer: customerSelect, location: { select: { label: true, relayName: true, city: true } }, supplier: { select: { name: true, code: true } } },
+      include: { customer: customerSelect, location: { select: { label: true, relayName: true, city: true, type: true } }, supplier: { select: { name: true, code: true } } },
     }),
     db.outboundShipment.findMany({
       where: { preparerId, status: { in: ["REQUESTED", "AWAITING_CLASSIFICATION"] } },
@@ -143,7 +143,13 @@ export async function listMyOrders(preparerId: string, opts: { group: OrderGroup
   const [items, total, counts] = await Promise.all([
     db.supplierOrder.findMany({
       where,
-      orderBy: opts.group === "terminees" ? { statusChangedAt: "desc" } : { createdAt: "asc" },
+      // « À récupérer » : les colis arrivés (code de retrait transmis) d'abord.
+      orderBy:
+        opts.group === "terminees"
+          ? [{ statusChangedAt: "desc" as const }]
+          : opts.group === "recuperer"
+            ? [{ status: "desc" as const }, { statusChangedAt: "asc" as const }]
+            : [{ createdAt: "asc" as const }],
       skip: (opts.page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {

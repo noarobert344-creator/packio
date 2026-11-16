@@ -26,11 +26,8 @@ export type PreparerInput = {
   phone?: string | null;
   city: string;
   country: string;
-  businessAddressLine1?: string | null;
-  businessAddressLine2?: string | null;
-  businessPostalCode?: string | null;
-  businessCity?: string | null;
-  businessCountry?: string | null;
+  /** Bureau de poste où le préparateur retire ses colis (poste restante), à la création. */
+  postOffice?: { name: string; addressLine1: string; postalCode: string; city: string } | null;
   compatibleCarriers: string[];
   storageCapacity: number;
   maxClients: number;
@@ -56,11 +53,6 @@ export async function createPreparer(actor: Actor, input: PreparerInput) {
         create: {
           city: input.city.trim(),
           country: input.country.trim().toUpperCase() || "FR",
-          businessAddressLine1: input.businessAddressLine1?.trim() || null,
-          businessAddressLine2: input.businessAddressLine2?.trim() || null,
-          businessPostalCode: input.businessPostalCode?.trim() || null,
-          businessCity: input.businessCity?.trim() || null,
-          businessCountry: input.businessCountry?.trim().toUpperCase() || "FR",
           compatibleCarriers: input.compatibleCarriers,
           storageCapacity: input.storageCapacity,
           maxClients: input.maxClients,
@@ -74,6 +66,23 @@ export async function createPreparer(actor: Actor, input: PreparerInput) {
     include: { preparerProfile: true },
   });
   await audit({ actor, action: "preparer.created", entityType: "preparer", entityId: user.preparerProfile!.id, summary: `${user.firstName} ${user.lastName}` });
+  // Jamais d'adresse personnelle : le bureau de poste (poste restante) éventuel devient son premier point.
+  if (input.postOffice) {
+    await saveLocation(actor, {
+      preparerId: user.preparerProfile!.id,
+      type: "POST_OFFICE",
+      label: "Poste restante",
+      relayName: input.postOffice.name,
+      addressLine1: input.postOffice.addressLine1,
+      postalCode: input.postOffice.postalCode,
+      city: input.postOffice.city,
+      country: "FR",
+      recipientName: `${user.firstName} ${user.lastName}`,
+      recipientPhone: user.phone,
+      isPrimary: true,
+      validate: true,
+    });
+  }
   const { url } = await sendInvitation(user.id);
   return { preparer: user.preparerProfile!, invitationUrl: url };
 }
@@ -96,11 +105,6 @@ export async function updatePreparer(actor: Actor, preparerId: string, input: Pr
       data: {
         city: input.city.trim(),
         country: input.country.trim().toUpperCase() || "FR",
-        businessAddressLine1: input.businessAddressLine1?.trim() || null,
-        businessAddressLine2: input.businessAddressLine2?.trim() || null,
-        businessPostalCode: input.businessPostalCode?.trim() || null,
-        businessCity: input.businessCity?.trim() || null,
-        businessCountry: input.businessCountry?.trim().toUpperCase() || "FR",
         compatibleCarriers: input.compatibleCarriers,
         storageCapacity: input.storageCapacity,
         maxClients: input.maxClients,
@@ -110,6 +114,22 @@ export async function updatePreparer(actor: Actor, preparerId: string, input: Pr
     });
     await audit({ actor, action: "preparer.updated", entityType: "preparer", entityId: preparerId }, tx);
   });
+}
+
+/**
+ * Efface l'adresse personnelle enregistrée avant le passage aux lockers et à
+ * la poste restante (minimisation RGPD : elle ne sert plus à rien).
+ */
+export async function clearPreparerAddress(actor: Actor, preparerId: string) {
+  assertAdmin(actor, "preparers.manage");
+  const preparer = await db.preparerProfile.findUnique({ where: { id: preparerId }, select: { id: true, businessAddressLine1: true } });
+  if (!preparer) throw new NotFoundError("Préparateur introuvable.");
+  if (!preparer.businessAddressLine1) return;
+  await db.preparerProfile.update({
+    where: { id: preparerId },
+    data: { businessAddressLine1: null, businessAddressLine2: null, businessPostalCode: null, businessCity: null },
+  });
+  await audit({ actor, action: "preparer.address_cleared", entityType: "preparer", entityId: preparerId, summary: "Adresse personnelle effacée" });
 }
 
 /** Changement de statut ; la suspension peut lancer la réattribution de ses clients. */

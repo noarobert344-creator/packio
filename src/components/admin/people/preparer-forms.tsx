@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, PackageCheck, Pencil, Send } from "lucide-react";
+import { CheckCircle2, Mail, PackageCheck, Pencil, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActionDialog } from "@/components/shared/action-dialog";
 import { ActionForm, SubmitButton, useFieldError } from "@/components/shared/action-form";
@@ -25,11 +25,6 @@ export type PreparerValues = {
   phone: string | null;
   city: string;
   country: string;
-  businessAddressLine1: string | null;
-  businessAddressLine2: string | null;
-  businessPostalCode: string | null;
-  businessCity: string | null;
-  businessCountry: string | null;
   compatibleCarriers: string[];
   storageCapacity: number;
   maxClients: number;
@@ -66,18 +61,30 @@ function PreparerFields({ v }: { v?: PreparerValues }) {
         <TextField name="city" label="Ville" required defaultValue={v?.city} />
         <TextField name="country" label="Pays (code ISO)" required defaultValue={v?.country ?? "FR"} maxLength={2} />
       </div>
-      <div className="grid gap-4 rounded-xl border border-dashed p-4">
-        <p className="text-sm font-medium">
-          Adresse professionnelle de réception <span className="text-xs font-normal text-muted-foreground">— confidentielle</span>
+      {v ? (
+        <p className="flex items-start gap-2 rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground">
+          <Mail className="mt-0.5 size-3.5 shrink-0" />
+          Aucune adresse personnelle : les lockers, points relais et le bureau de poste (poste restante) du préparateur se gèrent dans « Points de réception », sur sa fiche.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TextField name="businessAddressLine1" label="Adresse" defaultValue={v?.businessAddressLine1 ?? ""} className="sm:col-span-2" />
-          <TextField name="businessAddressLine2" label="Complément" defaultValue={v?.businessAddressLine2 ?? ""} className="sm:col-span-2" />
-          <TextField name="businessPostalCode" label="Code postal" defaultValue={v?.businessPostalCode ?? ""} />
-          <TextField name="businessCity" label="Ville" defaultValue={v?.businessCity ?? ""} />
-          <TextField name="businessCountry" label="Pays (code ISO)" defaultValue={v?.businessCountry ?? "FR"} maxLength={2} />
+      ) : (
+        <div className="grid gap-4 rounded-xl border border-dashed p-4">
+          <div className="space-y-1">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Mail className="size-4 text-brand" /> Bureau de poste (poste restante) <span className="text-xs font-normal text-muted-foreground">— facultatif</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Jamais l&apos;adresse du préparateur : les colis l&apos;attendent au guichet et il les retire avec sa pièce d&apos;identité. Ses lockers et points relais
+              s&apos;ajoutent ensuite sur sa fiche (ou par lui, à sa première connexion).
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField name="postOfficeName" label="Nom du bureau de poste" placeholder="Ex. : Bureau de poste Lyon Bellecour" className="sm:col-span-2" />
+            <TextField name="postOfficeAddress" label="Adresse du bureau de poste" placeholder="Ex. : 10 place Antonin Poncet" className="sm:col-span-2" />
+            <TextField name="postOfficePostalCode" label="Code postal" />
+            <TextField name="postOfficeCity" label="Ville" />
+          </div>
         </div>
-      </div>
+      )}
       <CarrierCheckboxes selected={v?.compatibleCarriers ?? ["COLISSIMO", "MONDIAL_RELAY"]} />
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField name="storageCapacity" label="Capacité de stockage (articles)" type="number" min={0} required defaultValue={v?.storageCapacity ?? 500} />

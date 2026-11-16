@@ -352,11 +352,16 @@ export async function customerUpdateOrder(
       }
     }
     const preparerUser = await preparerUserId(tx, order.preparerId);
-    if (nextStatus === "AT_LOCKER") {
+    if (nextStatus === "AT_LOCKER" || (order.status === "AT_LOCKER" && data.pickupCode !== undefined)) {
+      // Le client signale l'arrivée et donne le code : le préparateur va chercher le colis.
+      const place = await tx.preparerLocation.findUnique({ where: { id: order.locationId }, select: { label: true, relayName: true, type: true } });
+      const where = order.arrivalOther ? (order.arrivalNote ?? "l'autre point indiqué") : (place?.relayName ?? place?.label ?? "votre point de réception");
       fx.notify(preparerUser, {
         type: "PARCEL_AT_LOCKER",
-        title: "Colis disponible au locker",
-        body: `« ${order.description} » (${order.reference}) est disponible${order.pickupCode ? " — code de retrait communiqué" : ""}.`,
+        title: nextStatus === "AT_LOCKER" ? "Colis arrivé : à récupérer" : "Code de retrait mis à jour",
+        body: `« ${order.description} » (${order.reference}) vous attend à ${where}. ${
+          order.pickupCode ? "Le code de retrait est dans Réceptions." : place?.type === "POST_OFFICE" ? "Retrait avec votre pièce d'identité." : "Pas de code de retrait transmis."
+        }`,
         link: `/preparateur/receptions/${order.id}`,
       });
     } else if (Object.keys(data).length || nextStatus) {

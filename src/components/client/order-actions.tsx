@@ -8,7 +8,13 @@ import { FileUploader } from "@/components/shared/file-uploader";
 import { CARRIERS } from "@/lib/labels";
 import { reportOrderProblemAction, updateOrderAction } from "@/server/actions/customer";
 
-export function OrderActions({ order }: { order: { id: string; status: string; trackingNumber: string | null; carrier: string | null; pickupCode: string | null; isPickup: boolean } }) {
+export function OrderActions({
+  order,
+}: {
+  order: { id: string; status: string; trackingNumber: string | null; carrier: string | null; pickupCode: string | null; locationType: string; arrivalOther: boolean };
+}) {
+  const isPickup = !order.arrivalOther && (order.locationType === "LOCKER" || order.locationType === "RELAY_POINT");
+  const postOffice = !order.arrivalOther && order.locationType === "POST_OFFICE";
   const early = order.status === "REGISTERED" || order.status === "SUPPLIER_CONFIRMED";
   const canLocker = ["REGISTERED", "SUPPLIER_CONFIRMED", "IN_TRANSIT"].includes(order.status);
   return (
@@ -35,22 +41,32 @@ export function OrderActions({ order }: { order: { id: string; status: string; t
           <CheckCircle2 /> Commande confirmée par le fournisseur
         </ActionButton>
       )}
-      {(canLocker || order.status === "AT_LOCKER") && order.isPickup && (
+      {(canLocker || order.status === "AT_LOCKER") && (
         <ActionDialog
           trigger={
             <Button>
-              <KeyRound /> {order.status === "AT_LOCKER" ? "Modifier le code de retrait" : "Colis disponible au locker"}
+              <KeyRound /> {order.status === "AT_LOCKER" ? "Modifier le code de retrait" : "Colis arrivé : donner le code"}
             </Button>
           }
-          title="Colis disponible au point de retrait"
-          description="Transmettez le code de retrait reçu par SMS ou e-mail : il n'est visible que par vous et votre préparateur."
+          title="Votre colis est arrivé ?"
+          description={
+            postOffice
+              ? "Prévenez votre préparateur : il va le chercher au bureau de poste avec sa pièce d'identité. Si vous avez reçu un code ou un avis de passage, indiquez-le."
+              : "Donnez le code de retrait reçu par SMS ou e-mail : votre préparateur est prévenu tout de suite et va chercher le colis. Le code n'est visible que par vous et lui."
+          }
           action={updateOrderAction}
           submitLabel="Prévenir mon préparateur"
         >
           <input type="hidden" name="orderId" value={order.id} />
           {order.status !== "AT_LOCKER" && <input type="hidden" name="status" value="AT_LOCKER" />}
-          <TextField name="pickupCode" label="Code de retrait" defaultValue={order.pickupCode ?? ""} required autoComplete="off" />
-          <TextAreaField name="note" label="Précision (facultatif)" rows={2} />
+          <TextField
+            name="pickupCode"
+            label={isPickup ? "Code de retrait" : "Code de retrait (s'il y en a un)"}
+            defaultValue={order.pickupCode ?? ""}
+            required={isPickup}
+            autoComplete="off"
+          />
+          <TextAreaField name="note" label="Précision (facultatif)" rows={2} placeholder="Ex. : casier n° 12, disponible jusqu'au 20/11" />
         </ActionDialog>
       )}
       {early && (
