@@ -6,7 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { logoutAction, switchSpaceAction } from "@/server/actions/auth";
 
-export function UserMenu({ name, email, avatarUrl, initials, settingsHref, supportHref, roleLabel, switchTo }: {
+const SPACES = {
+  ADMIN: "Revenir à l'administration",
+  PREPARER: "Passer en mode préparateur",
+  CUSTOMER: "Passer en espace client",
+} as const;
+
+export function UserMenu({ name, email, avatarUrl, initials, settingsHref, supportHref, roleLabel, otherSpaces = [] }: {
   name: string;
   email: string;
   avatarUrl?: string | null;
@@ -14,8 +20,8 @@ export function UserMenu({ name, email, avatarUrl, initials, settingsHref, suppo
   settingsHref: string;
   supportHref?: string;
   roleLabel: string;
-  /** Administrateur qui est aussi préparateur : espace vers lequel basculer. */
-  switchTo?: "ADMIN" | "PREPARER" | null;
+  /** Administrateur qui est aussi préparateur et/ou client : espaces vers lesquels basculer. */
+  otherSpaces?: (keyof typeof SPACES)[];
 }) {
   return (
     <DropdownMenu>
@@ -44,17 +50,19 @@ export function UserMenu({ name, email, avatarUrl, initials, settingsHref, suppo
             </Link>
           </DropdownMenuItem>
         )}
-        {switchTo && (
+        {otherSpaces.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <form action={switchSpaceAction}>
-              <input type="hidden" name="target" value={switchTo} />
-              <DropdownMenuItem asChild>
-                <button type="submit" className="w-full font-medium text-brand">
-                  <ArrowLeftRight /> {switchTo === "PREPARER" ? "Passer en mode préparateur" : "Revenir à l'administration"}
-                </button>
-              </DropdownMenuItem>
-            </form>
+            {otherSpaces.map((space) => (
+              <form key={space} action={switchSpaceAction}>
+                <input type="hidden" name="target" value={space} />
+                <DropdownMenuItem asChild>
+                  <button type="submit" className="w-full font-medium text-brand">
+                    <ArrowLeftRight /> {SPACES[space]}
+                  </button>
+                </DropdownMenuItem>
+              </form>
+            ))}
           </>
         )}
         <DropdownMenuSeparator />

@@ -9,7 +9,7 @@ import { PERMISSIONS, type Permission } from "@/server/auth/permissions";
 import { getAllSettings } from "@/server/services/settings";
 import { loadProfile } from "@/server/settings-page";
 import { listAdmins } from "@/server/queries/admin-ops";
-import { enablePreparerSpaceAction, switchSpaceAction } from "@/server/actions/auth";
+import { enableCustomerSpaceAction, enablePreparerSpaceAction, switchSpaceAction } from "@/server/actions/auth";
 import { saveLegalSettingsAction, savePlatformSettingsAction, saveRoleAction, saveSupplierAction, setStaffRoleAction } from "@/server/actions/admin/ops";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -414,7 +414,7 @@ async function AccountTab({ actor }: { actor: Actor }) {
         description="Vous pouvez aussi être préparateur avec ce compte : recevoir, préparer et expédier les colis de clients qui vous sont attribués. Vous passez d'un espace à l'autre depuis le menu de votre compte."
         className="lg:col-span-2"
       >
-        {actor.switchTo ? (
+        {actor.otherSpaces?.includes("PREPARER") ? (
           <form action={switchSpaceAction}>
             <input type="hidden" name="target" value="PREPARER" />
             <Button type="submit">
@@ -430,6 +430,27 @@ async function AccountTab({ actor }: { actor: Actor }) {
           </form>
         ) : (
           <p className="text-sm text-muted-foreground">Votre rôle d&apos;administration ne permet pas d&apos;activer un espace préparateur.</p>
+        )}
+      </Section>
+      <Section
+        title="Mon espace client"
+        description="Utilisez aussi Packio comme un client avec ce compte : abonnement, commandes, stock, ventes et expéditions. Vous passez d'un espace à l'autre depuis le menu de votre compte."
+        className="lg:col-span-2"
+      >
+        {actor.otherSpaces?.includes("CUSTOMER") ? (
+          <form action={switchSpaceAction}>
+            <input type="hidden" name="target" value="CUSTOMER" />
+            <Button type="submit">
+              <ArrowLeftRight /> Passer en espace client
+            </Button>
+          </form>
+        ) : (
+          <form action={enableCustomerSpaceAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button type="submit">
+              <ArrowLeftRight /> Activer mon espace client
+            </Button>
+            <span className="text-xs text-muted-foreground">Un code client vous est attribué ; choisissez ensuite une offre comme n&apos;importe quel client.</span>
+          </form>
         )}
       </Section>
     </div>

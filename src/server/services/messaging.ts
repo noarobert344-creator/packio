@@ -25,7 +25,8 @@ export async function ensurePairConversation(tx: Tx, customerId: string, prepare
         type: "CUSTOMER_PREPARER",
         customerId,
         preparerId,
-        participants: { create: [{ userId: customer.userId }, { userId: preparer.userId }] },
+        // Administrateur client de son propre espace préparateur : un seul participant.
+        participants: { create: [...new Set([customer.userId, preparer.userId])].map((userId) => ({ userId })) },
         messages: {
           create: {
             kind: "SYSTEM",
@@ -36,7 +37,7 @@ export async function ensurePairConversation(tx: Tx, customerId: string, prepare
     });
   } else {
     conversation = await tx.conversation.update({ where: { id: conversation.id }, data: { status: "OPEN" } });
-    for (const userId of [customer.userId, preparer.userId]) {
+    for (const userId of new Set([customer.userId, preparer.userId])) {
       await tx.conversationParticipant.upsert({
         where: { conversationId_userId: { conversationId: conversation.id, userId } },
         create: { conversationId: conversation.id, userId },

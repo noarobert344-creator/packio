@@ -14,10 +14,10 @@ export type Actor = {
   preparerId: string | null;
   isDemo: boolean;
   /**
-   * Administrateur qui est aussi préparateur : espace vers lequel il peut
-   * basculer (null pour un compte à rôle unique).
+   * Administrateur qui est aussi préparateur et/ou client : autres espaces vers
+   * lesquels il peut basculer (vide pour un compte à rôle unique).
    */
-  switchTo?: "ADMIN" | "PREPARER" | null;
+  otherSpaces?: UserRole[];
 };
 
 export function isAdmin(actor: Actor) {

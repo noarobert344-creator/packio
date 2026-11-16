@@ -63,10 +63,12 @@ export function toActor(user: {
   customerProfile: { id: string } | null;
   preparerProfile: { id: string } | null;
 }, activeRole?: Actor["role"] | null): Actor {
-  // Administrateur et préparateur : la session porte l'espace actif. En mode
-  // préparateur, le compte n'a aucune permission d'administration.
-  const dual = user.role === "ADMIN" && !!user.preparerProfile;
-  const role = dual && activeRole === "PREPARER" ? "PREPARER" : user.role;
+  // Administrateur qui est aussi préparateur et/ou client : la session porte
+  // l'espace actif. Hors administration, le compte n'a aucune permission
+  // d'administration, et l'identifiant client n'existe que dans l'espace client.
+  const owned: Actor["role"][] =
+    user.role === "ADMIN" ? ["ADMIN", ...(user.preparerProfile ? (["PREPARER"] as const) : []), ...(user.customerProfile ? (["CUSTOMER"] as const) : [])] : [user.role];
+  const role = user.role === "ADMIN" && activeRole && owned.includes(activeRole) ? activeRole : user.role;
   return {
     userId: user.id,
     role,
@@ -75,17 +77,22 @@ export function toActor(user: {
     lastName: user.lastName,
     isDemo: user.isDemo,
     permissions: role === "ADMIN" ? (user.staffRole?.permissions ?? []) : [],
-    customerId: user.customerProfile?.id ?? null,
+    customerId: role === "CUSTOMER" ? (user.customerProfile?.id ?? null) : null,
     preparerId: user.preparerProfile?.id ?? null,
-    switchTo: dual ? (role === "PREPARER" ? "ADMIN" : "PREPARER") : null,
+    otherSpaces: owned.filter((r) => r !== role),
   };
 }
 
-/** Bascule de l'espace actif d'une session (administrateur qui est aussi préparateur). */
-export async function setSessionSpace(sessionId: string, userId: string, target: "ADMIN" | "PREPARER") {
-  const user = await db.user.findUnique({ where: { id: userId }, select: { role: true, preparerProfile: { select: { id: true } } } });
-  if (!user || user.role !== "ADMIN" || !user.preparerProfile) return false;
-  await db.session.update({ where: { id: sessionId }, data: { activeRole: target === "PREPARER" ? "PREPARER" : null } });
+/** Bascule de l'espace actif d'une session (administrateur qui est aussi préparateur et/ou client). */
+export async function setSessionSpace(sessionId: string, userId: string, target: Actor["role"]) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { role: true, preparerProfile: { select: { id: true } }, customerProfile: { select: { id: true } } },
+  });
+  if (!user || user.role !== "ADMIN") return false;
+  if (target === "PREPARER" && !user.preparerProfile) return false;
+  if (target === "CUSTOMER" && !user.customerProfile) return false;
+  await db.session.update({ where: { id: sessionId }, data: { activeRole: target === "ADMIN" ? null : target } });
   return true;
 }
 

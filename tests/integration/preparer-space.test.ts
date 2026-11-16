@@ -74,8 +74,8 @@ describe("Espace préparateur : fiche, crédits des clients, administrateur pré
     expect(await enableAdminPreparerProfile(admin)).toEqual(profile);
 
     const user = await db.user.findUniqueOrThrow({ where: { id: admin.userId }, include: { staffRole: true, customerProfile: { select: { id: true } }, preparerProfile: { select: { id: true } } } });
-    expect(toActor(user)).toMatchObject({ role: "ADMIN", preparerId: profile.id, switchTo: "PREPARER" });
-    expect(toActor(user, "PREPARER")).toMatchObject({ role: "PREPARER", preparerId: profile.id, permissions: [], switchTo: "ADMIN" });
+    expect(toActor(user)).toMatchObject({ role: "ADMIN", preparerId: profile.id, otherSpaces: ["PREPARER"] });
+    expect(toActor(user, "PREPARER")).toMatchObject({ role: "PREPARER", preparerId: profile.id, permissions: [], otherSpaces: ["ADMIN"] });
 
     const { token } = await createSession(admin.userId, {});
     const session = await loadActorFromToken(token);
@@ -89,6 +89,6 @@ describe("Espace préparateur : fiche, crédits des clients, administrateur pré
     const other = await createSession(lone.userId, {});
     const loneSession = await loadActorFromToken(other.token);
     expect(await setSessionSpace(loneSession!.sessionId, lone.userId, "PREPARER")).toBe(false);
-    expect((await loadActorFromToken(other.token))!.actor).toMatchObject({ role: "ADMIN", switchTo: null });
+    expect((await loadActorFromToken(other.token))!.actor).toMatchObject({ role: "ADMIN", otherSpaces: [] });
   });
 });

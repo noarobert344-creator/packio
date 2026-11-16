@@ -11,7 +11,7 @@ import { audit } from "@/server/services/audit";
 import { enableAdminPreparerProfile } from "@/server/services/preparers";
 import { db } from "@/server/db";
 import { DomainError } from "@/server/errors";
-import { acceptInvitation, authenticate, registerCustomer, requestPasswordReset, resetPassword } from "@/server/services/auth";
+import { acceptInvitation, authenticate, enableAdminCustomerProfile, registerCustomer, requestPasswordReset, resetPassword } from "@/server/services/auth";
 
 function safeNext(next: unknown) {
   return typeof next === "string" && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/api/") ? next : null;
@@ -68,14 +68,26 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
 }
 
 /** Administrateur et préparateur : bascule entre les deux espaces. */
+const SPACE_LABEL = { ADMIN: "Mode administration", PREPARER: "Mode préparateur", CUSTOMER: "Espace client" } as const;
+
 export async function switchSpaceAction(formData: FormData) {
   const session = await getSession();
   if (!session) redirect("/connexion");
-  const target = formData.get("target") === "PREPARER" ? "PREPARER" : "ADMIN";
+  const raw = formData.get("target");
+  const target = raw === "PREPARER" || raw === "CUSTOMER" ? raw : "ADMIN";
   if (await setSessionSpace(session.sessionId, session.actor.userId, target)) {
-    await audit({ actor: session.actor, action: "session.space_switched", entityType: "user", entityId: session.actor.userId, summary: target === "PREPARER" ? "Mode préparateur" : "Mode administration" });
+    await audit({ actor: session.actor, action: "session.space_switched", entityType: "user", entityId: session.actor.userId, summary: SPACE_LABEL[target] });
   }
-  redirect(target === "PREPARER" ? "/preparateur" : "/admin");
+  redirect(homePathFor({ role: target }));
+}
+
+/** Active l'espace client du compte administrateur, puis y bascule. */
+export async function enableCustomerSpaceAction() {
+  const session = await getSession();
+  if (!session) redirect("/connexion");
+  await enableAdminCustomerProfile(session.actor);
+  await setSessionSpace(session.sessionId, session.actor.userId, "CUSTOMER");
+  redirect("/client");
 }
 
 /** Active l'espace préparateur du compte administrateur, puis y bascule. */

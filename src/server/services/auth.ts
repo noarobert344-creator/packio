@@ -7,6 +7,7 @@ import { DomainError } from "@/server/errors";
 import { hashPassword, isStrongPassword, PASSWORD_RULES, verifyPassword } from "@/server/auth/password";
 import { generateToken, hashToken } from "@/server/auth/tokens";
 import { revokeAllSessions } from "@/server/auth/session-store";
+import { assertAdmin, type Actor } from "@/server/auth/actor";
 import { randomCode } from "@/server/lib/ids";
 import { audit } from "./audit";
 import { sendEmail } from "./email";
@@ -55,6 +56,24 @@ export type RegisterInput = {
 };
 
 /** Inscription d'un client. Le compte est activé après paiement de l'abonnement. */
+/** Espace client sur le compte d'un administrateur (pour utiliser Packio comme un client). */
+export async function enableAdminCustomerProfile(actor: Actor) {
+  assertAdmin(actor);
+  const existing = await db.customerProfile.findUnique({ where: { userId: actor.userId }, select: { id: true } });
+  if (existing) return existing;
+  return db.$transaction(async (tx) => {
+    const profile = await tx.customerProfile.create({
+      data: { userId: actor.userId, referenceCode: await uniqueCustomerCode(tx), wallet: { create: {} } },
+      select: { id: true, referenceCode: true },
+    });
+    await audit(
+      { actor, action: "customer.admin_enabled", entityType: "customer", entityId: profile.id, summary: `${actor.firstName} ${actor.lastName} (administrateur), code ${profile.referenceCode}` },
+      tx,
+    );
+    return { id: profile.id };
+  });
+}
+
 export async function registerCustomer(input: RegisterInput) {
   const email = normalizeEmail(input.email);
   if (!isStrongPassword(input.password)) {
