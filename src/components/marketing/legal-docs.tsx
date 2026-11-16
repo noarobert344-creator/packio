@@ -418,7 +418,7 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
         <li>L&apos;équipe Packio habilitée, selon des permissions par rôle.</li>
         <li>Whop — traitement des paiements, des abonnements et des reçus.</li>
         <li>
-          <Fill value={ctx.legal.hostName} label="hébergeur" /> — hébergement de l&apos;application et de la base de données.
+          <Fill value={ctx.legal.hostName} label="hébergeur" /> — hébergement de l&apos;application.
         </li>
         <li>Resend — envoi des e-mails transactionnels.</li>
         <li>
@@ -426,7 +426,10 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
           à lire une page de ventes Vinted ou Vestiaire Collective : les données personnelles (acheteurs, adresses, téléphones, e-mails) sont masquées avant
           l&apos;envoi, et l&apos;extrait n&apos;est pas conservé par Packio.
         </li>
-        <li>L&apos;hébergeur ci-dessus ou un prestataire de stockage compatible S3 — conservation privée des photos et documents.</li>
+        <li>
+          L&apos;hébergeur ci-dessus ou un prestataire spécialisé (par exemple Supabase, serveurs situés dans l&apos;Union européenne) — base de données et
+          conservation privée des photos et documents.
+        </li>
         <li>Transporteurs — données du destinataire figurant sur l&apos;étiquette d&apos;expédition.</li>
       </ul>
       <p>Lorsque des données sont transférées hors de l&apos;Union européenne, ces transferts sont encadrés par des garanties appropriées (clauses contractuelles types).</p>

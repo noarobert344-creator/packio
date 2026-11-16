@@ -12,12 +12,12 @@ export async function GET(request: Request, ctx: RouteContext<"/api/files/[id]">
     if (!actor) return new Response("Non authentifié", { status: 401 });
     const { id } = await ctx.params;
     const file = await getFileForDownload(actor, id);
-    const signed = await storage().signedUrl(file.storageKey, file.filename, file.mimeType, 120);
+    // Documents bureautiques, archives, textes : toujours en téléchargement.
+    const download = new URL(request.url).searchParams.has("telecharger") || !INLINE_TYPES.includes(file.mimeType);
+    const signed = await storage().signedUrl(file.storageKey, file.filename, file.mimeType, 120, download ? "attachment" : "inline");
     if (signed) return Response.redirect(signed, 302);
     const data = await storage().get(file.storageKey);
     if (!data) return new Response("Fichier introuvable", { status: 404 });
-    // Documents bureautiques, archives, textes : toujours en téléchargement.
-    const download = new URL(request.url).searchParams.has("telecharger") || !INLINE_TYPES.includes(file.mimeType);
     const headers: Record<string, string> = {
       "Content-Type": file.mimeType,
       "Content-Disposition": `${download ? "attachment" : "inline"}; filename*=UTF-8''${encodeURIComponent(file.filename)}`,

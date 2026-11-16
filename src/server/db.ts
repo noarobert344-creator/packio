@@ -2,12 +2,32 @@ import "server-only";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Prisma } from "@/generated/prisma/client";
 
+/**
+ * Chiffrement de la connexion : DATABASE_SSL = "off", "require" (chiffrée) ou
+ * "verify" (chiffrée, certificat vérifié). Par défaut "require" pour Supabase,
+ * sinon "off". Un sslmode écrit dans DATABASE_URL reste prioritaire.
+ */
+function sslOptions(connectionString: string) {
+  let url: URL;
+  try {
+    url = new URL(connectionString);
+  } catch {
+    return undefined;
+  }
+  if (url.searchParams.has("sslmode") || url.searchParams.has("ssl")) return undefined;
+  const mode = process.env.DATABASE_SSL ?? (/\.supabase\.(com|co)$/.test(url.hostname) ? "require" : "off");
+  if (mode === "verify") return { rejectUnauthorized: true };
+  if (mode === "require") return { rejectUnauthorized: false };
+  return undefined;
+}
+
 function createClient() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error("DATABASE_URL n'est pas défini.");
   }
-  const adapter = new PrismaPg({ connectionString });
+  // DATABASE_POOL_MAX : connexions simultanées (bases gratuites : 5 suffisent).
+  const adapter = new PrismaPg({ connectionString, ssl: sslOptions(connectionString), max: Number(process.env.DATABASE_POOL_MAX) || 10 });
   return new PrismaClient({
     adapter,
     log: process.env.PRISMA_LOG === "1" ? ["query", "warn", "error"] : process.env.NODE_ENV === "test" ? [] : ["warn", "error"],

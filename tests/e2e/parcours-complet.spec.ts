@@ -82,7 +82,7 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
     await page.goto("/client/preparateur");
     await expect(page.getByRole("heading", { name: preparer!.name })).toBeVisible({ timeout: 3_000 });
   }).toPass({ timeout: 30_000 });
-  await expect(page.getByText("Adresses de réception validées")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Adresses de réception validées" })).toBeVisible();
   await page.goto("/client/commander");
   const form = page.locator("#nouvelle-commande");
   await form.locator('select[name="supplierId"]').selectOption({ label: "ZenMarket" });

@@ -19,28 +19,47 @@ function authorized(request: Request) {
   return header.length === expected.length && timingSafeEqual(Buffer.from(header), Buffer.from(expected));
 }
 
-/** Tâches planifiées (Vercel Cron ou tout ordonnanceur) protégées par CRON_SECRET. */
+// Délais : attribution sous 24 h, expédition sous 48 h.
+async function attribution() {
+  return { assignments: await runAssignmentSlaCheck(), shipments: await runShipmentSlaCheck() };
+}
+
+// Expiration, puis crédits mensuels de la formule annuelle et changements d'offre programmés.
+async function credits() {
+  const expired = await expireDueCredits();
+  const billing = await runBillingSchedule();
+  return { expired, billing, storage: await runStorageBilling() };
+}
+
+async function maintenance() {
+  const now = new Date();
+  const [sessions, attempts, tokens] = await Promise.all([
+    db.session.deleteMany({ where: { expiresAt: { lt: now } } }),
+    db.loginAttempt.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - 30 * 86400000) } } }),
+    db.authToken.deleteMany({ where: { expiresAt: { lt: new Date(now.getTime() - 7 * 86400000) } } }),
+  ]);
+  return { sessions: sessions.count, loginAttempts: attempts.count, tokens: tokens.count };
+}
+
+/**
+ * Tâches planifiées (Vercel Cron, cron-job.org ou tout ordonnanceur) protégées par CRON_SECRET.
+ * « toutes » regroupe tout pour un ordonnanceur unique toutes les 10 à 15 minutes :
+ * délais et crédits à chaque passage, ménage entre 3 h 30 et 3 h 45 UTC.
+ */
 export async function GET(request: Request, ctx: RouteContext<"/api/cron/[task]">) {
   if (!authorized(request)) return Response.json({ error: "Non autorisé" }, { status: 401 });
   const { task } = await ctx.params;
   switch (task) {
     case "attribution":
-      // Délais : attribution sous 24 h, expédition sous 48 h.
-      return Response.json({ assignments: await runAssignmentSlaCheck(), shipments: await runShipmentSlaCheck() });
-    case "credits": {
-      // Expiration, puis crédits mensuels de la formule annuelle et changements d'offre programmés.
-      const expired = await expireDueCredits();
-      const billing = await runBillingSchedule();
-      return Response.json({ expired, billing, storage: await runStorageBilling() });
-    }
-    case "maintenance": {
+      return Response.json(await attribution());
+    case "credits":
+      return Response.json(await credits());
+    case "maintenance":
+      return Response.json(await maintenance());
+    case "toutes": {
       const now = new Date();
-      const [sessions, attempts, tokens] = await Promise.all([
-        db.session.deleteMany({ where: { expiresAt: { lt: now } } }),
-        db.loginAttempt.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - 30 * 86400000) } } }),
-        db.authToken.deleteMany({ where: { expiresAt: { lt: new Date(now.getTime() - 7 * 86400000) } } }),
-      ]);
-      return Response.json({ sessions: sessions.count, loginAttempts: attempts.count, tokens: tokens.count });
+      const daily = now.getUTCHours() === 3 && now.getUTCMinutes() >= 30 && now.getUTCMinutes() < 45;
+      return Response.json({ attribution: await attribution(), credits: await credits(), maintenance: daily ? await maintenance() : null });
     }
     default:
       return Response.json({ error: "Tâche inconnue" }, { status: 404 });

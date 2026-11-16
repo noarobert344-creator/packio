@@ -6,14 +6,14 @@ import { env } from "@/server/env";
  * Stockage privé des fichiers. Aucun fichier n'est servi publiquement : les
  * téléchargements passent par /api/files/[id], qui vérifie les droits.
  * - local : disque (développement / auto-hébergement avec volume persistant)
- * - s3    : tout stockage compatible S3 (AWS, Cloudflare R2, Scaleway, OVH…)
+ * - s3    : tout stockage compatible S3 (Supabase Storage, Cloudflare R2, AWS, Scaleway, OVH…)
  */
 export interface StorageDriver {
   put(key: string, data: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<Buffer | null>;
   delete(key: string): Promise<void>;
   /** URL signée de courte durée (S3) — null si le driver sert lui-même le fichier. */
-  signedUrl(key: string, filename: string, contentType: string, ttlSeconds: number): Promise<string | null>;
+  signedUrl(key: string, filename: string, contentType: string, ttlSeconds: number, disposition?: "inline" | "attachment"): Promise<string | null>;
 }
 
 function safeKey(key: string) {
@@ -49,14 +49,20 @@ class LocalDriver implements StorageDriver {
 }
 
 class S3Driver implements StorageDriver {
-  private async client() {
-    const { S3Client } = await import("@aws-sdk/client-s3");
-    return new S3Client({
-      region: env.s3.region,
-      endpoint: env.s3.endpoint || undefined,
-      forcePathStyle: !!env.s3.endpoint,
-      credentials: { accessKeyId: env.s3.accessKeyId, secretAccessKey: env.s3.secretAccessKey },
-    });
+  private s3: Promise<import("@aws-sdk/client-s3").S3Client> | null = null;
+  private client() {
+    this.s3 ??= import("@aws-sdk/client-s3").then(
+      ({ S3Client }) =>
+        new S3Client({
+          region: env.s3.region,
+          endpoint: env.s3.endpoint || undefined,
+          forcePathStyle: !!env.s3.endpoint,
+          credentials: { accessKeyId: env.s3.accessKeyId, secretAccessKey: env.s3.secretAccessKey },
+          // Stockages compatibles S3 (Supabase, R2…) : sommes de contrôle seulement si l'opération l'exige.
+          ...(env.s3.endpoint ? { requestChecksumCalculation: "WHEN_REQUIRED" as const, responseChecksumValidation: "WHEN_REQUIRED" as const } : {}),
+        }),
+    );
+    return this.s3;
   }
   async put(key: string, data: Buffer, contentType: string) {
     const { PutObjectCommand } = await import("@aws-sdk/client-s3");
@@ -78,7 +84,7 @@ class S3Driver implements StorageDriver {
     const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
     await (await this.client()).send(new DeleteObjectCommand({ Bucket: env.s3.bucket, Key: safeKey(key) }));
   }
-  async signedUrl(key: string, filename: string, contentType: string, ttlSeconds: number) {
+  async signedUrl(key: string, filename: string, contentType: string, ttlSeconds: number, disposition: "inline" | "attachment" = "inline") {
     const { GetObjectCommand } = await import("@aws-sdk/client-s3");
     const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
     return getSignedUrl(
@@ -87,7 +93,7 @@ class S3Driver implements StorageDriver {
         Bucket: env.s3.bucket,
         Key: safeKey(key),
         ResponseContentType: contentType,
-        ResponseContentDisposition: `inline; filename="${filename.replace(/[^\w.\- ]/g, "_")}"`,
+        ResponseContentDisposition: `${disposition}; filename="${filename.replace(/[^\w.\- ]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
       }),
       { expiresIn: ttlSeconds },
     );
