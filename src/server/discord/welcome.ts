@@ -6,16 +6,32 @@
 
 export const PACKIO_BLUE = 0x2f4dff;
 
-export type WelcomeChannels = { start?: string | null; pricing?: string | null; help?: string | null };
+export type WelcomeChannels = {
+  start?: string | null;
+  pricing?: string | null;
+  help?: string | null;
+};
 
-export function buildWelcome(input: { memberId: string; channels: WelcomeChannels; contactId?: string | null }) {
+export function buildWelcome(input: {
+  memberId: string;
+  channels: WelcomeChannels;
+  contactId?: string | null;
+}) {
   const lines = [
     "Ravi de t'accueillir parmi les vendeurs Packio 🎉",
     "",
-    input.channels.start ? `🧭 **Pour démarrer** : <#${input.channels.start}>` : null,
-    input.channels.pricing ? `💳 **Les offres** : <#${input.channels.pricing}>` : null,
-    input.channels.help ? `🛟 **Une question** : <#${input.channels.help}>` : null,
-    input.contactId ? `📞 **Un appel découverte** : envoie un MP à <@${input.contactId}>` : null,
+    input.channels.start
+      ? `🧭 **Pour démarrer** : <#${input.channels.start}>`
+      : null,
+    input.channels.pricing
+      ? `💳 **Les offres** : <#${input.channels.pricing}>`
+      : null,
+    input.channels.help
+      ? `🛟 **Une question** : <#${input.channels.help}>`
+      : null,
+    input.contactId
+      ? `📞 **Un appel découverte** : envoie un MP à <@${input.contactId}>`
+      : null,
   ].filter((l): l is string => l !== null);
   return {
     content: `👋 Bienvenue <@${input.memberId}> !`,
@@ -37,13 +53,20 @@ export function normalizeChannelName(name: string) {
 /** Salons reconnus par leur nom (aucun identifiant à configurer). */
 export const CHANNEL_KEYWORDS = {
   welcome: ["bienvenue", "welcome"],
+  rules: ["regles", "reglement", "rules"],
   start: ["commencerici", "commencer", "demarrer"],
   pricing: ["tarifs", "tarif", "offres", "prix"],
   help: ["centredaide", "aide", "support", "questions"],
 } as const;
 
-export function findChannelId(channels: { id: string; name: string }[], keywords: readonly string[]) {
-  const named = channels.map((c) => ({ id: c.id, n: normalizeChannelName(c.name) }));
+export function findChannelId(
+  channels: { id: string; name: string }[],
+  keywords: readonly string[],
+) {
+  const named = channels.map((c) => ({
+    id: c.id,
+    n: normalizeChannelName(c.name),
+  }));
   for (const k of keywords) {
     const hit = named.find((c) => c.n.includes(k));
     if (hit) return hit.id;

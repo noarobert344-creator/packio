@@ -103,10 +103,11 @@ export function LocationDialog({
         />
         <TextField
           name="label"
-          label="Libellé"
+          label="Nom du point"
           required
           defaultValue={location?.label ?? ""}
-          placeholder="Ex. : Locker secondaire"
+          placeholder="Ex. : Locker de la gare"
+          hint="Un nom court pour reconnaître ce point : vos clients le voient dans la liste quand ils commandent."
         />
         {type === "BUSINESS_ADDRESS" && (
           <p className="rounded-xl bg-info-soft p-3 text-xs text-info sm:col-span-2">
