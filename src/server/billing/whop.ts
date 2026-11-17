@@ -95,7 +95,8 @@ export async function createCheckoutConfiguration(input: {
     mode: "payment",
     metadata: input.metadata,
     redirect_url: input.redirectUrl,
-    ...(input.variantId ? { variant_id: input.variantId } : { variant: input.variant }),
+    // Le compte Whop est rappelé dans le forfait créé à la volée (champ prévu par l'API actuelle).
+    ...(input.variantId ? { variant_id: input.variantId } : { variant: { ...input.variant, ...(env.whop.accountId ? { account_id: env.whop.accountId } : {}) } }),
   };
   const res = await whopRequest<{ id: string; purchase_url: string }>("POST", "/checkout_configurations", body, { idempotencyKey: input.idempotencyKey });
   if (!res.purchase_url) throw new WhopApiError("Whop n'a pas renvoyé de lien de paiement.", 502);
