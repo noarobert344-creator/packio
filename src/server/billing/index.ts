@@ -128,24 +128,36 @@ async function whopCheckout(
   if (input.variantId || !input.variant)
     return createCheckoutConfiguration(input);
   const variant = input.variant;
+  // Prix affichés TTC : la taxe est incluse dans le prix, pas ajoutée au paiement.
+  let taxInclusive = true;
   const run = async () =>
     createCheckoutConfiguration({
       ...input,
-      variant: { ...variant, product_id: await ensureWhopProductId() },
+      variant: {
+        ...variant,
+        product_id: await ensureWhopProductId(),
+        ...(taxInclusive ? { override_tax_type: "inclusive" as const } : {}),
+      },
     });
-  try {
-    return await run();
-  } catch (err) {
-    if (
-      !env.whop.productId &&
-      err instanceof WhopApiError &&
-      err.status < 500 &&
-      /product/i.test(err.message)
-    ) {
-      await db.appSetting.deleteMany({ where: { key: WHOP_PRODUCT_SETTING } });
-      return run();
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await run();
+    } catch (err) {
+      if (!(err instanceof WhopApiError) || err.status >= 500 || attempt >= 2)
+        throw err;
+      if (taxInclusive && /tax/i.test(err.message)) {
+        // Option refusée par Whop : on garde le réglage de taxe du compte.
+        taxInclusive = false;
+        continue;
+      }
+      if (!env.whop.productId && /product/i.test(err.message)) {
+        await db.appSetting.deleteMany({
+          where: { key: WHOP_PRODUCT_SETTING },
+        });
+        continue;
+      }
+      throw err;
     }
-    throw err;
   }
 }
 
@@ -227,7 +239,9 @@ async function createSubscriptionCheckout(input: {
     variant: {
       billing_type: "renewal",
       billing_period: BILLING_PERIOD_DAYS[interval],
-      initial_price: toMajor(price),
+      // Pour un abonnement, Whop ajoute initial_price AU premier renouvellement :
+      // 0 ici, sinon le client paie deux fois le prix le premier jour.
+      initial_price: 0,
       renewal_price: toMajor(price),
       currency: plan.currency,
       title: `Packio ${plan.name}${yearly ? " — annuel" : ""}`,

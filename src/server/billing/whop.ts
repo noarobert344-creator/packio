@@ -94,6 +94,8 @@ export type CheckoutVariant = {
   title: string;
   description?: string;
   product_id?: string;
+  /** « inclusive » : taxe comprise dans le prix (prix TTC). */
+  override_tax_type?: "inclusive" | "exclusive";
   visibility: "hidden" | "visible";
   release_method: "buy_now";
   unlimited_stock: true;
