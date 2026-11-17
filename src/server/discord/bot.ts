@@ -11,6 +11,7 @@ import {
   type TextChannel,
 } from "discord.js";
 import { buildWelcome, CHANNEL_KEYWORDS, findChannelId } from "./welcome";
+import { CLOSE_ID, OPEN_ID, closeTicket, installTickets, openTicket } from "./tickets";
 
 /**
  * BOT DISCORD « PACKIO »
@@ -18,7 +19,8 @@ import { buildWelcome, CHANNEL_KEYWORDS, findChannelId } from "./welcome";
  * renseigné. Il souhaite la bienvenue à chaque nouveau membre dans le salon
  * « bienvenue », avec les salons « commencer-ici », « tarifs » et
  * « centre-d'aide », puis ajoute une réaction. /test-bienvenue (réservé aux
- * administrateurs du serveur) envoie le message pour soi-même.
+ * administrateurs du serveur) envoie le message pour soi-même. Tickets :
+ * /installer-tickets (voir tickets.ts).
  *
  * Réglages facultatifs : DISCORD_CONTACT_USER_ID (personne à contacter pour
  * l'appel découverte, par défaut le propriétaire du serveur) et
@@ -68,6 +70,11 @@ async function registerCommands(guild: Guild) {
       description: "Envoie le message de bienvenue pour vous-même (test).",
       defaultMemberPermissions: PermissionFlagsBits.Administrator,
     },
+    {
+      name: "installer-tickets",
+      description: "Publie dans ce salon le bouton « Ouvrir un ticket » (crée la catégorie et le rôle si besoin).",
+      defaultMemberPermissions: PermissionFlagsBits.Administrator,
+    },
   ]);
 }
 
@@ -87,7 +94,32 @@ export async function startDiscordBot() {
     sendWelcome(member).catch((err) => console.error("[discord] bienvenue", err));
   });
   client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand() || interaction.commandName !== "test-bienvenue" || !interaction.inCachedGuild()) return;
+    if (!interaction.inCachedGuild()) return;
+    // Tickets : bouton d'ouverture, bouton de fermeture, commande d'installation.
+    if (interaction.isButton() && (interaction.customId === OPEN_ID || interaction.customId === CLOSE_ID)) {
+      const run = interaction.customId === OPEN_ID ? openTicket : closeTicket;
+      await run(interaction).catch(async (err) => {
+        console.error("[discord] ticket", err);
+        if (!interaction.replied) {
+          await interaction
+            .reply({ content: "Impossible pour le moment : vérifiez que le bot peut gérer les salons et les rôles.", flags: MessageFlags.Ephemeral })
+            .catch(() => undefined);
+        }
+      });
+      return;
+    }
+    if (interaction.isChatInputCommand() && interaction.commandName === "installer-tickets") {
+      await installTickets(interaction).catch(async (err) => {
+        console.error("[discord] installer-tickets", err);
+        if (!interaction.replied) {
+          await interaction
+            .reply({ content: "Installation impossible : vérifiez que le bot peut gérer les salons et les rôles.", flags: MessageFlags.Ephemeral })
+            .catch(() => undefined);
+        }
+      });
+      return;
+    }
+    if (!interaction.isChatInputCommand() || interaction.commandName !== "test-bienvenue") return;
     try {
       const channel = await sendWelcome(interaction.member);
       await interaction.reply({

@@ -367,7 +367,9 @@ Le bot démarre avec le site (`src/instrumentation.ts`) quand `DISCORD_BOT_TOKEN
 
 1. [Portail développeur Discord](https://discord.com/developers/applications) → **New Application** « Packio », icône `brand/packio-icone-1024.png`.
 2. **Bot** : activez **Server Members Intent**, puis **Reset Token** et collez le jeton dans **packio → Environment** sous `DISCORD_BOT_TOKEN` (jamais ailleurs).
-3. Invitez le bot : `https://discord.com/oauth2/authorize?client_id=<APPLICATION_ID>&scope=bot%20applications.commands&permissions=85056` (voir des salons, envoyer des messages, intégrer des liens, ajouter des réactions, lire l'historique).
+3. Invitez le bot : `https://discord.com/oauth2/authorize?client_id=<APPLICATION_ID>&scope=bot%20applications.commands&permissions=268651600` (voir des salons, envoyer des messages, intégrer des liens, ajouter des réactions, lire l'historique, gérer les salons et les rôles, mentionner le rôle de l'équipe).
+
+Tickets : `/installer-tickets` (administrateurs), tapé dans le salon où doit apparaître le bouton, crée la catégorie « 🎫 Tickets » et le rôle « Équipe Packio » s'ils n'existent pas et publie le bouton « Ouvrir un ticket ». Chaque ticket est un salon privé (le membre, le rôle « Équipe Packio » et les administrateurs) ; « Fermer le ticket » le supprime.
 
 ## Déploiement (Vercel)
 

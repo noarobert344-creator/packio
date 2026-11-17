@@ -32,3 +32,13 @@ describe("Bot Discord : message de bienvenue", () => {
     expect(buildWelcome({ memberId: "42", channels: {}, contactId: null }).embed.description).not.toContain("Les offres");
   });
 });
+
+describe("Bot Discord : tickets", () => {
+  it("nom du salon, sujet et propriétaire du ticket", async () => {
+    const { ticketChannelName, ticketOwnerFromTopic, ticketTopic } = await import("@/server/discord/tickets");
+    expect(ticketChannelName("Papy Russe 🇷🇺")).toBe("ticket-papyrusse");
+    expect(ticketChannelName("🔥🔥")).toBe("ticket-membre");
+    expect(ticketOwnerFromTopic(ticketTopic("123456789012345678"))).toBe("123456789012345678");
+    expect(ticketOwnerFromTopic("Salon quelconque")).toBeNull();
+  });
+});
