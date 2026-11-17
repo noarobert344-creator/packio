@@ -52,22 +52,33 @@ describe("Poste restante : livrer sans jamais passer par le domicile du prépara
     });
     expect(checkCompatibility(vinted, { type: "POST_OFFICE", network: "LA_POSTE" }).ok).toBe(false);
 
-    // Un préparateur ne peut jamais proposer d'adresse : lockers, points relais ou poste restante seulement.
-    await expect(
-      saveLocation(prep.actor, {
-        preparerId: prep.preparer.id,
-        type: "BUSINESS_ADDRESS",
-        label: "Chez moi",
-        network: null,
-        relayName: null,
-        addressLine1: "3 rue de chez moi",
-        postalCode: "69001",
-        city: "Lyon",
-        country: "FR",
-        recipientName: "Paul P.",
-        isPrimary: false,
-      }),
-    ).rejects.toMatchObject({ code: "NO_ADDRESS" });
+    // Le préparateur peut proposer son adresse : validée par Packio, proposée uniquement pour le Japon (ZenMarket).
+    const home = await saveLocation(prep.actor, {
+      preparerId: prep.preparer.id,
+      type: "BUSINESS_ADDRESS",
+      label: "Mon adresse (commandes du Japon)",
+      network: null,
+      relayName: null,
+      addressLine1: "3 rue de chez moi",
+      postalCode: "69001",
+      city: "Lyon",
+      country: "FR",
+      recipientName: "Paul P.",
+      isPrimary: false,
+    });
+    expect(home).toMatchObject({ type: "BUSINESS_ADDRESS", validatedAt: null });
+    await db.preparerLocation.update({ where: { id: home.id }, data: { validatedAt: new Date() } });
+    expect(checkCompatibility(zen, home).ok).toBe(true);
+    expect(checkCompatibility(vinted, home).ok).toBe(false);
+    for (const code of ["VINTED", "VESTIAIRE", "TEMU", "SHEIN", "ALIEXPRESS", "WHATNOT", "OTHER"]) {
+      expect((await db.supplier.findUniqueOrThrow({ where: { code } })).acceptedLocationTypes).not.toContain("BUSINESS_ADDRESS");
+    }
+    expect(await createSupplierOrder(client.actor, { supplierId: zen.id, locationId: home.id, description: "Figurine 2", quantity: 1 })).toMatchObject({ locationId: home.id });
+    // Client sans téléphone ni adresse : pas de commande vers l'adresse d'un préparateur.
+    await db.customerProfile.update({ where: { id: client.customerId }, data: { returnAddressLine1: null } });
+    await expect(createSupplierOrder(client.actor, { supplierId: zen.id, locationId: home.id, description: "Figurine 3", quantity: 1 })).rejects.toMatchObject({
+      code: "PROFILE_REQUIRED",
+    });
     for (const code of ["VESTIAIRE", "TEMU", "ALIEXPRESS"]) {
       expect((await db.supplier.findUniqueOrThrow({ where: { code } })).acceptedLocationTypes).toContain("POST_OFFICE");
     }

@@ -5,14 +5,15 @@ import { classifyShipment } from "@/server/services/shipments";
 import { createManualSale, keepCancelledSaleItems, listMarketplaceOverview, matchSaleToItems, syncFromExtension } from "@/server/services/marketplace";
 import { addBusinessDays, exactStockMatch, saleStateFrom, suggestStockItem } from "@/lib/match-title";
 import type { Actor } from "@/server/auth/actor";
-import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb } from "../helpers";
+import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb, addRelayPoint } from "../helpers";
 
 async function setup() {
   const admin = await createAdmin();
   const prep = await createPreparerWithLocation(admin);
+  const relay = await addRelayPoint(admin, prep.preparer.id);
   const client = await createCustomer({ plan: "PRO" });
   await assignPreparer(admin, { customerId: client.customerId, preparerId: prep.preparer.id });
-  return { admin, prep, client };
+  return { admin, prep, relay, client };
 }
 
 async function stock(customer: Actor, preparer: Actor, locationId: string, items: { name: string; quantity: number }[]) {
@@ -100,13 +101,13 @@ describe("Synchronisation des ventes : annulations, colis partis, lots, stock", 
   });
 
   it("dropshipping annulé : rien n'est expédié à la réception, le client garde l'article en stock", async () => {
-    const { prep, client } = await setup();
+    const { prep, relay, client } = await setup();
     await sync(client.customerId, [{ externalOrderId: "DS-9", title: "Lampe", soldAt: new Date().toISOString() }]);
     const sale = await db.marketplaceSale.findFirstOrThrow({ where: { externalOrderId: "DS-9" } });
     const aliexpress = await db.supplier.findUniqueOrThrow({ where: { code: "ALIEXPRESS" } });
     const order = await createSupplierOrder(client.actor, {
       supplierId: aliexpress.id,
-      locationId: prep.location.id,
+      locationId: relay.id,
       quantity: 1,
       mode: "DROPSHIP",
       description: "Lampe",

@@ -202,7 +202,7 @@ export const PREPARER_STATUS: Record<PreparerStatus, Labeled> = {
 };
 
 export const LOCATION_TYPE: Record<LocationType, string> = {
-  BUSINESS_ADDRESS: "Adresse de domiciliation",
+  BUSINESS_ADDRESS: "Adresse postale (commandes du Japon)",
   LOCKER: "Locker",
   RELAY_POINT: "Point relais",
   POST_OFFICE: "Poste restante (bureau de poste)",

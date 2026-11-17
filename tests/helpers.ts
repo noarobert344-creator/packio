@@ -72,6 +72,8 @@ export async function createCustomer(opts?: { plan?: "STARTER" | "PRO" | "BUSINE
     lastName: `Client ${uid()}`,
     email: `client-${uid()}@test.local`,
     password: "MotDePasse2026",
+    phone: "06 11 22 33 44",
+    address: { line1: "5 rue des Clients", postalCode: "75011", city: "Paris", country: "FR" },
   });
   let actor = await actorFor(user.id);
   if (opts?.subscribe !== false) {
@@ -95,4 +97,22 @@ export async function ledgerInvariant(customerId: string) {
     reserved: w.reservedBalance,
     ledgerReserved: agg._sum.reservedDelta ?? 0,
   };
+}
+
+/** Point relais validé (Relais Colis) : accepté par Vinted, SHEIN, AliExpress et Whatnot. */
+export async function addRelayPoint(admin: Actor, preparerId: string) {
+  return saveLocation(admin, {
+    preparerId,
+    type: "RELAY_POINT",
+    label: "Relais Colis Part-Dieu",
+    network: "RELAIS_COLIS",
+    relayName: "Relais Colis Lyon Part-Dieu",
+    addressLine1: "17 rue du Docteur Bouchut",
+    postalCode: "69003",
+    city: "Lyon",
+    country: "FR",
+    recipientName: "Paul P.",
+    isPrimary: false,
+    validate: true,
+  });
 }

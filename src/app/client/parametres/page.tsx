@@ -37,7 +37,7 @@ export default async function ClientSettingsPage({ searchParams }: { searchParam
             <ProfileForm user={await loadProfile(actor)} showCompany />
           </Section>
           <div id="retour" className="scroll-mt-24">
-            <Section title="Adresse de retour" description="Adresse à laquelle votre préparateur vous renvoie vos articles quand vous demandez un retour à domicile.">
+            <Section title="Mon adresse" description="Votre adresse, demandée à l'inscription. Elle sert aussi aux retours de vos articles à domicile.">
               <ActionForm action={updateReturnAddressAction} className="grid max-w-2xl gap-4 sm:grid-cols-2">
                 <TextField name="returnName" label="Nom" required autoComplete="name" defaultValue={customer.returnName ?? `${actor.firstName} ${actor.lastName}`} />
                 <TextField name="returnPhone" label="Téléphone" type="tel" autoComplete="tel" defaultValue={customer.returnPhone ?? ""} />

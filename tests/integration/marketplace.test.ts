@@ -15,16 +15,17 @@ import { POST as syncRoute } from "@/app/api/extension/sync/route";
 import { DELETE as disconnectRoute, GET as statusRoute } from "@/app/api/extension/status/route";
 import { listMarketplaceOverview } from "@/server/services/marketplace";
 import type { Actor } from "@/server/auth/actor";
-import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb } from "../helpers";
+import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb, addRelayPoint } from "../helpers";
 
 const PDF = Buffer.from("%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << >>\n%%EOF\n");
 
 async function setup() {
   const admin = await createAdmin();
   const prep = await createPreparerWithLocation(admin);
+  const relay = await addRelayPoint(admin, prep.preparer.id);
   const client = await createCustomer({ plan: "PRO" });
   await assignPreparer(admin, { customerId: client.customerId, preparerId: prep.preparer.id });
-  return { admin, prep, client };
+  return { admin, prep, relay, client };
 }
 
 async function stockedItem(customer: Actor, preparer: Actor, locationId: string, qty = 2) {
@@ -152,7 +153,7 @@ describe("Comptes liés Vinted / Vestiaire et extension", () => {
   });
 
   it("« Vendu en dropshipping » : commande liée à la vente, bordereau repris (reçu avant ou après), expédié à l'acheteur avec ce bordereau", async () => {
-    const { prep, client } = await setup();
+    const { prep, relay, client } = await setup();
     await syncFromExtension(client.customerId, {
       platform: "VINTED",
       account: { externalUserId: "u-ds" },
@@ -163,7 +164,7 @@ describe("Comptes liés Vinted / Vestiaire et extension", () => {
     });
     const [s1, s2] = await Promise.all(["DS-1", "DS-2"].map((id) => db.marketplaceSale.findFirstOrThrow({ where: { customerId: client.customerId, externalOrderId: id } })));
     const aliexpress = await db.supplier.findUniqueOrThrow({ where: { code: "ALIEXPRESS" } });
-    const base = { supplierId: aliexpress.id, locationId: prep.location.id, quantity: 1, mode: "DROPSHIP" as const };
+    const base = { supplierId: aliexpress.id, locationId: relay.id, quantity: 1, mode: "DROPSHIP" as const };
 
     // Bordereau reçu avant la commande : repris automatiquement.
     const { fileId } = await attachSaleLabel(client.customerId, { platform: "VINTED", externalOrderId: "DS-1", filename: "b.pdf", data: PDF });

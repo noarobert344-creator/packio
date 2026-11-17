@@ -7,15 +7,16 @@ import { navBadges } from "@/server/badges";
 import { getReceptionInfo } from "@/server/services/orders";
 import { saveLocation } from "@/server/services/preparers";
 import type { Actor } from "@/server/auth/actor";
-import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb } from "../helpers";
+import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb, addRelayPoint } from "../helpers";
 
 async function setup() {
   const admin = await createAdmin();
   const prep = await createPreparerWithLocation(admin);
+  const relay = await addRelayPoint(admin, prep.preparer.id);
   const other = await createPreparerWithLocation(admin);
   const client = await createCustomer({ plan: "STARTER" });
   await assignPreparer(admin, { customerId: client.customerId, preparerId: prep.preparer.id });
-  return { admin, prep, other, client };
+  return { admin, prep, relay, other, client };
 }
 
 async function receive(customer: Actor, preparer: Actor, locationId: string, input: { code: "ZENMARKET" | "SHEIN"; dropship?: boolean; labelFileId?: string }) {
@@ -36,11 +37,11 @@ describe("Bordereaux et À vendre", () => {
   beforeEach(resetDb);
 
   it("le bordereau arrive avec l'article, visible du client et de sa préparatrice uniquement", async () => {
-    const { prep, other, client } = await setup();
+    const { prep, relay, other, client } = await setup();
     const label = await db.file.create({
       data: { storageKey: `test/${Date.now()}.pdf`, filename: "bordereau-vinted.pdf", mimeType: "application/pdf", sizeBytes: 10, sha256: "x", purpose: "SHIPPING_LABEL", uploadedById: client.actor.userId },
     });
-    const { shipment } = await receive(client.actor, prep.actor, prep.location.id, { code: "SHEIN", dropship: true, labelFileId: label.id });
+    const { shipment } = await receive(client.actor, prep.actor, relay.id, { code: "SHEIN", dropship: true, labelFileId: label.id });
 
     const board = await listLabelBoard({ preparerId: prep.preparer.id });
     expect(board.openCount).toBe(1);

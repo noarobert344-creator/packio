@@ -192,7 +192,15 @@ async function main() {
   await setPreparerStatus(admin, { preparerId: sofia.preparer.id, status: "UNAVAILABLE", reason: "Congés (démo)" });
 
   console.log("→ Clients");
-  const lea = await registerCustomer({ firstName: "Léa", lastName: "Moreau", email: `lea.moreau@${DEMO_DOMAIN}`, password: PASSWORD, companyName: "Léa Vintage" });
+  const lea = await registerCustomer({
+    firstName: "Léa",
+    lastName: "Moreau",
+    email: `lea.moreau@${DEMO_DOMAIN}`,
+    password: PASSWORD,
+    companyName: "Léa Vintage",
+    phone: "06 00 00 00 10",
+    address: { line1: "14 rue de la République (démo)", postalCode: "69002", city: "Lyon", country: "FR" },
+  });
   await markDemo(lea.id);
   await subscribe(lea.customerProfile!.id, "PRO", subHours(new Date(), 24 * 12));
   await assignPreparer(admin, { customerId: lea.customerProfile!.id, preparerId: camille.preparer.id, note: "Même ville que la cliente." });

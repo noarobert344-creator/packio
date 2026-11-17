@@ -62,11 +62,11 @@ export function LocationDialog({ preparerId, location, defaultRecipient, default
             onChange={(e) => setType(e.target.value as LocationValues["type"])}
             options={Object.entries(LOCATION_TYPE).map(([value, label]) => ({ value, label }))}
           />
-          <TextField name="label" label="Libellé interne" required defaultValue={location?.label ?? (isRelay ? "Locker principal" : isPostOffice ? "Poste restante" : "Adresse de domiciliation")} />
+          <TextField name="label" label="Libellé interne" required defaultValue={location?.label ?? (isRelay ? "Locker principal" : isPostOffice ? "Poste restante" : "Adresse (commandes du Japon)")} />
         </div>
         {type === "BUSINESS_ADDRESS" && (
-          <p className="rounded-xl bg-warning-soft p-3 text-xs text-warning">
-            Jamais l&apos;adresse personnelle du préparateur : uniquement une adresse de domiciliation ou une boîte de réception de colis. Les clients voient cette adresse.
+          <p className="rounded-xl bg-info-soft p-3 text-xs text-info">
+            Adresse du préparateur : proposée aux clients uniquement pour les commandes du Japon (ZenMarket), qui ne peuvent pas être livrées en point relais.
           </p>
         )}
         {isPostOffice && (

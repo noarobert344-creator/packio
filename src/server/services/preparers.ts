@@ -225,10 +225,7 @@ export async function saveLocation(actor: Actor, input: LocationInput & { prepar
   if ((input.type === "LOCKER" || input.type === "RELAY_POINT") && (!input.network || !input.relayName)) {
     throw new DomainError("RELAY", "Indiquez le réseau et le nom exact du locker / point relais.", { fieldErrors: { relayName: "Requis", network: "Requis" } });
   }
-  // Jamais d'adresse proposée par un préparateur : lockers, points relais ou poste restante.
-  if (!isAdmin && input.type === "BUSINESS_ADDRESS") {
-    throw new DomainError("NO_ADDRESS", "Proposez un locker, un point relais ou un bureau de poste (poste restante) : jamais d'adresse.", { fieldErrors: { type: "Non autorisé" } });
-  }
+  // L'adresse du préparateur (validée par Packio) n'est proposée que pour les commandes du Japon (ZenMarket).
   if (input.type === "POST_OFFICE" && !input.relayName?.trim()) {
     throw new DomainError("POST_OFFICE", "Indiquez le nom du bureau de poste.", { fieldErrors: { relayName: "Requis" } });
   }
@@ -238,7 +235,6 @@ export async function saveLocation(actor: Actor, input: LocationInput & { prepar
     if (input.locationId && (!existing || existing.preparerId !== input.preparerId)) throw new NotFoundError("Lieu introuvable.");
     if (existing && !isAdmin) {
       if (!existing.isActive) throw new DomainError("INACTIVE", "Ce point de réception a été retiré : ajoutez-en un nouveau.");
-      if (existing.type === "BUSINESS_ADDRESS") throw new DomainError("MANAGED", "Ce lieu est géré par l'équipe Packio : écrivez-lui pour le modifier.");
     }
     const fields = {
       type: input.type,
@@ -455,6 +451,8 @@ export const ONBOARDING_LOCKER_NETWORKS = [
 
 export type OnboardingInput = {
   phone: string;
+  /** Adresse du préparateur, proposée uniquement pour les commandes du Japon (ZenMarket). */
+  home?: { addressLine1: string; addressLine2?: string | null; postalCode: string; city: string } | null;
   lockers: { network: (typeof ONBOARDING_LOCKER_NETWORKS)[number]["code"]; relayName: string; addressLine1: string; postalCode: string; city: string }[];
 };
 
@@ -476,8 +474,8 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
   return withEffects(async (tx, fx) => {
     const profile = await tx.preparerProfile.findUniqueOrThrow({ where: { id: preparerId }, include: { user: { select: { firstName: true, lastName: true } } } });
     if (profile.onboardedAt) throw new DomainError("ALREADY_DONE", "Votre fiche est déjà complétée : modifiez-la depuis vos paramètres.");
-    if (input.lockers.length === 0) {
-      throw new DomainError("POINTS", "Renseignez au moins un point de réception (locker ou bureau de poste) : aucun colis n'est livré chez vous.");
+    if (input.lockers.length === 0 && !input.home) {
+      throw new DomainError("POINTS", "Renseignez au moins un point de réception : un locker, un bureau de poste, ou votre adresse pour les commandes du Japon.");
     }
     const name = `${profile.user.firstName} ${profile.user.lastName}`;
     await tx.user.update({ where: { id: actor.userId }, data: { phone } });
@@ -485,7 +483,7 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
       where: { id: preparerId },
       data: {
         // Ville affichée : celle du premier point si elle n'était pas renseignée.
-        ...(!profile.city || profile.city === "À compléter" ? { city: input.lockers[0].city.trim() } : {}),
+        ...(!profile.city || profile.city === "À compléter" ? { city: (input.lockers[0]?.city ?? input.home?.city ?? "").trim() || profile.city } : {}),
         onboardedAt: new Date(),
       },
     });
@@ -514,17 +512,38 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
         },
       });
     }
-    await audit({ actor, action: "preparer.onboarded", entityType: "preparer", entityId: preparerId, summary: `${input.lockers.length} point(s) de réception à valider` }, tx);
+    if (input.home) {
+      await tx.preparerLocation.create({
+        data: {
+          preparerId,
+          type: "BUSINESS_ADDRESS",
+          label: "Mon adresse (commandes du Japon)",
+          network: null,
+          addressLine1: input.home.addressLine1.trim(),
+          addressLine2: input.home.addressLine2?.trim() || null,
+          postalCode: input.home.postalCode.trim(),
+          city: input.home.city.trim(),
+          country: "FR",
+          recipientName: name,
+          recipientPhone: phone,
+          isPrimary: !hasPrimary,
+          ...(selfValidate ? { validatedAt: new Date(), validatedById: actor.userId } : {}),
+        },
+      });
+      hasPrimary = true;
+    }
+    const count = input.lockers.length + (input.home ? 1 : 0);
+    await audit({ actor, action: "preparer.onboarded", entityType: "preparer", entityId: preparerId, summary: `${count} point(s) de réception à valider` }, tx);
     fx.notifyAdmins(
       {
         type: "ADMIN_PREPARER_ONBOARDED",
         title: "Fiche préparateur à valider",
-        body: `${name} a complété sa fiche : ${input.lockers.length} point(s) de réception à valider avant de recevoir des clients.`,
+        body: `${name} a complété sa fiche : ${count} point(s) de réception à valider avant de recevoir des clients.`,
         link: `/admin/preparateurs/${preparerId}`,
       },
       "preparers.manage",
     );
-    return { locations: input.lockers.length };
+    return { locations: count };
   });
 }
 

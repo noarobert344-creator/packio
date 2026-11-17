@@ -7,7 +7,7 @@ import { getConversationAccess, listConversations, requestSupervisionAccess, sen
 import { assertCanReadFile, sniffMime, uploadFile } from "@/server/services/files";
 import { setStorageDriverForTests } from "@/server/storage";
 import { ForbiddenError } from "@/server/errors";
-import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb } from "../helpers";
+import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb, addRelayPoint } from "../helpers";
 
 const PNG = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c6300010000050001", "hex");
 
@@ -30,6 +30,7 @@ describe("Contrôles d'accès côté serveur", () => {
     const a = await createCustomer();
     const b = await createCustomer();
     const { conversationId } = await assignPreparer(admin, { customerId: a.customerId, preparerId: p1.preparer.id });
+    p1.location = await addRelayPoint(admin, p1.preparer.id);
     await assignPreparer(admin, { customerId: b.customerId, preparerId: p2.preparer.id });
     return { admin, p1, p2, a, b, conversationId };
   }

@@ -54,6 +54,9 @@ export function ReceptionCard({ location: l, clientCode }: { location: Reception
             {l.label}
             {l.isPrimary && <span className="ml-2 rounded-full bg-brand px-2 py-0.5 align-middle text-[0.65rem] font-medium text-brand-foreground">Principal</span>}
           </p>
+          {l.type === "BUSINESS_ADDRESS" && (
+            <p className="mt-0.5 text-xs font-medium text-warning">Uniquement pour les commandes du Japon (ZenMarket)</p>
+          )}
           <p className="text-xs text-muted-foreground">
             {LOCATION_TYPE[l.type]}
             {l.network ? ` · ${networkLabel(l.network)}` : ""}

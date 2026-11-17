@@ -53,6 +53,8 @@ export type RegisterInput = {
   password: string;
   phone?: string | null;
   companyName?: string | null;
+  /** Adresse du client, demandée à l'inscription (sert aussi aux retours à domicile). */
+  address?: { line1: string; line2?: string | null; postalCode: string; city: string; country: string } | null;
 };
 
 /** Inscription d'un client. Le compte est activé après paiement de l'abonnement. */
@@ -97,6 +99,17 @@ export async function registerCustomer(input: RegisterInput) {
           create: {
             referenceCode: await uniqueCustomerCode(tx),
             companyName: input.companyName?.trim() || null,
+            ...(input.address
+              ? {
+                  returnName: `${input.firstName.trim()} ${input.lastName.trim()}`,
+                  returnPhone: input.phone?.trim() || null,
+                  returnAddressLine1: input.address.line1.trim(),
+                  returnAddressLine2: input.address.line2?.trim() || null,
+                  returnPostalCode: input.address.postalCode.trim(),
+                  returnCity: input.address.city.trim(),
+                  returnCountry: input.address.country.trim().toUpperCase() || "FR",
+                }
+              : {}),
             wallet: { create: {} },
           },
         },

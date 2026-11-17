@@ -186,6 +186,18 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
     if (!location || location.preparerId !== preparerId || !location.isActive || !location.validatedAt) {
       throw new DomainError("LOCATION", "Ce point de réception n'est pas disponible.", { fieldErrors: { locationId: "Point de réception invalide" } });
     }
+    // Adresse du préparateur (commandes du Japon) : réservée aux clients identifiés (téléphone et adresse).
+    if (!arrivalOther && location.type === "BUSINESS_ADDRESS") {
+      const me = await tx.customerProfile.findUniqueOrThrow({
+        where: { id: customerId },
+        select: { returnAddressLine1: true, returnPostalCode: true, returnCity: true, returnPhone: true, user: { select: { phone: true } } },
+      });
+      if (!me.returnAddressLine1 || !me.returnPostalCode || !me.returnCity || !(me.user.phone || me.returnPhone)) {
+        throw new DomainError("PROFILE_REQUIRED", "Pour une commande livrée à l'adresse de votre préparateur, renseignez d'abord votre téléphone et votre adresse dans Paramètres.", {
+          fieldErrors: { locationId: "Téléphone et adresse requis dans Paramètres" },
+        });
+      }
+    }
     const compat = arrivalOther ? { ok: true as const, reason: "" } : checkCompatibility(supplier, location);
     if (!compat.ok) throw new DomainError("INCOMPATIBLE", compat.reason, { fieldErrors: { locationId: compat.reason } });
     if (supplier.code === "OTHER" && !input.compatibilityConfirmed) {

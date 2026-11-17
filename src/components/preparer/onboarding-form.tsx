@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, Phone } from "lucide-react";
+import { Home, MapPin, Phone } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
 import { TextField } from "@/components/shared/form-field";
 import { completeOnboardingAction } from "@/server/actions/preparer";
@@ -29,8 +29,8 @@ export function OnboardingForm({ defaultPhone }: { defaultPhone: string | null }
           <MapPin className="size-4 text-brand" /> Vos points de réception (au moins un)
         </legend>
         <p className="-mt-2 text-sm text-muted-foreground">
-          Vos clients font livrer leurs achats dans ces lockers ou en poste restante au bureau de poste, jamais chez vous : votre adresse n&apos;est jamais demandée. Le bureau de poste sert notamment pour
-          ZenMarket : le colis vous attend au guichet et vous le retirez avec votre pièce d&apos;identité. Laissez vides ceux que vous n&apos;utilisez pas.
+          Vos clients font livrer leurs achats dans ces lockers ou en poste restante au bureau de poste. Pour les commandes du Japon (ZenMarket), qui ne peuvent
+          pas aller en point relais, vous pouvez aussi indiquer votre adresse ci-dessous. Laissez vides ceux que vous n&apos;utilisez pas.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
           {LOCKERS.map((l) => (
@@ -44,6 +44,21 @@ export function OnboardingForm({ defaultPhone }: { defaultPhone: string | null }
               </div>
             </div>
           ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="grid gap-4">
+        <legend className="mb-1 flex items-center gap-2 text-base font-semibold">
+          <Home className="size-4 text-brand" /> Votre adresse pour les commandes du Japon (facultatif)
+        </legend>
+        <p className="-mt-2 text-sm text-muted-foreground">
+          Proposée à vos clients uniquement pour les commandes ZenMarket. Ils ont tous donné leur téléphone et leur adresse à l&apos;inscription.
+        </p>
+        <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-2">
+          <TextField name="home_addressLine1" label="Adresse" className="md:col-span-2" autoComplete="address-line1" />
+          <TextField name="home_addressLine2" label="Complément d'adresse" className="md:col-span-2" autoComplete="address-line2" />
+          <TextField name="home_postalCode" label="Code postal" autoComplete="postal-code" />
+          <TextField name="home_city" label="Ville" autoComplete="address-level2" />
         </div>
       </fieldset>
 

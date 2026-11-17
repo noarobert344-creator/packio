@@ -466,6 +466,10 @@ export async function setPrimaryLocationAction(_prev: ActionState, formData: For
 
 const onboardingSchema = z.object({
   phone: requiredText("Téléphone", 6, 30),
+  home_addressLine1: optionalText(200),
+  home_addressLine2: optionalText(200),
+  home_postalCode: optionalText(10),
+  home_city: optionalText(100),
   ...Object.fromEntries(
     ONBOARDING_LOCKER_NETWORKS.flatMap((n) => [
       [`${n.code}_relayName`, optionalText(150)],
@@ -499,7 +503,18 @@ export async function completeOnboardingAction(_prev: ActionState, formData: For
     if (Object.keys(fieldErrors).length) {
       throw new DomainError("LOCKER", "Complétez chaque locker renseigné, ou laissez-le entièrement vide.", { fieldErrors });
     }
-    const res = await completeOnboarding(actor, { phone: data.phone, lockers });
+    const home = { addressLine1: data.home_addressLine1 ?? "", postalCode: data.home_postalCode ?? "", city: data.home_city ?? "" };
+    const homeFilled = Object.values(home).filter((v) => v.trim()).length;
+    if (homeFilled > 0 && homeFilled < 3) {
+      throw new DomainError("HOME", "Complétez votre adresse (adresse, code postal, ville), ou laissez-la entièrement vide.", {
+        fieldErrors: Object.fromEntries(Object.entries(home).filter(([, v]) => !v.trim()).map(([k]) => [`home_${k}`, "Requis"])),
+      });
+    }
+    const res = await completeOnboarding(actor, {
+      phone: data.phone,
+      lockers,
+      home: homeFilled ? { ...home, addressLine2: data.home_addressLine2 ?? null } : null,
+    });
     revalidatePath("/preparateur", "layout");
     return {
       ok: true,

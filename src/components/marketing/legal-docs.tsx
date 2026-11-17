@@ -119,8 +119,9 @@ export function Cgu({ ctx }: { ctx: LegalContext }) {
         </li>
         <li>
           <strong>Préparateur</strong> : compte créé sur invitation de Packio ; il reçoit, prépare et envoie les colis des Clients qui lui sont attribués et
-          n&apos;accède qu&apos;à leurs opérations. Il renseigne à son inscription son téléphone, son adresse de réception et, s&apos;il le souhaite, des lockers
-          (Mondial Relay, Vinted Go, Chronopost), communiqués aux Clients après validation par Packio.
+          n&apos;accède qu&apos;à leurs opérations. Il renseigne à son inscription son téléphone et ses points de réception (lockers, points relais, poste
+          restante) et, s&apos;il le souhaite, son adresse, proposée uniquement pour les commandes du Japon ; ces points sont communiqués aux Clients qui lui sont
+          attribués après validation par Packio.
         </li>
         <li>
           <strong>Administration Packio</strong> : gère la plateforme selon des permissions définies, chaque action sensible étant journalisée.
@@ -384,7 +385,7 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
       </p>
       <h2>2. Données traitées</h2>
       <ul>
-        <li>Identité et contact : nom, prénom, adresse e-mail, téléphone, société.</li>
+        <li>Identité et contact : nom, prénom, adresse e-mail, téléphone, adresse postale (demandés à l&apos;inscription), société.</li>
         <li>Compte : identifiants (mot de passe chiffré par hachage), journaux de connexion, préférences de notification.</li>
         <li>
           Logistique : commandes déclarées (y compris en dropshipping, avec l&apos;adresse de l&apos;acheteur lorsqu&apos;elle est fournie), numéros de suivi, codes de

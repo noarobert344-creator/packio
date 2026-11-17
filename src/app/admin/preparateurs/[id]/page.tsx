@@ -140,11 +140,7 @@ export default async function AdminPreparerPage({ params }: { params: Promise<{ 
                           <StatusBadge tone="neutral" label={LOCATION_TYPE[l.type]} dot={false} />
                           {l.isPrimary && <StatusBadge tone="brand" label="Principal" dot={false} />}
                           {l.validatedAt ? <StatusBadge tone="success" label="Validé" /> : <StatusBadge tone="warning" label="À valider" />}
-                          {l.type === "BUSINESS_ADDRESS" &&
-                            !!preparer.businessAddressLine1 &&
-                            l.addressLine1.trim().toLowerCase() === preparer.businessAddressLine1.trim().toLowerCase() && (
-                              <StatusBadge tone="danger" label="Adresse personnelle du préparateur : à désactiver" dot={false} />
-                            )}
+                          {l.type === "BUSINESS_ADDRESS" && <StatusBadge tone="warning" label="Commandes du Japon uniquement" dot={false} />}
                         </div>
                         {l.type !== "BUSINESS_ADDRESS" && (
                           <p className="text-sm">

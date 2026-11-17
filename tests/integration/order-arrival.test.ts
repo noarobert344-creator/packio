@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { assignPreparer } from "@/server/services/assignments";
 import { createSupplierOrder } from "@/server/services/orders";
 import { ARRIVAL_OTHER } from "@/lib/compatibility";
-import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb } from "../helpers";
+import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb, addRelayPoint } from "../helpers";
 
 describe("Déclarer une commande : fournisseur et lieu d'arrivée", () => {
   beforeEach(resetDb);
@@ -19,8 +19,9 @@ describe("Déclarer une commande : fournisseur et lieu d'arrivée", () => {
     expect(whatnot.orderModes).toEqual(["STOCK"]);
     expect(other.orderModes).toEqual(["STOCK", "DROPSHIP"]);
 
-    const w = await createSupplierOrder(client.actor, { supplierId: whatnot.id, locationId: prep.location.id, description: "Carte Pokémon", quantity: 1, arrivalNote: "Casier 12" });
-    expect(w).toMatchObject({ arrivalOther: false, arrivalNote: "Casier 12", locationId: prep.location.id });
+    const relay = await addRelayPoint(admin, prep.preparer.id);
+    const w = await createSupplierOrder(client.actor, { supplierId: whatnot.id, locationId: relay.id, description: "Carte Pokémon", quantity: 1, arrivalNote: "Casier 12" });
+    expect(w).toMatchObject({ arrivalOther: false, arrivalNote: "Casier 12", locationId: relay.id });
 
     // Autre point : précision obligatoire, rattaché au point principal du préparateur.
     const base = { supplierId: other.id, supplierLabel: "Leboncoin", locationId: ARRIVAL_OTHER, description: "Lampe vintage", quantity: 1, compatibilityConfirmed: true };
@@ -35,7 +36,7 @@ describe("Déclarer une commande : fournisseur et lieu d'arrivée", () => {
       ...base,
       mode: "DROPSHIP",
       supplierLabel: "Une boutique en ligne",
-      locationId: prep.location.id,
+      locationId: relay.id,
       buyerName: "Acheteuse",
       buyerAddressLine1: "1 rue A",
       buyerPostalCode: "75001",

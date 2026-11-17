@@ -42,6 +42,10 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   await page.locator('input[name="firstName"]').fill(client.first);
   await page.locator('input[name="lastName"]').fill(client.last);
   await page.locator('input[name="email"]').fill(client.email);
+  await page.locator('input[name="phone"]').fill("06 12 34 56 78");
+  await page.locator('input[name="addressLine1"]').fill("12 rue de la Paix");
+  await page.locator('input[name="postalCode"]').fill("75002");
+  await page.locator('input[name="city"]').fill("Paris");
   await page.locator('input[name="password"]').fill(PASSWORD);
   await page.locator('input[name="acceptTerms"]').check();
   await page.getByRole("button", { name: "Créer mon compte" }).click();
@@ -85,6 +89,8 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   await expect(page.getByRole("heading", { name: "Adresses de réception validées" })).toBeVisible();
   await page.goto("/client/commander");
   const form = page.locator("#nouvelle-commande");
+  // Juste après le chargement, le formulaire peut apparaître deux fois le temps de l'hydratation.
+  await expect(form.locator('select[name="supplierId"]')).toHaveCount(1);
   await form.locator('select[name="supplierId"]').selectOption({ label: "ZenMarket" });
   await form.locator('input[name="description"]').fill("Coque de téléphone transparente");
   await form.locator('input[name="quantity"]').fill("2");

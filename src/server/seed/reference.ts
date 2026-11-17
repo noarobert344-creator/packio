@@ -55,9 +55,10 @@ export const DEFAULT_CREDIT_PACKS = [
   { name: "100 crédits", credits: 100, priceCents: 24900, sortOrder: 4 },
 ];
 
-const ALL: LocationType[] = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT", "POST_OFFICE"];
+/** Tous les points sauf l'adresse du préparateur, réservée aux commandes du Japon (ZenMarket). */
+const ALL: LocationType[] = ["LOCKER", "RELAY_POINT", "POST_OFFICE"];
 /** Vinted : livraison en point relais / locker (ou adresse), pas en poste restante. */
-const PICKUPS: LocationType[] = ["BUSINESS_ADDRESS", "LOCKER", "RELAY_POINT"];
+const PICKUPS: LocationType[] = ["LOCKER", "RELAY_POINT"];
 /** Commandes pour le stock : ZenMarket, Vinted, Vestiaire Collective. Dropshipping : Temu, SHEIN, AliExpress. */
 const STOCK: OrderMode[] = ["STOCK"];
 const DROPSHIP: OrderMode[] = ["DROPSHIP"];
@@ -75,11 +76,11 @@ const DROPSHIP: OrderMode[] = ["DROPSHIP"];
 export const TEMU_NETWORKS = ["MONDIAL_RELAY", "CHRONOPOST_PICKUP", "LA_POSTE"];
 export const ALIEXPRESS_NETWORKS = ["RELAIS_COLIS", "CHRONOPOST_PICKUP", "LA_POSTE", "INPOST"];
 export const TEMU_NOTES =
-  "Au paiement, choisissez « Point Relais » si Temu le propose pour vos articles : livré à un point relais ou une consigne de votre préparateur, sans supplément. Sinon, livraison à domicile en poste restante (supplément en crédits). Les délais varient : tenez-en compte dans le délai annoncé à votre acheteur.";
+  "Au paiement, choisissez « Point Relais » si Temu le propose pour vos articles : livré à un point relais ou une consigne de votre préparateur. Sinon, livraison à domicile en poste restante. Les délais varient : tenez-en compte dans le délai annoncé à votre acheteur.";
 export const SHEIN_NOTES =
-  "Au paiement, choisissez la livraison en point relais (Mondial Relay) : sans supplément. Si elle n'est pas proposée, livraison à domicile en poste restante (supplément en crédits).";
+  "Au paiement, choisissez la livraison en point relais (Mondial Relay). Si elle n'est pas proposée, livraison à domicile en poste restante.";
 export const ALIEXPRESS_NOTES =
-  "Au paiement, choisissez un point de retrait (Relais Colis, relais ou consigne Pickup, locker InPost) s'il est proposé : sans supplément. Sinon, livraison à domicile en poste restante (supplément en crédits). Les options varient selon le vendeur et votre zone.";
+  "Au paiement, choisissez un point de retrait (Relais Colis, relais ou consigne Pickup, locker InPost) s'il est proposé. Sinon, livraison à domicile en poste restante. Les options varient selon le vendeur et votre zone.";
 
 /** ZenMarket : poste japonaise remise à La Poste, donc poste restante possible (pas DHL ni FedEx). */
 export const ZENMARKET_NOTES =
@@ -113,7 +114,7 @@ export const DEFAULT_SUPPLIERS = [
     code: "VESTIAIRE",
     name: "Vestiaire Collective",
     websiteUrl: "https://fr.vestiairecollective.com",
-    acceptedLocationTypes: ["POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
+    acceptedLocationTypes: ["POST_OFFICE"] as LocationType[],
     acceptedNetworks: [],
     requiresPickupCode: false,
     orderModes: STOCK,
@@ -125,7 +126,7 @@ export const DEFAULT_SUPPLIERS = [
     code: "TEMU",
     name: "Temu",
     websiteUrl: "https://www.temu.com/fr",
-    acceptedLocationTypes: ["RELAY_POINT", "LOCKER", "POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
+    acceptedLocationTypes: ["RELAY_POINT", "LOCKER", "POST_OFFICE"] as LocationType[],
     acceptedNetworks: TEMU_NETWORKS,
     requiresPickupCode: false,
     orderModes: DROPSHIP,
@@ -136,7 +137,7 @@ export const DEFAULT_SUPPLIERS = [
     code: "SHEIN",
     name: "SHEIN",
     websiteUrl: "https://fr.shein.com",
-    acceptedLocationTypes: ["RELAY_POINT", "POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
+    acceptedLocationTypes: ["RELAY_POINT", "POST_OFFICE"] as LocationType[],
     acceptedNetworks: ["MONDIAL_RELAY", "RELAIS_COLIS"],
     requiresPickupCode: false,
     orderModes: DROPSHIP,
@@ -147,7 +148,7 @@ export const DEFAULT_SUPPLIERS = [
     code: "ALIEXPRESS",
     name: "AliExpress",
     websiteUrl: "https://fr.aliexpress.com",
-    acceptedLocationTypes: ["RELAY_POINT", "LOCKER", "POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
+    acceptedLocationTypes: ["RELAY_POINT", "LOCKER", "POST_OFFICE"] as LocationType[],
     acceptedNetworks: ALIEXPRESS_NETWORKS,
     requiresPickupCode: false,
     orderModes: DROPSHIP,

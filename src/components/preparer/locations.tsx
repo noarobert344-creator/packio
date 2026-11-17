@@ -8,7 +8,7 @@ import { LOCATION_TYPE, PICKUP_NETWORKS } from "@/lib/labels";
 import { proposeLocationAction, removeLocationAction, setPrimaryLocationAction } from "@/server/actions/preparer";
 import { StepButton, StepDialog } from "./step-form";
 
-type PointType = "LOCKER" | "RELAY_POINT" | "POST_OFFICE";
+type PointType = "LOCKER" | "RELAY_POINT" | "POST_OFFICE" | "BUSINESS_ADDRESS";
 
 export type PreparerLocationValues = {
   id: string;
@@ -31,7 +31,8 @@ export type PreparerLocationValues = {
 
 /**
  * Ajout ou modification d'un point de réception par le préparateur : lockers,
- * points relais et poste restante uniquement, jamais d'adresse.
+ * points relais, poste restante, et son adresse pour les seules commandes du
+ * Japon (ZenMarket).
  */
 export function LocationDialog({
   location,
@@ -77,9 +78,15 @@ export function LocationDialog({
           required
           value={type}
           onChange={(e) => setType(e.target.value as PointType)}
-          options={(["LOCKER", "RELAY_POINT", "POST_OFFICE"] as const).map((k) => ({ value: k, label: LOCATION_TYPE[k] }))}
+          options={(["LOCKER", "RELAY_POINT", "POST_OFFICE", "BUSINESS_ADDRESS"] as const).map((k) => ({ value: k, label: LOCATION_TYPE[k] }))}
         />
         <TextField name="label" label="Libellé" required defaultValue={location?.label ?? ""} placeholder="Ex. : Locker secondaire" />
+        {type === "BUSINESS_ADDRESS" && (
+          <p className="rounded-xl bg-info-soft p-3 text-xs text-info sm:col-span-2">
+            Votre adresse n&apos;est proposée à vos clients que pour les commandes du Japon (ZenMarket), qui ne peuvent pas être livrées en point relais. Les
+            clients qui la voient ont donné leur téléphone et leur adresse à l&apos;inscription.
+          </p>
+        )}
         {type === "POST_OFFICE" && (
           <>
             <p className="rounded-xl bg-info-soft p-3 text-xs text-info sm:col-span-2">
@@ -112,7 +119,7 @@ export function LocationDialog({
             <TextField name="openingHours" label="Horaires" defaultValue={location?.openingHours ?? ""} placeholder="Ex. : 24 h/24" />
           </>
         )}
-        <TextField name="addressLine1" label="Adresse du point" required defaultValue={location?.addressLine1 ?? ""} className="sm:col-span-2" />
+        <TextField name="addressLine1" label={type === "BUSINESS_ADDRESS" ? "Votre adresse" : "Adresse du point"} required defaultValue={location?.addressLine1 ?? ""} className="sm:col-span-2" />
         <TextField name="addressLine2" label="Complément d'adresse" defaultValue={location?.addressLine2 ?? ""} className="sm:col-span-2" />
         <TextField name="postalCode" label="Code postal" required defaultValue={location?.postalCode ?? ""} />
         <TextField name="city" label="Ville" required defaultValue={location?.city ?? defaultCity} />

@@ -11,16 +11,17 @@ import { updateItemDetails } from "@/server/services/inventory";
 import { buildZip } from "@/server/lib/zip";
 import { saveCreditPack, savePlan } from "@/server/services/catalog";
 import type { Actor } from "@/server/auth/actor";
-import { createAdmin, createCustomer, createPreparerWithLocation, db, ledgerInvariant, resetDb, wallet } from "../helpers";
+import { createAdmin, createCustomer, createPreparerWithLocation, db, ledgerInvariant, resetDb, wallet, addRelayPoint } from "../helpers";
 
 const address = { recipientName: "Marie Durand", addressLine1: "5 avenue Jean Jaurès", postalCode: "75019", city: "Paris", country: "FR" };
 
 async function setup(plan: "STARTER" | "PRO" = "STARTER") {
   const admin = await createAdmin();
   const prep = await createPreparerWithLocation(admin);
+  const relay = await addRelayPoint(admin, prep.preparer.id);
   const client = await createCustomer({ plan });
   await assignPreparer(admin, { customerId: client.customerId, preparerId: prep.preparer.id });
-  return { admin, prep, client };
+  return { admin, prep, relay, client };
 }
 
 /** Commande vers le stock : ZenMarket ; dropshipping : AliExpress. */
@@ -221,17 +222,17 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
   });
 
   it("dropshipping : sans place de stock, expédition express créée à la réception avec le bordereau", async () => {
-    const { prep, client } = await setup();
+    const { prep, relay, client } = await setup();
     await stocked(client.actor, prep.actor, prep.location.id, 5); // stock plein
     const sid = await supplierId("ALIEXPRESS");
     await expect(
-      createSupplierOrder(client.actor, { supplierId: sid, locationId: prep.location.id, description: "Sac vendu", quantity: 1, mode: "DROPSHIP" }),
+      createSupplierOrder(client.actor, { supplierId: sid, locationId: relay.id, description: "Sac vendu", quantity: 1, mode: "DROPSHIP" }),
     ).rejects.toMatchObject({ code: "DROPSHIP_RECIPIENT" });
 
     const label = await labelFile(client.actor);
     const order = await createSupplierOrder(client.actor, {
       supplierId: sid,
-      locationId: prep.location.id,
+      locationId: relay.id,
       description: "Sac vendu sur Vinted",
       quantity: 1,
       mode: "DROPSHIP",

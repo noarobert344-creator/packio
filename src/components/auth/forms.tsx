@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
-import { CheckboxField, TextField } from "@/components/shared/form-field";
+import { CheckboxField, SelectField, TextField } from "@/components/shared/form-field";
 import { PasswordField } from "./password-input";
 import { acceptInvitationAction, forgotPasswordAction, loginAction, registerAction, resetPasswordAction } from "@/server/actions/auth";
 
@@ -34,6 +34,33 @@ export function RegisterForm({ offre, periodicite }: { offre?: string; periodici
         <TextField name="lastName" label="Nom" autoComplete="family-name" required />
       </div>
       <TextField name="email" label="Adresse e-mail" type="email" autoComplete="email" required placeholder="vous@exemple.fr" />
+      <TextField name="phone" label="Téléphone" type="tel" autoComplete="tel" required placeholder="06 12 34 56 78" />
+      <TextField name="addressLine1" label="Adresse" autoComplete="address-line1" required placeholder="Numéro et rue" />
+      <TextField name="addressLine2" label="Complément d'adresse" autoComplete="address-line2" placeholder="Facultatif" />
+      <div className="grid gap-4 sm:grid-cols-[8rem_1fr_9rem]">
+        <TextField name="postalCode" label="Code postal" autoComplete="postal-code" required />
+        <TextField name="city" label="Ville" autoComplete="address-level2" required />
+        <SelectField
+          name="country"
+          label="Pays"
+          required
+          defaultValue="FR"
+          options={[
+            { value: "FR", label: "France" },
+            { value: "BE", label: "Belgique" },
+            { value: "LU", label: "Luxembourg" },
+            { value: "CH", label: "Suisse" },
+            { value: "DE", label: "Allemagne" },
+            { value: "ES", label: "Espagne" },
+            { value: "IT", label: "Italie" },
+            { value: "NL", label: "Pays-Bas" },
+            { value: "PT", label: "Portugal" },
+          ]}
+        />
+      </div>
+      <p className="-mt-1 text-xs text-muted-foreground">
+        Votre téléphone et votre adresse servent à vérifier votre compte et à vous renvoyer vos articles. Ils ne sont jamais montrés aux autres clients.
+      </p>
       <PasswordField name="password" label="Mot de passe" autoComplete="new-password" hint="Au moins 8 caractères." />
       <CheckboxField
         name="acceptTerms"

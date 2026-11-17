@@ -329,7 +329,12 @@ export default async function AdminCustomerPage({ params, searchParams }: { para
                 </a>
                 {!customer.user.emailVerifiedAt && <span className="ml-2 text-xs text-warning">non vérifié</span>}
               </KeyValue>
-              <KeyValue label="Téléphone">{customer.user.phone ?? "—"}</KeyValue>
+              <KeyValue label="Téléphone">{customer.user.phone ?? customer.returnPhone ?? "—"}</KeyValue>
+              <KeyValue label="Adresse">
+                {customer.returnAddressLine1
+                  ? [customer.returnAddressLine1, customer.returnAddressLine2, `${customer.returnPostalCode ?? ""} ${customer.returnCity ?? ""}`.trim(), customer.returnCountry].filter(Boolean).join(", ")
+                  : "—"}
+              </KeyValue>
               <KeyValue label="Boutique / société">{customer.companyName ?? "—"}</KeyValue>
               <KeyValue label="Code client">
                 <span className="font-mono">{customer.referenceCode}</span>

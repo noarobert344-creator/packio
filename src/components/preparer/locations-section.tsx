@@ -3,8 +3,7 @@ import { Section } from "@/components/shared/page-header";
 import { LOCATION_TYPE, networkLabel } from "@/lib/labels";
 import { LocationDialog, RemoveLocationButton, SetPrimaryButton, type PreparerLocationValues } from "./locations";
 
-type Location = Omit<PreparerLocationValues, "type" | "validated"> & {
-  type: PreparerLocationValues["type"] | "BUSINESS_ADDRESS";
+type Location = Omit<PreparerLocationValues, "validated"> & {
   isPrimary: boolean;
   isActive: boolean;
   validatedAt: Date | null;
@@ -27,14 +26,13 @@ export function PreparerLocationsSection({
   return (
     <Section
       title="Mes points de réception"
-      description="Lockers, points relais et poste restante où vos clients font livrer leurs achats : jamais chez vous. Communiqués aux clients une fois validés par Packio."
+      description="Lockers, points relais et poste restante où vos clients font livrer leurs achats. Votre adresse, si vous l'ajoutez, ne sert qu'aux commandes du Japon (ZenMarket). Communiqués aux clients une fois validés par Packio."
       actions={<LocationDialog {...defaults} />}
       contentClassName="p-0"
     >
       {active.length ? (
         <ul className="divide-y">
           {active.map((l) => {
-            const editable = l.type !== "BUSINESS_ADDRESS";
             const Icon = l.type === "POST_OFFICE" ? Mail : MapPin;
             return (
               <li key={l.id} className="flex flex-wrap items-start gap-3 px-5 py-4">
@@ -65,10 +63,9 @@ export function PreparerLocationsSection({
                       <Clock className="size-3.5" /> En attente de validation par Packio
                     </p>
                   )}
-                  {!editable && <p className="pt-1 text-xs text-muted-foreground">Lieu géré par l&apos;équipe Packio : écrivez-lui pour le modifier.</p>}
                 </div>
                 <div className="flex flex-wrap items-center gap-1">
-                  {editable && <LocationDialog location={{ ...l, type: l.type as PreparerLocationValues["type"], validated: !!l.validatedAt }} {...defaults} />}
+                  <LocationDialog location={{ ...l, validated: !!l.validatedAt }} {...defaults} />
                   {!l.isPrimary && <SetPrimaryButton locationId={l.id} />}
                   {active.length > 1 && <RemoveLocationButton locationId={l.id} label={l.label} />}
                 </div>

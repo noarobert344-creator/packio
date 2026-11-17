@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/lib/action-types";
-import { emailField, optionalText, phoneField, requiredText } from "@/lib/forms";
+import { emailField, optionalText, requiredText } from "@/lib/forms";
 import { toActionError, zodFieldErrors, formToObject } from "@/server/action";
 import { endSession, getSession, homePathFor, requestMeta, startSession } from "@/server/auth/current";
 import { setSessionSpace, toActor } from "@/server/auth/session-store";
@@ -42,7 +42,16 @@ const registerSchema = z.object({
   firstName: requiredText("Prénom", 1, 60),
   lastName: requiredText("Nom", 1, 60),
   email: emailField(),
-  phone: phoneField(),
+  // Téléphone et adresse obligatoires : les préparateurs peuvent confier leur adresse pour les commandes du Japon.
+  phone: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim() : v),
+    z.string({ error: "Téléphone requis" }).regex(/^\+?[0-9 ().-]{6,20}$/, { error: "Numéro de téléphone invalide" }).refine((v) => v.replace(/\D/g, "").length >= 9, { error: "Numéro de téléphone invalide" }),
+  ),
+  addressLine1: requiredText("Adresse", 3, 200),
+  addressLine2: optionalText(200),
+  postalCode: requiredText("Code postal", 2, 12),
+  city: requiredText("Ville", 1, 100),
+  country: z.enum(["FR", "BE", "LU", "CH", "DE", "ES", "IT", "NL", "PT"], { error: "Pays requis" }).catch("FR"),
   companyName: optionalText(120),
   password: z.string().min(1, { error: "Mot de passe requis" }).max(200),
   acceptTerms: z.literal("on", { error: "Vous devez accepter les conditions pour créer un compte" }),
@@ -55,7 +64,8 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
   if (!parsed.success) return { ok: false, error: "Certains champs sont invalides.", fieldErrors: zodFieldErrors(parsed.error) };
   let offre: string | undefined;
   try {
-    const user = await registerCustomer(parsed.data);
+    const { addressLine1, addressLine2, postalCode, city, country, ...rest } = parsed.data;
+    const user = await registerCustomer({ ...rest, address: { line1: addressLine1, line2: addressLine2 ?? null, postalCode, city, country } });
     await startSession(user.id);
     offre = parsed.data.offre?.toUpperCase();
   } catch (err) {
