@@ -79,24 +79,47 @@ async function registerCommands(guild: Guild) {
   ]);
 }
 
-/** Nouvelle tentative de connexion après un refus (option à activer, jeton changé…). */
+/** Nouvelle tentative de connexion après un refus (jeton changé…). */
 const RETRY_MS = 2 * 60 * 1000;
+/** Sans « Server Members Intent », le bot tourne quand même (tickets) et revérifie l'option régulièrement. */
+const UPGRADE_MS = 5 * 60 * 1000;
+
+let active: Client | null = null;
 
 export async function startDiscordBot() {
   const token = process.env.DISCORD_BOT_TOKEN?.trim();
   if (started || !token) return;
   started = true;
-  await connect(token);
+  await connect(token, true);
 }
 
-async function connect(token: string): Promise<void> {
-  setDiscordStatus({ state: "connexion" });
-  const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+/**
+ * Connexion du bot. withMembers : avec l'option « Server Members Intent »
+ * (nécessaire au message de bienvenue). Si Discord la refuse, le bot se
+ * connecte sans (les tickets marchent) et réessaie avec toutes les 5 minutes.
+ */
+async function connect(token: string, withMembers: boolean): Promise<void> {
+  if (!active) setDiscordStatus({ state: "connexion" });
+  const client = new Client({ intents: withMembers ? [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] : [GatewayIntentBits.Guilds] });
 
   client.once(Events.ClientReady, (ready) => {
-    console.log(`[discord] connecté en tant que ${ready.user.tag} (${ready.guilds.cache.size} serveur(s))`);
-    setDiscordStatus({ state: "connecté", detail: `${ready.user.tag} · ${ready.guilds.cache.size} serveur(s) : ${ready.guilds.cache.map((g) => g.name).join(", ") || "aucun (invitez le bot)"}` });
+    // Une seule connexion active : l'ancienne (sans l'option) s'arrête.
+    if (active && active !== client) active.destroy().catch(() => undefined);
+    active = client;
+    const servers = ready.guilds.cache.map((g) => g.name).join(", ") || "aucun (invitez le bot)";
+    console.log(`[discord] connecté en tant que ${ready.user.tag} (${ready.guilds.cache.size} serveur(s))${withMembers ? "" : " sans message de bienvenue"}`);
+    setDiscordStatus({
+      state: "connecté",
+      detail: withMembers
+        ? `${ready.user.tag} · ${ready.guilds.cache.size} serveur(s) : ${servers}`
+        : `${ready.user.tag} · ${servers} · tickets actifs ; message de bienvenue en attente : activez « Server Members Intent » (portail développeur Discord → Bot).`,
+    });
     for (const guild of ready.guilds.cache.values()) registerCommands(guild).catch((err) => console.error("[discord] commandes", err));
+    if (!withMembers) {
+      setTimeout(() => {
+        connect(token, true).catch((e) => console.error("[discord] reconnexion", e));
+      }, UPGRADE_MS);
+    }
   });
   client.on(Events.GuildCreate, (guild) => registerCommands(guild).catch((err) => console.error("[discord] commandes", err)));
   client.on(Events.GuildMemberAdd, (member) => {
@@ -148,11 +171,22 @@ async function connect(token: string): Promise<void> {
     await client.login(token);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    setDiscordStatus({ state: "erreur", detail: `${explainDiscordError(message)} Nouvel essai automatique dans 2 minutes.` });
-    console.error("[discord] connexion refusée :", message);
     await client.destroy().catch(() => undefined);
+    if (withMembers && /disallowed intents/i.test(message)) {
+      if (active) {
+        // Déjà connecté sans l'option : nouvel essai plus tard.
+        setTimeout(() => {
+          connect(token, true).catch((e) => console.error("[discord] reconnexion", e));
+        }, UPGRADE_MS);
+        return;
+      }
+      console.warn("[discord] « Server Members Intent » refusé : connexion sans message de bienvenue.");
+      return connect(token, false);
+    }
+    if (!active) setDiscordStatus({ state: "erreur", detail: `${explainDiscordError(message)} Nouvel essai automatique dans 2 minutes.` });
+    console.error("[discord] connexion refusée :", message);
     setTimeout(() => {
-      connect(token).catch((e) => console.error("[discord] reconnexion", e));
+      connect(token, withMembers).catch((e) => console.error("[discord] reconnexion", e));
     }, RETRY_MS);
   }
 }
