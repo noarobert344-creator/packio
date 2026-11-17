@@ -31,19 +31,31 @@ export function isWhopConfigured() {
 }
 
 function baseUrl() {
-  return env.whop.environment === "sandbox" ? "https://sandbox-api.whop.com/api/v1" : "https://api.whop.com/api/v1";
+  return env.whop.environment === "sandbox"
+    ? "https://sandbox-api.whop.com/api/v1"
+    : "https://api.whop.com/api/v1";
 }
 
-async function whopRequest<T>(method: "GET" | "POST" | "PATCH", path: string, body?: unknown, opts?: { idempotencyKey?: string }): Promise<T> {
-  if (!env.whop.apiKey) throw new WhopApiError("WHOP_API_KEY n'est pas configurée.", 500);
+async function whopRequest<T>(
+  method: "GET" | "POST" | "PATCH",
+  path: string,
+  body?: unknown,
+  opts?: { idempotencyKey?: string },
+): Promise<T> {
+  if (!env.whop.apiKey)
+    throw new WhopApiError("WHOP_API_KEY n'est pas configurée.", 500);
   const res = await fetch(`${baseUrl()}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${env.whop.apiKey}`,
       "Content-Type": "application/json",
       Accept: "application/json",
-      ...(env.whop.apiVersionDate ? { "Api-Version-Date": env.whop.apiVersionDate } : {}),
-      ...(opts?.idempotencyKey ? { "Idempotency-Key": opts.idempotencyKey.slice(0, 255) } : {}),
+      ...(env.whop.apiVersionDate
+        ? { "Api-Version-Date": env.whop.apiVersionDate }
+        : {}),
+      ...(opts?.idempotencyKey
+        ? { "Idempotency-Key": opts.idempotencyKey.slice(0, 255) }
+        : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(20_000),
@@ -59,7 +71,11 @@ async function whopRequest<T>(method: "GET" | "POST" | "PATCH", path: string, bo
   }
   if (!res.ok) {
     const err = asObj(asObj(json).error);
-    const message = (typeof err.message === "string" && err.message) || (typeof asObj(json).message === "string" && (asObj(json).message as string)) || `HTTP ${res.status}`;
+    const message =
+      (typeof err.message === "string" && err.message) ||
+      (typeof asObj(json).message === "string" &&
+        (asObj(json).message as string)) ||
+      `HTTP ${res.status}`;
     throw new WhopApiError(`Whop : ${message}`, res.status);
   }
   return json as T;
@@ -96,19 +112,61 @@ export async function createCheckoutConfiguration(input: {
     metadata: input.metadata,
     redirect_url: input.redirectUrl,
     // Le compte Whop est rappelé dans le forfait créé à la volée (champ prévu par l'API actuelle).
-    ...(input.variantId ? { variant_id: input.variantId } : { variant: { ...input.variant, ...(env.whop.accountId ? { account_id: env.whop.accountId } : {}) } }),
+    ...(input.variantId
+      ? { variant_id: input.variantId }
+      : {
+          variant: {
+            ...input.variant,
+            ...(env.whop.accountId ? { account_id: env.whop.accountId } : {}),
+          },
+        }),
   };
-  const res = await whopRequest<{ id: string; purchase_url: string }>("POST", "/checkout_configurations", body, { idempotencyKey: input.idempotencyKey });
-  if (!res.purchase_url) throw new WhopApiError("Whop n'a pas renvoyé de lien de paiement.", 502);
+  const res = await whopRequest<{ id: string; purchase_url: string }>(
+    "POST",
+    "/checkout_configurations",
+    body,
+    { idempotencyKey: input.idempotencyKey },
+  );
+  if (!res.purchase_url)
+    throw new WhopApiError("Whop n'a pas renvoyé de lien de paiement.", 502);
   return res;
 }
 
+/**
+ * Produit Whop qui regroupe les forfaits Packio. Whop l'exige pour créer un
+ * abonnement à la volée (« you must pass in product details »).
+ */
+export async function createWhopProduct(input: {
+  title: string;
+  description?: string;
+  idempotencyKey?: string;
+}): Promise<{ id: string }> {
+  const body = {
+    title: input.title,
+    ...(input.description ? { description: input.description } : {}),
+    ...(env.whop.accountId ? { account_id: env.whop.accountId } : {}),
+  };
+  const res = await whopRequest<{ id?: string }>("POST", "/products", body, {
+    idempotencyKey: input.idempotencyKey,
+  });
+  if (typeof res.id !== "string" || !res.id.startsWith("prod_"))
+    throw new WhopApiError("Whop n'a pas renvoyé de produit.", 502);
+  return { id: res.id };
+}
+
 export function retrieveMembership(id: string) {
-  return whopRequest<Record<string, unknown>>("GET", `/memberships/${encodeURIComponent(id)}`);
+  return whopRequest<Record<string, unknown>>(
+    "GET",
+    `/memberships/${encodeURIComponent(id)}`,
+  );
 }
 
 export function cancelMembershipAtPeriodEnd(id: string) {
-  return whopRequest<Record<string, unknown>>("POST", `/memberships/${encodeURIComponent(id)}/cancel`, { cancel_at_period_end: true });
+  return whopRequest<Record<string, unknown>>(
+    "POST",
+    `/memberships/${encodeURIComponent(id)}/cancel`,
+    { cancel_at_period_end: true },
+  );
 }
 
 /**
@@ -118,17 +176,36 @@ export function cancelMembershipAtPeriodEnd(id: string) {
  */
 export function updateMembership(
   id: string,
-  body: { cancel_at_period_end: boolean } | { renewal_price: number } | { metadata: Record<string, unknown> },
+  body:
+    | { cancel_at_period_end: boolean }
+    | { renewal_price: number }
+    | { metadata: Record<string, unknown> },
 ) {
-  return whopRequest<Record<string, unknown>>("PATCH", `/memberships/${encodeURIComponent(id)}`, body);
+  return whopRequest<Record<string, unknown>>(
+    "PATCH",
+    `/memberships/${encodeURIComponent(id)}`,
+    body,
+  );
 }
 
 export function retrievePayment(id: string) {
-  return whopRequest<Record<string, unknown>>("GET", `/payments/${encodeURIComponent(id)}`);
+  return whopRequest<Record<string, unknown>>(
+    "GET",
+    `/payments/${encodeURIComponent(id)}`,
+  );
 }
 
-export function refundWhopPayment(id: string, partialAmount: number | null, idempotencyKey: string) {
-  return whopRequest<Record<string, unknown>>("POST", `/payments/${encodeURIComponent(id)}/refund`, partialAmount ? { partial_amount: partialAmount } : {}, { idempotencyKey });
+export function refundWhopPayment(
+  id: string,
+  partialAmount: number | null,
+  idempotencyKey: string,
+) {
+  return whopRequest<Record<string, unknown>>(
+    "POST",
+    `/payments/${encodeURIComponent(id)}/refund`,
+    partialAmount ? { partial_amount: partialAmount } : {},
+    { idempotencyKey },
+  );
 }
 
 // -----------------------------------------------------------------------------
@@ -143,14 +220,22 @@ const TOLERANCE_SECONDS = 5 * 60;
  * contenu `${webhook-id}.${webhook-timestamp}.${corps brut}` en HMAC-SHA256.
  * L'en-tête `webhook-signature` contient une ou plusieurs signatures `v1,<base64>`.
  */
-export function verifyWhopSignature(rawBody: string, headers: Headers, secret: string, now = Date.now()): boolean {
+export function verifyWhopSignature(
+  rawBody: string,
+  headers: Headers,
+  secret: string,
+  now = Date.now(),
+): boolean {
   const id = headers.get("webhook-id");
   const timestamp = headers.get("webhook-timestamp");
   const signatures = headers.get("webhook-signature");
   if (!id || !timestamp || !signatures || !secret) return false;
   const ts = Number(timestamp);
-  if (!Number.isFinite(ts) || Math.abs(now / 1000 - ts) > TOLERANCE_SECONDS) return false;
-  const expected = createHmac("sha256", Buffer.from(secret, "utf8")).update(`${id}.${timestamp}.${rawBody}`).digest();
+  if (!Number.isFinite(ts) || Math.abs(now / 1000 - ts) > TOLERANCE_SECONDS)
+    return false;
+  const expected = createHmac("sha256", Buffer.from(secret, "utf8"))
+    .update(`${id}.${timestamp}.${rawBody}`)
+    .digest();
   return signatures.split(" ").some((part) => {
     const [version, value] = part.split(",", 2);
     if (version !== "v1" || !value) return false;
@@ -160,9 +245,20 @@ export function verifyWhopSignature(rawBody: string, headers: Headers, secret: s
 }
 
 /** Signature d'un corps de webhook (tests et outils de développement). */
-export function signWhopWebhook(rawBody: string, secret: string, id: string, timestamp = Math.floor(Date.now() / 1000)) {
-  const signature = createHmac("sha256", Buffer.from(secret, "utf8")).update(`${id}.${timestamp}.${rawBody}`).digest("base64");
-  return { "webhook-id": id, "webhook-timestamp": String(timestamp), "webhook-signature": `v1,${signature}` };
+export function signWhopWebhook(
+  rawBody: string,
+  secret: string,
+  id: string,
+  timestamp = Math.floor(Date.now() / 1000),
+) {
+  const signature = createHmac("sha256", Buffer.from(secret, "utf8"))
+    .update(`${id}.${timestamp}.${rawBody}`)
+    .digest("base64");
+  return {
+    "webhook-id": id,
+    "webhook-timestamp": String(timestamp),
+    "webhook-signature": `v1,${signature}`,
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -184,7 +280,12 @@ export function idOf(v: unknown): string | null {
 /** Montant Whop → centimes. Accepte `{ amount: "29.90" }`, `"29.90"` ou `29.9`. */
 export function toCents(v: unknown): number {
   const raw = v && typeof v === "object" ? asObj(v).amount : v;
-  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number.parseFloat(raw) : Number.NaN;
+  const n =
+    typeof raw === "number"
+      ? raw
+      : typeof raw === "string"
+        ? Number.parseFloat(raw)
+        : Number.NaN;
   return Number.isFinite(n) ? Math.round(n * 100) : 0;
 }
 
@@ -205,10 +306,17 @@ export function toDate(v: unknown): Date | null {
 
 export function metadataOf(v: unknown): Record<string, string> {
   const meta = asObj(asObj(v).metadata);
-  return Object.fromEntries(Object.entries(meta).filter(([, value]) => value !== null && value !== undefined).map(([k, value]) => [k, String(value)]));
+  return Object.fromEntries(
+    Object.entries(meta)
+      .filter(([, value]) => value !== null && value !== undefined)
+      .map(([k, value]) => [k, String(value)]),
+  );
 }
 
-const STATUS_MAP: Record<string, import("@/generated/prisma/enums").SubscriptionStatus> = {
+const STATUS_MAP: Record<
+  string,
+  import("@/generated/prisma/enums").SubscriptionStatus
+> = {
   trialing: "TRIALING",
   active: "ACTIVE",
   past_due: "PAST_DUE",

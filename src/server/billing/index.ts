@@ -29,12 +29,14 @@ import {
   asObj,
   cancelMembershipAtPeriodEnd,
   createCheckoutConfiguration,
+  createWhopProduct,
   isWhopConfigured,
   mapMembershipStatus,
   refundWhopPayment,
   retrieveMembership,
   toDate,
   updateMembership,
+  WhopApiError,
 } from "./whop";
 
 export { isWhopConfigured };
@@ -58,6 +60,93 @@ function assertDevBilling() {
       "DEV_ONLY",
       "Le mode de paiement de démonstration est désactivé.",
     );
+}
+
+// -----------------------------------------------------------------------------
+// Produit Whop (créé automatiquement)
+// -----------------------------------------------------------------------------
+
+export const WHOP_PRODUCT_SETTING = "whop_product";
+
+/**
+ * Produit Whop des forfaits Packio : WHOP_PRODUCT_ID s'il est renseigné ;
+ * sinon créé une seule fois via l'API puis mémorisé (rien à configurer à la main).
+ */
+export async function ensureWhopProductId(): Promise<string> {
+  if (env.whop.productId) return env.whop.productId;
+  const accountId = env.whop.accountId ?? null;
+  const saved = await db.appSetting.findUnique({
+    where: { key: WHOP_PRODUCT_SETTING },
+  });
+  const value = asObj(saved?.value);
+  if (
+    typeof value.id === "string" &&
+    value.id.startsWith("prod_") &&
+    (value.accountId ?? null) === accountId
+  )
+    return value.id;
+  let product: { id: string };
+  try {
+    product = await createWhopProduct({
+      title: "Packio",
+      description:
+        "Abonnements et crédits Packio : logistique e-commerce déléguée à un préparateur attitré.",
+      idempotencyKey: `packio-product-${accountId ?? "default"}-${Math.floor(Date.now() / 60_000)}`,
+    });
+  } catch (err) {
+    if (
+      err instanceof WhopApiError &&
+      (err.status === 401 || err.status === 403)
+    ) {
+      throw new WhopApiError(
+        `${err.message} — la clé API Whop doit avoir la permission de créer un produit (access_pass:create), ou renseignez WHOP_PRODUCT_ID dans Render`,
+        err.status,
+      );
+    }
+    throw err;
+  }
+  const data = {
+    id: product.id,
+    accountId,
+    createdAt: new Date().toISOString(),
+  };
+  await db.appSetting.upsert({
+    where: { key: WHOP_PRODUCT_SETTING },
+    create: { key: WHOP_PRODUCT_SETTING, value: data },
+    update: { value: data },
+  });
+  return product.id;
+}
+
+/**
+ * Lien de paiement Whop avec le produit Packio. Si le produit mémorisé a été
+ * supprimé chez Whop, il est recréé une fois.
+ */
+async function whopCheckout(
+  input: Parameters<typeof createCheckoutConfiguration>[0],
+) {
+  if (input.variantId || !input.variant)
+    return createCheckoutConfiguration(input);
+  const variant = input.variant;
+  const run = async () =>
+    createCheckoutConfiguration({
+      ...input,
+      variant: { ...variant, product_id: await ensureWhopProductId() },
+    });
+  try {
+    return await run();
+  } catch (err) {
+    if (
+      !env.whop.productId &&
+      err instanceof WhopApiError &&
+      err.status < 500 &&
+      /product/i.test(err.message)
+    ) {
+      await db.appSetting.deleteMany({ where: { key: WHOP_PRODUCT_SETTING } });
+      return run();
+    }
+    throw err;
+  }
 }
 
 function assertWhop() {
@@ -133,7 +222,7 @@ async function createSubscriptionCheckout(input: {
   const { plan, interval } = input;
   const price = assertIntervalAvailable(plan, interval);
   const yearly = interval === "YEARLY";
-  const checkout = await createCheckoutConfiguration({
+  const checkout = await whopCheckout({
     variantId: yearly ? plan.whopAnnualPlanId : plan.whopPlanId,
     variant: {
       billing_type: "renewal",
@@ -145,7 +234,6 @@ async function createSubscriptionCheckout(input: {
       description: yearly
         ? `${plan.monthlyCredits} crédits de préparation par mois, facturation annuelle`
         : `${plan.monthlyCredits} crédits de préparation par mois`,
-      product_id: env.whop.productId || undefined,
       visibility: "hidden",
       release_method: "buy_now",
       unlimited_stock: true,
@@ -541,7 +629,7 @@ export async function startCreditPackCheckout(
     return { url: `/paiement-demo?type=credits&pack=${pack.id}` };
 
   assertWhop();
-  const checkout = await createCheckoutConfiguration({
+  const checkout = await whopCheckout({
     variantId: pack.whopPlanId,
     variant: {
       billing_type: "one_time",
@@ -549,7 +637,6 @@ export async function startCreditPackCheckout(
       currency: pack.currency,
       title: `Packio — ${pack.credits} crédits`,
       description: `${pack.credits} crédits de préparation supplémentaires`,
-      product_id: env.whop.productId || undefined,
       visibility: "hidden",
       release_method: "buy_now",
       unlimited_stock: true,
