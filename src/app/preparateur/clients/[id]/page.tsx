@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Boxes, MessagesSquare, Package, Truck } from "lucide-react";
+import { Boxes, MapPin, MessagesSquare, Package, Phone, Truck } from "lucide-react";
 import { requirePreparer } from "@/server/auth/current";
 import { getMyClient } from "@/server/queries/preparer";
 import { PageHeader, Section } from "@/components/shared/page-header";
@@ -51,6 +51,36 @@ export default async function PreparerClientPage({ params }: { params: Promise<{
           </>
         }
       />
+      <div className="grid gap-3 rounded-2xl border bg-card p-4 text-sm sm:grid-cols-2">
+        <p className="flex items-start gap-2">
+          <Phone className="mt-0.5 size-4 shrink-0 text-brand" />
+          <span>
+            <span className="block text-xs text-muted-foreground">Téléphone</span>
+            {customer.user.phone ?? customer.returnPhone ? (
+              <a href={`tel:${(customer.user.phone ?? customer.returnPhone)!.replace(/[^+\d]/g, "")}`} className="font-medium hover:underline">
+                {customer.user.phone ?? customer.returnPhone}
+              </a>
+            ) : (
+              <span className="text-muted-foreground">Non renseigné</span>
+            )}
+          </span>
+        </p>
+        <p className="flex items-start gap-2">
+          <MapPin className="mt-0.5 size-4 shrink-0 text-brand" />
+          <span>
+            <span className="block text-xs text-muted-foreground">Adresse</span>
+            {customer.returnAddressLine1 ? (
+              <span className="font-medium">
+                {[customer.returnAddressLine1, customer.returnAddressLine2, `${customer.returnPostalCode ?? ""} ${customer.returnCity ?? ""}`.trim(), customer.returnCountry && customer.returnCountry !== "FR" ? customer.returnCountry : null]
+                  .filter(Boolean)
+                  .join(", ")}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Non renseignée</span>
+            )}
+          </span>
+        </p>
+      </div>
       <div className="rounded-2xl border bg-muted/40 p-4 text-sm">
         <p className="font-medium">Identifier les colis de ce client</p>
         <p className="mt-0.5 text-muted-foreground">

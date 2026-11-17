@@ -186,7 +186,7 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
     if (!location || location.preparerId !== preparerId || !location.isActive || !location.validatedAt) {
       throw new DomainError("LOCATION", "Ce point de réception n'est pas disponible.", { fieldErrors: { locationId: "Point de réception invalide" } });
     }
-    // Adresse du préparateur (commandes du Japon) : réservée aux clients identifiés (téléphone et adresse).
+    // Adresse du préparateur : réservée aux clients identifiés (téléphone et adresse).
     if (!arrivalOther && location.type === "BUSINESS_ADDRESS") {
       const me = await tx.customerProfile.findUniqueOrThrow({
         where: { id: customerId },

@@ -29,8 +29,7 @@ export function OnboardingForm({ defaultPhone }: { defaultPhone: string | null }
           <MapPin className="size-4 text-brand" /> Vos points de réception (au moins un)
         </legend>
         <p className="-mt-2 text-sm text-muted-foreground">
-          Vos clients font livrer leurs achats dans ces lockers ou en poste restante au bureau de poste. Pour les commandes du Japon (ZenMarket), qui ne peuvent
-          pas aller en point relais, vous pouvez aussi indiquer votre adresse ci-dessous. Laissez vides ceux que vous n&apos;utilisez pas.
+          Vos clients font livrer leurs achats dans ces lockers ou en poste restante au bureau de poste. Pour les fournisseurs qui ne livrent pas en point relais (Japon, fournisseurs privés…), vous pouvez aussi indiquer votre adresse ci-dessous. Laissez vides ceux que vous n&apos;utilisez pas.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
           {LOCKERS.map((l) => (
@@ -49,10 +48,10 @@ export function OnboardingForm({ defaultPhone }: { defaultPhone: string | null }
 
       <fieldset className="grid gap-4">
         <legend className="mb-1 flex items-center gap-2 text-base font-semibold">
-          <Home className="size-4 text-brand" /> Votre adresse pour les commandes du Japon (facultatif)
+          <Home className="size-4 text-brand" /> Votre adresse (facultatif)
         </legend>
         <p className="-mt-2 text-sm text-muted-foreground">
-          Proposée à vos clients uniquement pour les commandes ZenMarket. Ils ont tous donné leur téléphone et leur adresse à l&apos;inscription.
+          Proposée à vos clients quand le fournisseur ne livre pas en point relais ni en locker. Ils ont tous donné leur téléphone et leur adresse à l&apos;inscription.
         </p>
         <div className="grid gap-3 rounded-xl border p-4 md:grid-cols-2">
           <TextField name="home_addressLine1" label="Adresse" className="md:col-span-2" autoComplete="address-line1" />

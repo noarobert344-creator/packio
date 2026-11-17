@@ -42,7 +42,7 @@ const registerSchema = z.object({
   firstName: requiredText("Prénom", 1, 60),
   lastName: requiredText("Nom", 1, 60),
   email: emailField(),
-  // Téléphone et adresse obligatoires : les préparateurs peuvent confier leur adresse pour les commandes du Japon.
+  // Téléphone et adresse obligatoires : les préparateurs peuvent confier leur adresse à leurs clients.
   phone: z.preprocess(
     (v) => (typeof v === "string" ? v.trim() : v),
     z.string({ error: "Téléphone requis" }).regex(/^\+?[0-9 ().-]{6,20}$/, { error: "Numéro de téléphone invalide" }).refine((v) => v.replace(/\D/g, "").length >= 9, { error: "Numéro de téléphone invalide" }),

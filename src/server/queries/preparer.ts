@@ -109,7 +109,8 @@ export async function getMyClient(preparerId: string, customerId: string) {
     db.customerProfile.findUnique({
       where: { id: customerId },
       include: {
-        user: { select: { firstName: true, lastName: true } },
+        // Téléphone et adresse : le client les donne à l'inscription, son préparateur attitré les voit.
+        user: { select: { firstName: true, lastName: true, phone: true } },
         subscriptions: { where: { status: { in: ["ACTIVE", "TRIALING", "PAST_DUE"] } }, include: { plan: { select: { name: true, storageLimit: true } } }, take: 1, orderBy: { createdAt: "desc" } },
       },
     }),

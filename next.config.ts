@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
       (process.env.NODE_ENV === "production" ? `local-${Date.now().toString(36)}` : "dev")
     ).slice(0, 12),
   },
-  serverExternalPackages: ["@prisma/client", "pg"],
+  serverExternalPackages: ["@prisma/client", "pg", "discord.js"],
   turbopack: {
     rules: {
       "*.css": {

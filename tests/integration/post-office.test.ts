@@ -52,7 +52,7 @@ describe("Poste restante : livrer sans jamais passer par le domicile du prépara
     });
     expect(checkCompatibility(vinted, { type: "POST_OFFICE", network: "LA_POSTE" }).ok).toBe(false);
 
-    // Le préparateur peut proposer son adresse : validée par Packio, proposée uniquement pour le Japon (ZenMarket).
+    // Le préparateur peut proposer son adresse : validée par Packio, proposée pour tous les fournisseurs (après les points relais et lockers).
     const home = await saveLocation(prep.actor, {
       preparerId: prep.preparer.id,
       type: "BUSINESS_ADDRESS",
@@ -69,9 +69,9 @@ describe("Poste restante : livrer sans jamais passer par le domicile du prépara
     expect(home).toMatchObject({ type: "BUSINESS_ADDRESS", validatedAt: null });
     await db.preparerLocation.update({ where: { id: home.id }, data: { validatedAt: new Date() } });
     expect(checkCompatibility(zen, home).ok).toBe(true);
-    expect(checkCompatibility(vinted, home).ok).toBe(false);
-    for (const code of ["VINTED", "VESTIAIRE", "TEMU", "SHEIN", "ALIEXPRESS", "WHATNOT", "OTHER"]) {
-      expect((await db.supplier.findUniqueOrThrow({ where: { code } })).acceptedLocationTypes).not.toContain("BUSINESS_ADDRESS");
+    expect(checkCompatibility(vinted, home).ok).toBe(true);
+    for (const code of ["ZENMARKET", "VINTED", "VESTIAIRE", "TEMU", "SHEIN", "ALIEXPRESS", "WHATNOT", "OTHER"]) {
+      expect((await db.supplier.findUniqueOrThrow({ where: { code } })).acceptedLocationTypes).toContain("BUSINESS_ADDRESS");
     }
     expect(await createSupplierOrder(client.actor, { supplierId: zen.id, locationId: home.id, description: "Figurine 2", quantity: 1 })).toMatchObject({ locationId: home.id });
     // Client sans téléphone ni adresse : pas de commande vers l'adresse d'un préparateur.

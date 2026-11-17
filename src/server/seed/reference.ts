@@ -55,10 +55,10 @@ export const DEFAULT_CREDIT_PACKS = [
   { name: "100 crédits", credits: 100, priceCents: 24900, sortOrder: 4 },
 ];
 
-/** Tous les points sauf l'adresse du préparateur, réservée aux commandes du Japon (ZenMarket). */
-const ALL: LocationType[] = ["LOCKER", "RELAY_POINT", "POST_OFFICE"];
+/** Tous les points ; l'adresse du préparateur est proposée en dernier, après les points relais et lockers. */
+const ALL: LocationType[] = ["LOCKER", "RELAY_POINT", "POST_OFFICE", "BUSINESS_ADDRESS"];
 /** Vinted : livraison en point relais / locker (ou adresse), pas en poste restante. */
-const PICKUPS: LocationType[] = ["LOCKER", "RELAY_POINT"];
+const PICKUPS: LocationType[] = ["LOCKER", "RELAY_POINT", "BUSINESS_ADDRESS"];
 /** Commandes pour le stock : ZenMarket, Vinted, Vestiaire Collective. Dropshipping : Temu, SHEIN, AliExpress. */
 const STOCK: OrderMode[] = ["STOCK"];
 const DROPSHIP: OrderMode[] = ["DROPSHIP"];
@@ -114,7 +114,7 @@ export const DEFAULT_SUPPLIERS = [
     code: "VESTIAIRE",
     name: "Vestiaire Collective",
     websiteUrl: "https://fr.vestiairecollective.com",
-    acceptedLocationTypes: ["POST_OFFICE"] as LocationType[],
+    acceptedLocationTypes: ["POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
     acceptedNetworks: [],
     requiresPickupCode: false,
     orderModes: STOCK,
@@ -126,7 +126,7 @@ export const DEFAULT_SUPPLIERS = [
     code: "TEMU",
     name: "Temu",
     websiteUrl: "https://www.temu.com/fr",
-    acceptedLocationTypes: ["RELAY_POINT", "LOCKER", "POST_OFFICE"] as LocationType[],
+    acceptedLocationTypes: ["RELAY_POINT", "LOCKER", "POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
     acceptedNetworks: TEMU_NETWORKS,
     requiresPickupCode: false,
     orderModes: DROPSHIP,
@@ -137,7 +137,7 @@ export const DEFAULT_SUPPLIERS = [
     code: "SHEIN",
     name: "SHEIN",
     websiteUrl: "https://fr.shein.com",
-    acceptedLocationTypes: ["RELAY_POINT", "POST_OFFICE"] as LocationType[],
+    acceptedLocationTypes: ["RELAY_POINT", "POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
     acceptedNetworks: ["MONDIAL_RELAY", "RELAIS_COLIS"],
     requiresPickupCode: false,
     orderModes: DROPSHIP,
@@ -148,7 +148,7 @@ export const DEFAULT_SUPPLIERS = [
     code: "ALIEXPRESS",
     name: "AliExpress",
     websiteUrl: "https://fr.aliexpress.com",
-    acceptedLocationTypes: ["RELAY_POINT", "LOCKER", "POST_OFFICE"] as LocationType[],
+    acceptedLocationTypes: ["RELAY_POINT", "LOCKER", "POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
     acceptedNetworks: ALIEXPRESS_NETWORKS,
     requiresPickupCode: false,
     orderModes: DROPSHIP,

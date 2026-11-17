@@ -120,7 +120,7 @@ export function Cgu({ ctx }: { ctx: LegalContext }) {
         <li>
           <strong>Préparateur</strong> : compte créé sur invitation de Packio ; il reçoit, prépare et envoie les colis des Clients qui lui sont attribués et
           n&apos;accède qu&apos;à leurs opérations. Il renseigne à son inscription son téléphone et ses points de réception (lockers, points relais, poste
-          restante) et, s&apos;il le souhaite, son adresse, proposée uniquement pour les commandes du Japon ; ces points sont communiqués aux Clients qui lui sont
+          restante) et, s&apos;il le souhaite, son adresse, proposée quand le fournisseur ne livre pas en point relais ; ces points sont communiqués aux Clients qui lui sont
           attribués après validation par Packio.
         </li>
         <li>
@@ -385,7 +385,10 @@ export function Confidentialite({ ctx }: { ctx: LegalContext }) {
       </p>
       <h2>2. Données traitées</h2>
       <ul>
-        <li>Identité et contact : nom, prénom, adresse e-mail, téléphone, adresse postale (demandés à l&apos;inscription), société.</li>
+        <li>
+          Identité et contact : nom, prénom, adresse e-mail, téléphone, adresse postale (demandés à l&apos;inscription), société. Le téléphone et l&apos;adresse
+          du Client sont visibles par l&apos;administration et par le Préparateur qui lui est attribué.
+        </li>
         <li>Compte : identifiants (mot de passe chiffré par hachage), journaux de connexion, préférences de notification.</li>
         <li>
           Logistique : commandes déclarées (y compris en dropshipping, avec l&apos;adresse de l&apos;acheteur lorsqu&apos;elle est fournie), numéros de suivi, codes de

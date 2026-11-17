@@ -31,8 +31,8 @@ export type PreparerLocationValues = {
 
 /**
  * Ajout ou modification d'un point de réception par le préparateur : lockers,
- * points relais, poste restante, et son adresse pour les seules commandes du
- * Japon (ZenMarket).
+ * points relais, poste restante, et son adresse pour les fournisseurs qui ne
+ * livrent pas en point relais.
  */
 export function LocationDialog({
   location,
@@ -83,7 +83,7 @@ export function LocationDialog({
         <TextField name="label" label="Libellé" required defaultValue={location?.label ?? ""} placeholder="Ex. : Locker secondaire" />
         {type === "BUSINESS_ADDRESS" && (
           <p className="rounded-xl bg-info-soft p-3 text-xs text-info sm:col-span-2">
-            Votre adresse n&apos;est proposée à vos clients que pour les commandes du Japon (ZenMarket), qui ne peuvent pas être livrées en point relais. Les
+            Votre adresse est proposée à vos clients quand le fournisseur ne livre pas en point relais ni en locker (Japon, fournisseurs privés…). Les points relais et lockers restent proposés en premier. Les
             clients qui la voient ont donné leur téléphone et leur adresse à l&apos;inscription.
           </p>
         )}

@@ -26,7 +26,7 @@ export function PreparerLocationsSection({
   return (
     <Section
       title="Mes points de réception"
-      description="Lockers, points relais et poste restante où vos clients font livrer leurs achats. Votre adresse, si vous l'ajoutez, ne sert qu'aux commandes du Japon (ZenMarket). Communiqués aux clients une fois validés par Packio."
+      description="Lockers, points relais et poste restante où vos clients font livrer leurs achats. Votre adresse, si vous l'ajoutez, sert quand le fournisseur ne livre pas en point relais. Communiqués aux clients une fois validés par Packio."
       actions={<LocationDialog {...defaults} />}
       contentClassName="p-0"
     >

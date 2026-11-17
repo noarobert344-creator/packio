@@ -361,6 +361,14 @@ npm run extension:build -- https://packio.onrender.com
 3. **Nouvel élément** : envoyez `dist/packio-connect-<version>.zip` (version 0.2.2 actuellement), puis remplissez la fiche avec les textes et images de [`extension/store/`](extension/store/fiche-chrome-web-store.md) et soumettez-la à l'examen (quelques jours en général).
 4. Une fois l'extension publiée, ajoutez `EXTENSION_STORE_URL` (adresse de la fiche) dans **packio → Environment**, puis redéployez : les clients voient le bouton **Installer depuis le Chrome Web Store**, puis **Connecter l'extension**, dans **Ventes et comptes liés**.
 
+### Bot Discord « Packio » (message de bienvenue)
+
+Le bot démarre avec le site (`src/instrumentation.ts`) quand `DISCORD_BOT_TOKEN` est renseigné ; il tourne en arrière-plan et ne bloque jamais le site. À chaque arrivée sur le serveur, il écrit dans le salon dont le nom contient « bienvenue » : « 👋 Bienvenue @membre ! » puis un encadré aux couleurs de Packio avec les salons « commencer-ici », « tarifs » et « centre-d'aide » (reconnus par leur nom) et la personne à contacter, et ajoute une réaction. `/test-bienvenue` (administrateurs du serveur) l'envoie pour soi.
+
+1. [Portail développeur Discord](https://discord.com/developers/applications) → **New Application** « Packio », icône `brand/packio-icone-1024.png`.
+2. **Bot** : activez **Server Members Intent**, puis **Reset Token** et collez le jeton dans **packio → Environment** sous `DISCORD_BOT_TOKEN` (jamais ailleurs).
+3. Invitez le bot : `https://discord.com/oauth2/authorize?client_id=<APPLICATION_ID>&scope=bot%20applications.commands&permissions=85056` (voir des salons, envoyer des messages, intégrer des liens, ajouter des réactions, lire l'historique).
+
 ## Déploiement (Vercel)
 
 1. Créez une base PostgreSQL managée (Neon, Supabase, Scaleway, RDS…). Utilisez l'URL **poolée** pour `DATABASE_URL` et, si nécessaire, l'URL directe pour `DIRECT_DATABASE_URL`.

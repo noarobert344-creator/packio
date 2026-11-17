@@ -225,7 +225,7 @@ export async function saveLocation(actor: Actor, input: LocationInput & { prepar
   if ((input.type === "LOCKER" || input.type === "RELAY_POINT") && (!input.network || !input.relayName)) {
     throw new DomainError("RELAY", "Indiquez le réseau et le nom exact du locker / point relais.", { fieldErrors: { relayName: "Requis", network: "Requis" } });
   }
-  // L'adresse du préparateur (validée par Packio) n'est proposée que pour les commandes du Japon (ZenMarket).
+  // L'adresse du préparateur (validée par Packio) sert quand le fournisseur ne livre pas en point relais.
   if (input.type === "POST_OFFICE" && !input.relayName?.trim()) {
     throw new DomainError("POST_OFFICE", "Indiquez le nom du bureau de poste.", { fieldErrors: { relayName: "Requis" } });
   }
@@ -451,7 +451,7 @@ export const ONBOARDING_LOCKER_NETWORKS = [
 
 export type OnboardingInput = {
   phone: string;
-  /** Adresse du préparateur, proposée uniquement pour les commandes du Japon (ZenMarket). */
+  /** Adresse du préparateur, pour les fournisseurs qui ne livrent pas en point relais. */
   home?: { addressLine1: string; addressLine2?: string | null; postalCode: string; city: string } | null;
   lockers: { network: (typeof ONBOARDING_LOCKER_NETWORKS)[number]["code"]; relayName: string; addressLine1: string; postalCode: string; city: string }[];
 };
@@ -475,7 +475,7 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
     const profile = await tx.preparerProfile.findUniqueOrThrow({ where: { id: preparerId }, include: { user: { select: { firstName: true, lastName: true } } } });
     if (profile.onboardedAt) throw new DomainError("ALREADY_DONE", "Votre fiche est déjà complétée : modifiez-la depuis vos paramètres.");
     if (input.lockers.length === 0 && !input.home) {
-      throw new DomainError("POINTS", "Renseignez au moins un point de réception : un locker, un bureau de poste, ou votre adresse pour les commandes du Japon.");
+      throw new DomainError("POINTS", "Renseignez au moins un point de réception : un locker, un bureau de poste ou votre adresse.");
     }
     const name = `${profile.user.firstName} ${profile.user.lastName}`;
     await tx.user.update({ where: { id: actor.userId }, data: { phone } });
@@ -517,7 +517,7 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
         data: {
           preparerId,
           type: "BUSINESS_ADDRESS",
-          label: "Mon adresse (commandes du Japon)",
+          label: "Mon adresse",
           network: null,
           addressLine1: input.home.addressLine1.trim(),
           addressLine2: input.home.addressLine2?.trim() || null,
