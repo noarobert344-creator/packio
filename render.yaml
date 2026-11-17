@@ -27,9 +27,10 @@ services:
     # construction et aux scripts de pré-déploiement.
     buildCommand: npm ci --include=dev && npm run build
     # Migrations, données de référence et compte administrateur (lien
-    # d'activation dans les journaux du déploiement), puis données de
+    # d'activation dans les journaux du déploiement), lancement réel unique si
+    # LAUNCH_RESET vaut 1 (voir scripts/launch.ts), puis données de
     # démonstration si DEMO_DATA vaut 1.
-    preDeployCommand: npx prisma migrate deploy && npm run db:bootstrap && if [ "$DEMO_DATA" = "1" ]; then npm run db:seed; fi
+    preDeployCommand: npx prisma migrate deploy && npm run db:bootstrap && if [ "$LAUNCH_RESET" = "1" ]; then npm run db:launch; fi && if [ "$DEMO_DATA" = "1" ]; then npm run db:seed; fi
     startCommand: npm start
     healthCheckPath: /connexion
     autoDeployTrigger: commit
@@ -54,15 +55,23 @@ services:
       # gratuite (aistudio.google.com/apikey), saisie dans le tableau de bord Render.
       - key: GEMINI_API_KEY
         sync: false
-      # Site de démonstration : comptes de démo et paiements simulés (aucun
-      # encaissement). Pour le lancement réel, voir le README (base neuve,
-      # DEMO_DATA supprimé, BILLING_MODE=whop).
+      # Site lancé : vrais paiements Whop (WHOP_API_KEY, WHOP_ACCOUNT_ID et
+      # WHOP_WEBHOOK_SECRET saisis dans le tableau de bord), plus de comptes
+      # de démonstration ni de paiements simulés.
       - key: DEMO_DATA
-        value: "1"
+        value: "0"
       - key: BILLING_MODE
-        value: dev
+        value: whop
       - key: ALLOW_DEV_BILLING_IN_PRODUCTION
+        value: "0"
+      # Lancement réel (une seule fois, mémorisé en base) : efface la
+      # démonstration et les données de test, garde les réglages et les comptes
+      # réels, prépare les espaces préparateur et client du propriétaire.
+      - key: LAUNCH_RESET
         value: "1"
+      # Fiche de l'extension Packio Connect sur le Chrome Web Store.
+      - key: EXTENSION_STORE_URL
+        value: https://chromewebstore.google.com/detail/packio-connect/fehdelkhmckibnjmhplondmbahfcidec
 
   - type: cron
     name: packio-taches

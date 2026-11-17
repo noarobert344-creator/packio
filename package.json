@@ -15,6 +15,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "node --conditions=react-server --import tsx prisma/seed.ts",
     "db:bootstrap": "node --conditions=react-server --import tsx scripts/bootstrap.ts",
+    "db:launch": "node --conditions=react-server --import tsx scripts/launch.ts",
     "admin:create": "node --conditions=react-server --import tsx scripts/create-admin.ts",
     "extension:build": "node scripts/build-extension.mjs",
     "postinstall": "prisma generate"

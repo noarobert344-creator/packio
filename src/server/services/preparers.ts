@@ -470,6 +470,8 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
   const fieldErrors: Record<string, string> = {};
   if (phone.replace(/\D/g, "").length < 9) fieldErrors.phone = "Numéro de téléphone invalide";
   if (Object.keys(fieldErrors).length) throw new DomainError("ONBOARDING", "Complétez les champs obligatoires.", { fieldErrors });
+  // Administrateur qui est aussi préparateur : ses propres points sont validés d'office.
+  const selfValidate = await canValidateOwnLocations(actor);
 
   return withEffects(async (tx, fx) => {
     const profile = await tx.preparerProfile.findUniqueOrThrow({ where: { id: preparerId }, include: { user: { select: { firstName: true, lastName: true } } } });
@@ -508,6 +510,7 @@ export async function completeOnboarding(actor: Actor, input: OnboardingInput) {
           recipientName: name,
           recipientPhone: phone,
           isPrimary: primary,
+          ...(selfValidate ? { validatedAt: new Date(), validatedById: actor.userId } : {}),
         },
       });
     }

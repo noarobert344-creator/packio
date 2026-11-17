@@ -337,11 +337,11 @@ Le fichier [`render.yaml`](render.yaml) décrit tout : le site (service web avec
 
 Ce premier site contient les **comptes de démonstration** (mot de passe `Demo-Packio-2026`) et des **paiements simulés** (aucun encaissement), comme en développement.
 
-**Lancement réel :**
+**Lancement réel (fait le 17 novembre 2026) :**
 
-1. Créez une nouvelle base (ou un nouveau Blueprint) pour ne pas garder les données de démonstration.
-2. Dans **packio → Environment** : supprimez `DEMO_DATA` et `ALLOW_DEV_BILLING_IN_PRODUCTION`, passez `BILLING_MODE` à `whop`, ajoutez `WHOP_API_KEY`, `WHOP_ACCOUNT_ID`, `WHOP_WEBHOOK_SECRET` (voir « Paiements avec Whop »), `RESEND_API_KEY` et `EMAIL_FROM` pour les e-mails, et `EXTENSION_STORE_URL` (lien de Packio Connect sur le Chrome Web Store).
-3. Déclarez le webhook Whop sur `https://<votre-adresse>/api/webhooks/whop`.
+1. Dans **packio → Environment** : `WHOP_API_KEY`, `WHOP_ACCOUNT_ID`, `WHOP_WEBHOOK_SECRET` (voir « Paiements avec Whop »), et facultativement `RESEND_API_KEY` et `EMAIL_FROM` pour les e-mails.
+2. Déclarez le webhook Whop sur `https://<votre-adresse>/api/webhooks/whop`.
+3. Dans `render.yaml` : `BILLING_MODE=whop`, `DEMO_DATA=0`, `ALLOW_DEV_BILLING_IN_PRODUCTION=0`, `EXTENSION_STORE_URL`, et `LAUNCH_RESET=1` pour un déploiement : `npm run db:launch` efface alors, une seule fois (mémorisé dans `app_settings`), les comptes de démonstration et toutes les données de test (paiements simulés), garde les réglages et les comptes réels (les clients repassent « en attente de paiement »), et donne au propriétaire (`INITIAL_ADMIN_EMAIL`) un espace préparateur et un espace client actif (abonnement interne offert sur l'offre la plus haute, 1 000 crédits offerts). Il refuse de s'exécuter si Whop n'est pas configuré ou si un vrai paiement Whop existe déjà. Retirez ensuite `LAUNCH_RESET`.
 4. Domaine personnalisé (facultatif) : **Settings → Custom Domains**, puis mettez `APP_URL` à jour.
 5. Back-office → **Paramètres → Informations légales** : éditeur, et hébergeur « Render » avec l'adresse de la société indiquée sur render.com (reprise dans la politique de confidentialité).
 
