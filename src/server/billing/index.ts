@@ -128,15 +128,15 @@ async function whopCheckout(
   if (input.variantId || !input.variant)
     return createCheckoutConfiguration(input);
   const variant = input.variant;
-  // Prix affichés TTC : la taxe est incluse dans le prix, pas ajoutée au paiement.
-  let taxInclusive = true;
+  // Prix affichés hors taxes : la taxe est ajoutée au paiement, payée par le client.
+  let taxOverride = true;
   const run = async () =>
     createCheckoutConfiguration({
       ...input,
       variant: {
         ...variant,
         product_id: await ensureWhopProductId(),
-        ...(taxInclusive ? { override_tax_type: "inclusive" as const } : {}),
+        ...(taxOverride ? { override_tax_type: "exclusive" as const } : {}),
       },
     });
   for (let attempt = 0; ; attempt++) {
@@ -145,9 +145,9 @@ async function whopCheckout(
     } catch (err) {
       if (!(err instanceof WhopApiError) || err.status >= 500 || attempt >= 2)
         throw err;
-      if (taxInclusive && /tax/i.test(err.message)) {
+      if (taxOverride && /tax/i.test(err.message)) {
         // Option refusée par Whop : on garde le réglage de taxe du compte.
-        taxInclusive = false;
+        taxOverride = false;
         continue;
       }
       if (!env.whop.productId && /product/i.test(err.message)) {

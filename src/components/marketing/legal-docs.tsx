@@ -293,13 +293,15 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
       <p>
         Les offres (abonnements incluant un nombre mensuel de crédits de
         préparation) et les recharges ponctuelles sont présentées sur la page
-        Tarifs, avec leurs prix TTC en vigueur au jour de la souscription.
-        Chaque offre est proposée en formule mensuelle et, lorsque la page
-        Tarifs l&apos;indique, en formule annuelle à prix réduit. Chaque offre
-        inclut un préparateur attitré, le tableau de bord, le suivi du stock et
-        la messagerie. Packio peut faire évoluer ses tarifs ; les nouveaux prix
-        s&apos;appliquent aux nouvelles souscriptions, et aux abonnements en
-        cours après information préalable du Client.
+        Tarifs, avec leurs prix hors taxes en vigueur au jour de la
+        souscription. Les taxes applicables (TVA) s&apos;ajoutent à ces prix et
+        sont indiquées et payées au moment du paiement. Chaque offre est
+        proposée en formule mensuelle et, lorsque la page Tarifs l&apos;indique,
+        en formule annuelle à prix réduit. Chaque offre inclut un préparateur
+        attitré, le tableau de bord, le suivi du stock et la messagerie. Packio
+        peut faire évoluer ses tarifs ; les nouveaux prix s&apos;appliquent aux
+        nouvelles souscriptions, et aux abonnements en cours après information
+        préalable du Client.
       </p>
       <h2>3. Paiement</h2>
       <p>

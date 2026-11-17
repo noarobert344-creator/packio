@@ -94,13 +94,13 @@ describe("Whop : produit Packio créé automatiquement pour les abonnements", ()
     for (const c of checkouts) {
       expect(c.body).toMatchObject({
         account_id: "biz_Test123",
-        // Le premier jour : le prix de l'offre seul (pas de frais initiaux en plus), taxe comprise.
+        // Le premier jour : le prix de l'offre seul (pas de frais initiaux en plus), taxe ajoutée par Whop.
         variant: {
           billing_type: "renewal",
           product_id: "prod_auto1",
           initial_price: 0,
           renewal_price: plan.priceCents / 100,
-          override_tax_type: "inclusive",
+          override_tax_type: "exclusive",
         },
       });
     }
@@ -150,7 +150,7 @@ describe("Whop : produit Packio créé automatiquement pour les abonnements", ()
     ).toEqual(["prod_Supprime", "prod_auto1"]);
     vi.unstubAllGlobals();
 
-    // Si Whop refuse l'option « taxe comprise », le paiement se fait quand même.
+    // Si Whop refuse l'option de taxe, le paiement se fait quand même (réglage du compte).
     calls = stubWhop({ failCheckoutOnce: "Invalid override_tax_type" });
     expect(await startSubscriptionCheckout(a.actor, plan.id)).toEqual({
       url: "https://whop.com/checkout/ch_1",
@@ -161,6 +161,6 @@ describe("Whop : produit Packio créé automatiquement pour les abonnements", ()
         (c) =>
           (c.body.variant as { override_tax_type?: string }).override_tax_type,
       );
-    expect(tries).toEqual(["inclusive", undefined]);
+    expect(tries).toEqual(["exclusive", undefined]);
   });
 });
