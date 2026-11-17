@@ -67,6 +67,20 @@ const DROPSHIP: OrderMode[] = ["DROPSHIP"];
  * vérifiées et ajustées par l'administrateur selon les options réellement
  * proposées par chaque fournisseur au moment de l'achat.
  */
+/**
+ * Temu, SHEIN et AliExpress proposent souvent le point relais en France (selon
+ * l'article et la zone) : sans supplément Packio. À défaut, livraison « à
+ * domicile » en poste restante, avec le supplément « livraison à une adresse ».
+ */
+export const TEMU_NETWORKS = ["MONDIAL_RELAY", "CHRONOPOST_PICKUP", "LA_POSTE"];
+export const ALIEXPRESS_NETWORKS = ["RELAIS_COLIS", "CHRONOPOST_PICKUP", "LA_POSTE", "INPOST"];
+export const TEMU_NOTES =
+  "Au paiement, choisissez « Point Relais » si Temu le propose pour vos articles : livré à un point relais ou une consigne de votre préparateur, sans supplément. Sinon, livraison à domicile en poste restante (supplément en crédits). Les délais varient : tenez-en compte dans le délai annoncé à votre acheteur.";
+export const SHEIN_NOTES =
+  "Au paiement, choisissez la livraison en point relais (Mondial Relay) : sans supplément. Si elle n'est pas proposée, livraison à domicile en poste restante (supplément en crédits).";
+export const ALIEXPRESS_NOTES =
+  "Au paiement, choisissez un point de retrait (Relais Colis, relais ou consigne Pickup, locker InPost) s'il est proposé : sans supplément. Sinon, livraison à domicile en poste restante (supplément en crédits). Les options varient selon le vendeur et votre zone.";
+
 /** ZenMarket : poste japonaise remise à La Poste, donc poste restante possible (pas DHL ni FedEx). */
 export const ZENMARKET_NOTES =
   "Choisissez un envoi par la poste japonaise (EMS, ePacket ou courrier aérien) : il est livré en France par La Poste, en poste restante au bureau de poste de votre préparateur, avec le nom du destinataire indiqué. DHL et FedEx ne livrent pas en poste restante : dans ce cas, utilisez uniquement une adresse de domiciliation.";
@@ -111,35 +125,34 @@ export const DEFAULT_SUPPLIERS = [
     code: "TEMU",
     name: "Temu",
     websiteUrl: "https://www.temu.com/fr",
-    acceptedLocationTypes: ["POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
-    acceptedNetworks: [],
+    acceptedLocationTypes: ["RELAY_POINT", "LOCKER", "POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
+    acceptedNetworks: TEMU_NETWORKS,
     requiresPickupCode: false,
     orderModes: DROPSHIP,
     sortOrder: 5,
-    compatibilityNotes:
-      "Livraison en poste restante au bureau de poste de votre préparateur (colis remis à La Poste / Colissimo). Les délais de livraison varient : tenez-en compte dans le délai annoncé à votre acheteur.",
+    compatibilityNotes: TEMU_NOTES,
   },
   {
     code: "SHEIN",
     name: "SHEIN",
     websiteUrl: "https://fr.shein.com",
-    acceptedLocationTypes: ["BUSINESS_ADDRESS", "RELAY_POINT"] as LocationType[],
+    acceptedLocationTypes: ["RELAY_POINT", "POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
     acceptedNetworks: ["MONDIAL_RELAY", "RELAIS_COLIS"],
     requiresPickupCode: false,
     orderModes: DROPSHIP,
     sortOrder: 6,
-    compatibilityNotes: "La livraison en point relais n'est pas proposée pour toutes les commandes : vérifiez l'option au moment du paiement.",
+    compatibilityNotes: SHEIN_NOTES,
   },
   {
     code: "ALIEXPRESS",
     name: "AliExpress",
     websiteUrl: "https://fr.aliexpress.com",
-    acceptedLocationTypes: ["POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
-    acceptedNetworks: [],
+    acceptedLocationTypes: ["RELAY_POINT", "LOCKER", "POST_OFFICE", "BUSINESS_ADDRESS"] as LocationType[],
+    acceptedNetworks: ALIEXPRESS_NETWORKS,
     requiresPickupCode: false,
     orderModes: DROPSHIP,
     sortOrder: 7,
-    compatibilityNotes: "Livraison en poste restante au bureau de poste de votre préparateur (colis remis à La Poste / Colissimo). Les options de retrait varient selon le vendeur.",
+    compatibilityNotes: ALIEXPRESS_NOTES,
   },
   {
     code: "WHATNOT",

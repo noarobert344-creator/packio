@@ -104,6 +104,21 @@ describe("Poste restante : livrer sans jamais passer par le domicile du prépara
     const toLocker = await createSupplierOrder(client.actor, { supplierId: vinted.id, locationId: prep.location.id, description: "Veste", quantity: 1 });
     expect(toLocker.addressCreditsCharged).toBe(0);
     expect(await balance()).toBe(start);
+    // AliExpress en dropshipping vers un locker (point de retrait proposé au paiement) : sans supplément.
+    const ali = await db.supplier.findUniqueOrThrow({ where: { code: "ALIEXPRESS" } });
+    const aliToLocker = await createSupplierOrder(client.actor, {
+      supplierId: ali.id,
+      locationId: prep.location.id,
+      description: "Lampe",
+      quantity: 1,
+      mode: "DROPSHIP",
+      buyerName: "Acheteur",
+      buyerAddressLine1: "1 rue A",
+      buyerPostalCode: "75001",
+      buyerCity: "Paris",
+    });
+    expect(aliToLocker.addressCreditsCharged).toBe(0);
+    expect(await balance()).toBe(start);
 
     const toOffice = await createSupplierOrder(client.actor, { supplierId: zen.id, locationId: office.id, description: "Figurine", quantity: 1 });
     expect(toOffice.addressCreditsCharged).toBe(1);
