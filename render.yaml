@@ -64,6 +64,10 @@ services:
         value: whop
       - key: ALLOW_DEV_BILLING_IN_PRODUCTION
         value: "0"
+      # Entreprise Whop de Packio (identifiant public, pas un secret ; la clé API
+      # et le secret du webhook restent saisis dans le tableau de bord).
+      - key: WHOP_ACCOUNT_ID
+        value: biz_Ix3YEhPxitoOhG
       # Fiche de l'extension Packio Connect sur le Chrome Web Store.
       - key: EXTENSION_STORE_URL
         value: https://chromewebstore.google.com/detail/packio-connect/fehdelkhmckibnjmhplondmbahfcidec
