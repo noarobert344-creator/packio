@@ -4,20 +4,49 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/lib/action-types";
-import { checkbox, emailField, intField, optionalText, phoneField, requiredText, stringArray } from "@/lib/forms";
+import {
+  checkbox,
+  emailField,
+  intField,
+  optionalText,
+  phoneField,
+  requiredText,
+  stringArray,
+} from "@/lib/forms";
 import { formToObject, runAction } from "@/server/action";
 import { assertAdmin } from "@/server/auth/actor";
 import { db } from "@/server/db";
 import { DomainError, NotFoundError } from "@/server/errors";
-import { assignPreparer, notifyCustomerOfDelay, reassignCustomer, startReassignment } from "@/server/services/assignments";
+import {
+  assignPreparer,
+  notifyCustomerOfDelay,
+  reassignCustomer,
+  startReassignment,
+} from "@/server/services/assignments";
 import { adminAdjustCredits } from "@/server/services/credits";
-import { anonymizeCustomer, setCustomerStatus, updateCustomerNotes } from "@/server/services/catalog";
-import { cancelAbsence, clearPreparerAddress, createPreparer, deactivateLocation, declareAbsence, saveLocation, setLocationValidation, setParcelsProcessed, setPreparerStatus, updatePreparer } from "@/server/services/preparers";
+import {
+  anonymizeCustomer,
+  setCustomerStatus,
+  updateCustomerNotes,
+} from "@/server/services/catalog";
+import {
+  cancelAbsence,
+  clearPreparerAddress,
+  createPreparer,
+  deactivateLocation,
+  declareAbsence,
+  saveLocation,
+  setLocationValidation,
+  setParcelsProcessed,
+  setPreparerStatus,
+  updatePreparer,
+} from "@/server/services/preparers";
 import { sendInvitation } from "@/server/services/auth";
 import { sendMessage } from "@/server/services/messaging";
 import { assignIncident } from "@/server/services/incidents";
 import { adminReclassify } from "@/server/services/shipments";
 import { audit } from "@/server/services/audit";
+import { activateComplimentarySubscription } from "@/server/services/complimentary";
 
 function revalidateCustomer(customerId: string) {
   revalidatePath(`/admin/clients/${customerId}`);
@@ -28,16 +57,27 @@ function revalidateCustomer(customerId: string) {
 
 // ----------------------------------------------------------------------------- Attribution
 
-const assignSchema = z.object({ customerId: z.string().min(1), preparerId: z.string().min(1, { error: "Choisissez un préparateur" }), note: optionalText(500) });
+const assignSchema = z.object({
+  customerId: z.string().min(1),
+  preparerId: z.string().min(1, { error: "Choisissez un préparateur" }),
+  note: optionalText(500),
+});
 
-export async function assignPreparerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(assignSchema, formToObject(formData), async (actor, data) => {
-    await assignPreparer(actor, data);
-    revalidateCustomer(data.customerId);
-    revalidatePath(`/admin/preparateurs/${data.preparerId}`);
-    // Redirection serveur : la ligne de la file d'attente disparaît après l'attribution.
-    redirect(`/admin/clients/${data.customerId}?attribue=1`);
-  });
+export async function assignPreparerAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    assignSchema,
+    formToObject(formData),
+    async (actor, data) => {
+      await assignPreparer(actor, data);
+      revalidateCustomer(data.customerId);
+      revalidatePath(`/admin/preparateurs/${data.preparerId}`);
+      // Redirection serveur : la ligne de la file d'attente disparaît après l'attribution.
+      redirect(`/admin/clients/${data.customerId}?attribue=1`);
+    },
+  );
 }
 
 const reassignSchema = z.object({
@@ -47,31 +87,63 @@ const reassignSchema = z.object({
   transferStock: checkbox(),
 });
 
-export async function reassignCustomerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(reassignSchema, formToObject(formData), async (actor, data) => {
-    const res = await reassignCustomer(actor, data);
-    revalidateCustomer(data.customerId);
-    return {
-      ok: true,
-      message: data.transferStock ? `Client réattribué — ${res.transferredItems} article(s) transféré(s).` : "Client réattribué.",
-    };
-  });
+export async function reassignCustomerAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    reassignSchema,
+    formToObject(formData),
+    async (actor, data) => {
+      const res = await reassignCustomer(actor, data);
+      revalidateCustomer(data.customerId);
+      return {
+        ok: true,
+        message: data.transferStock
+          ? `Client réattribué — ${res.transferredItems} article(s) transféré(s).`
+          : "Client réattribué.",
+      };
+    },
+  );
 }
 
-export async function startReassignmentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ customerId: z.string().min(1), reason: requiredText("Motif", 3, 500) }), formToObject(formData), async (actor, data) => {
-    await startReassignment(actor, data);
-    revalidateCustomer(data.customerId);
-    return { ok: true, message: "Réattribution lancée : le délai de 24 h est relancé." };
-  });
+export async function startReassignmentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    z.object({
+      customerId: z.string().min(1),
+      reason: requiredText("Motif", 3, 500),
+    }),
+    formToObject(formData),
+    async (actor, data) => {
+      await startReassignment(actor, data);
+      revalidateCustomer(data.customerId);
+      return {
+        ok: true,
+        message: "Réattribution lancée : le délai de 24 h est relancé.",
+      };
+    },
+  );
 }
 
-export async function notifyDelayAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ customerId: z.string().min(1), message: optionalText(1000) }), formToObject(formData), async (actor, data) => {
-    await notifyCustomerOfDelay(actor, data);
-    revalidateCustomer(data.customerId);
-    return { ok: true, message: "Le client a été informé du retard (notification et e-mail)." };
-  });
+export async function notifyDelayAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    z.object({ customerId: z.string().min(1), message: optionalText(1000) }),
+    formToObject(formData),
+    async (actor, data) => {
+      await notifyCustomerOfDelay(actor, data);
+      revalidateCustomer(data.customerId);
+      return {
+        ok: true,
+        message: "Le client a été informé du retard (notification et e-mail).",
+      };
+    },
+  );
 }
 
 // ----------------------------------------------------------------------------- Clients
@@ -85,38 +157,79 @@ const creditSchema = z.object({
   requestId: z.string().min(8),
 });
 
-export async function adjustCreditsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(creditSchema, formToObject(formData), async (actor, data) => {
-    const { applied } = await adminAdjustCredits(actor, data);
-    revalidateCustomer(data.customerId);
-    if (!applied) return { ok: true, message: "Opération déjà enregistrée." };
-    return { ok: true, message: data.direction === "CREDIT" ? `${data.amount} crédit(s) ajouté(s).` : `${data.amount} crédit(s) débité(s).` };
-  });
-}
-
-export async function updateCustomerNotesAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ customerId: z.string().min(1), notes: z.string().max(5000) }), formToObject(formData), async (actor, data) => {
-    await updateCustomerNotes(actor, data);
-    revalidatePath(`/admin/clients/${data.customerId}`);
-    return { ok: true, message: "Notes internes enregistrées." };
-  });
-}
-
-export async function setCustomerStatusAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function adjustCreditsAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   return runAction(
-    z.object({ customerId: z.string().min(1), status: z.enum(["SUSPENDED", "ACTIVE"]), reason: requiredText("Motif", 3, 500) }),
+    creditSchema,
     formToObject(formData),
     async (actor, data) => {
-      await setCustomerStatus(actor, data);
+      const { applied } = await adminAdjustCredits(actor, data);
       revalidateCustomer(data.customerId);
-      return { ok: true, message: data.status === "SUSPENDED" ? "Compte client suspendu." : "Compte client réactivé." };
+      if (!applied) return { ok: true, message: "Opération déjà enregistrée." };
+      return {
+        ok: true,
+        message:
+          data.direction === "CREDIT"
+            ? `${data.amount} crédit(s) ajouté(s).`
+            : `${data.amount} crédit(s) débité(s).`,
+      };
     },
   );
 }
 
-export async function anonymizeCustomerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function updateCustomerNotesAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   return runAction(
-    z.object({ customerId: z.string().min(1), confirmation: z.literal("ANONYMISER", { error: "Saisissez ANONYMISER pour confirmer" }) }),
+    z.object({ customerId: z.string().min(1), notes: z.string().max(5000) }),
+    formToObject(formData),
+    async (actor, data) => {
+      await updateCustomerNotes(actor, data);
+      revalidatePath(`/admin/clients/${data.customerId}`);
+      return { ok: true, message: "Notes internes enregistrées." };
+    },
+  );
+}
+
+export async function setCustomerStatusAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    z.object({
+      customerId: z.string().min(1),
+      status: z.enum(["SUSPENDED", "ACTIVE"]),
+      reason: requiredText("Motif", 3, 500),
+    }),
+    formToObject(formData),
+    async (actor, data) => {
+      await setCustomerStatus(actor, data);
+      revalidateCustomer(data.customerId);
+      return {
+        ok: true,
+        message:
+          data.status === "SUSPENDED"
+            ? "Compte client suspendu."
+            : "Compte client réactivé.",
+      };
+    },
+  );
+}
+
+export async function anonymizeCustomerAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    z.object({
+      customerId: z.string().min(1),
+      confirmation: z.literal("ANONYMISER", {
+        error: "Saisissez ANONYMISER pour confirmer",
+      }),
+    }),
     formToObject(formData),
     async (actor, data) => {
       await anonymizeCustomer(actor, data.customerId);
@@ -146,25 +259,64 @@ const preparerSchema = z.object({
   adminNotes: optionalText(5000),
 });
 
-export async function createPreparerAction(_prev: ActionState<{ invitationUrl: string; preparerId: string }>, formData: FormData): Promise<ActionState<{ invitationUrl: string; preparerId: string }>> {
-  return runAction<typeof preparerSchema, { invitationUrl: string; preparerId: string }>(preparerSchema, formToObject(formData), async (actor, data) => {
-    const { postOfficeName, postOfficeAddress, postOfficePostalCode, postOfficeCity, ...input } = data;
-    const office = { postOfficeName, postOfficeAddress, postOfficePostalCode, postOfficeCity };
+export async function createPreparerAction(
+  _prev: ActionState<{ invitationUrl: string; preparerId: string }>,
+  formData: FormData,
+): Promise<ActionState<{ invitationUrl: string; preparerId: string }>> {
+  return runAction<
+    typeof preparerSchema,
+    { invitationUrl: string; preparerId: string }
+  >(preparerSchema, formToObject(formData), async (actor, data) => {
+    const {
+      postOfficeName,
+      postOfficeAddress,
+      postOfficePostalCode,
+      postOfficeCity,
+      ...input
+    } = data;
+    const office = {
+      postOfficeName,
+      postOfficeAddress,
+      postOfficePostalCode,
+      postOfficeCity,
+    };
     const filled = Object.values(office).filter(Boolean).length;
     if (filled > 0 && filled < 4) {
-      const fieldErrors = Object.fromEntries(Object.entries(office).filter(([, v]) => !v).map(([k]) => [k, "Requis pour le bureau de poste"]));
-      throw new DomainError("POST_OFFICE", "Complétez le bureau de poste, ou laissez-le entièrement vide.", { fieldErrors });
+      const fieldErrors = Object.fromEntries(
+        Object.entries(office)
+          .filter(([, v]) => !v)
+          .map(([k]) => [k, "Requis pour le bureau de poste"]),
+      );
+      throw new DomainError(
+        "POST_OFFICE",
+        "Complétez le bureau de poste, ou laissez-le entièrement vide.",
+        { fieldErrors },
+      );
     }
     const { preparer, invitationUrl } = await createPreparer(actor, {
       ...input,
-      postOffice: filled ? { name: postOfficeName!, addressLine1: postOfficeAddress!, postalCode: postOfficePostalCode!, city: postOfficeCity! } : null,
+      postOffice: filled
+        ? {
+            name: postOfficeName!,
+            addressLine1: postOfficeAddress!,
+            postalCode: postOfficePostalCode!,
+            city: postOfficeCity!,
+          }
+        : null,
     });
     revalidatePath("/admin/preparateurs");
-    return { ok: true, message: "Préparateur créé. Une invitation lui a été envoyée.", data: { invitationUrl, preparerId: preparer.id } };
+    return {
+      ok: true,
+      message: "Préparateur créé. Une invitation lui a été envoyée.",
+      data: { invitationUrl, preparerId: preparer.id },
+    };
   });
 }
 
-export async function updatePreparerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function updatePreparerAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const schema = preparerSchema.extend({ preparerId: z.string().min(1) });
   return runAction(schema, formToObject(formData), async (actor, data) => {
     const { preparerId, ...input } = data;
@@ -175,15 +327,46 @@ export async function updatePreparerAction(_prev: ActionState, formData: FormDat
   });
 }
 
-export async function clearPreparerAddressAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ preparerId: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    await clearPreparerAddress(actor, data.preparerId);
-    revalidatePath(`/admin/preparateurs/${data.preparerId}`);
-    return { ok: true, message: "Adresse personnelle effacée." };
+export async function activateSubscriptionAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const schema = z.object({
+    customerId: z.string().min(1),
+    planId: z.string().min(1, { error: "Offre requise" }),
+    months: intField("Durée", { min: 1, max: 12 }),
+    reason: requiredText("Motif", 3, 300),
+  });
+  return runAction(schema, formToObject(formData), async (actor, data) => {
+    const { until } = await activateComplimentarySubscription(actor, data);
+    revalidatePath(`/admin/clients/${data.customerId}`);
+    revalidatePath("/admin/clients");
+    return {
+      ok: true,
+      message: `Abonnement activé jusqu'au ${until.toLocaleDateString("fr-FR")} : le client reçoit ses crédits et sa demande d'attribution est ouverte.`,
+    };
   });
 }
 
-export async function setParcelsProcessedAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function clearPreparerAddressAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    z.object({ preparerId: z.string().min(1) }),
+    formToObject(formData),
+    async (actor, data) => {
+      await clearPreparerAddress(actor, data.preparerId);
+      revalidatePath(`/admin/preparateurs/${data.preparerId}`);
+      return { ok: true, message: "Adresse personnelle effacée." };
+    },
+  );
+}
+
+export async function setParcelsProcessedAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const schema = z.object({
     preparerId: z.string().min(1),
     value: intField("Nombre de colis", { min: 0, max: 1_000_000 }),
@@ -200,7 +383,10 @@ export async function setParcelsProcessedAction(_prev: ActionState, formData: Fo
   });
 }
 
-export async function setPreparerStatusAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function setPreparerStatusAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const schema = z.object({
     preparerId: z.string().min(1),
     status: z.enum(["ACTIVE", "UNAVAILABLE", "SUSPENDED"]),
@@ -211,24 +397,52 @@ export async function setPreparerStatusAction(_prev: ActionState, formData: Form
   return runAction(schema, formToObject(formData), async (actor, data) => {
     const { reassigning } = await setPreparerStatus(actor, {
       ...data,
-      deactivateAccount: data.status === "ACTIVE" ? false : data.deactivateAccount,
+      deactivateAccount:
+        data.status === "ACTIVE" ? false : data.deactivateAccount,
     });
     revalidatePath(`/admin/preparateurs/${data.preparerId}`);
     revalidatePath("/admin/preparateurs");
     revalidatePath("/admin/attributions");
-    return { ok: true, message: reassigning ? `Statut modifié — ${reassigning} client(s) à réattribuer.` : "Statut du préparateur modifié." };
+    return {
+      ok: true,
+      message: reassigning
+        ? `Statut modifié — ${reassigning} client(s) à réattribuer.`
+        : "Statut du préparateur modifié.",
+    };
   });
 }
 
-export async function resendInvitationAction(_prev: ActionState<{ invitationUrl: string }>, formData: FormData): Promise<ActionState<{ invitationUrl: string }>> {
-  return runAction<z.ZodObject<{ preparerId: z.ZodString }>, { invitationUrl: string }>(z.object({ preparerId: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    assertAdmin(actor, "preparers.manage");
-    const preparer = await db.preparerProfile.findUnique({ where: { id: data.preparerId }, select: { userId: true } });
-    if (!preparer) throw new NotFoundError("Préparateur introuvable.");
-    const { url } = await sendInvitation(preparer.userId);
-    await audit({ actor, action: "preparer.invitation_resent", entityType: "preparer", entityId: data.preparerId });
-    return { ok: true, message: "Invitation renvoyée.", data: { invitationUrl: url } };
-  });
+export async function resendInvitationAction(
+  _prev: ActionState<{ invitationUrl: string }>,
+  formData: FormData,
+): Promise<ActionState<{ invitationUrl: string }>> {
+  return runAction<
+    z.ZodObject<{ preparerId: z.ZodString }>,
+    { invitationUrl: string }
+  >(
+    z.object({ preparerId: z.string().min(1) }),
+    formToObject(formData),
+    async (actor, data) => {
+      assertAdmin(actor, "preparers.manage");
+      const preparer = await db.preparerProfile.findUnique({
+        where: { id: data.preparerId },
+        select: { userId: true },
+      });
+      if (!preparer) throw new NotFoundError("Préparateur introuvable.");
+      const { url } = await sendInvitation(preparer.userId);
+      await audit({
+        actor,
+        action: "preparer.invitation_resent",
+        entityType: "preparer",
+        entityId: data.preparerId,
+      });
+      return {
+        ok: true,
+        message: "Invitation renvoyée.",
+        data: { invitationUrl: url },
+      };
+    },
+  );
 }
 
 const locationSchema = z.object({
@@ -252,28 +466,75 @@ const locationSchema = z.object({
   validate: checkbox(),
 });
 
-export async function saveLocationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(locationSchema, formToObject(formData), async (actor, data) => {
-    await saveLocation(actor, data);
-    revalidatePath(`/admin/preparateurs/${data.preparerId}`);
-    return { ok: true, message: data.validate ? "Lieu enregistré et validé." : "Lieu enregistré (à valider avant d'être communiqué aux clients)." };
-  });
+export async function saveLocationAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    locationSchema,
+    formToObject(formData),
+    async (actor, data) => {
+      await saveLocation(actor, data);
+      revalidatePath(`/admin/preparateurs/${data.preparerId}`);
+      return {
+        ok: true,
+        message: data.validate
+          ? "Lieu enregistré et validé."
+          : "Lieu enregistré (à valider avant d'être communiqué aux clients).",
+      };
+    },
+  );
 }
 
-export async function setLocationValidationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ locationId: z.string().min(1), validated: z.enum(["1", "0"]), preparerId: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    await setLocationValidation(actor, { locationId: data.locationId, validated: data.validated === "1" });
-    revalidatePath(`/admin/preparateurs/${data.preparerId}`);
-    return { ok: true, message: data.validated === "1" ? "Lieu validé : il est désormais visible par les clients." : "Validation retirée : le lieu n'est plus communiqué aux clients." };
-  });
+export async function setLocationValidationAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    z.object({
+      locationId: z.string().min(1),
+      validated: z.enum(["1", "0"]),
+      preparerId: z.string().min(1),
+    }),
+    formToObject(formData),
+    async (actor, data) => {
+      await setLocationValidation(actor, {
+        locationId: data.locationId,
+        validated: data.validated === "1",
+      });
+      revalidatePath(`/admin/preparateurs/${data.preparerId}`);
+      return {
+        ok: true,
+        message:
+          data.validated === "1"
+            ? "Lieu validé : il est désormais visible par les clients."
+            : "Validation retirée : le lieu n'est plus communiqué aux clients.",
+      };
+    },
+  );
 }
 
-export async function deactivateLocationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ locationId: z.string().min(1), preparerId: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    const { pendingOrders } = await deactivateLocation(actor, data.locationId);
-    revalidatePath(`/admin/preparateurs/${data.preparerId}`);
-    return { ok: true, message: pendingOrders ? `Lieu désactivé — ${pendingOrders} commande(s) encore en route vers ce lieu.` : "Lieu désactivé." };
-  });
+export async function deactivateLocationAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    z.object({ locationId: z.string().min(1), preparerId: z.string().min(1) }),
+    formToObject(formData),
+    async (actor, data) => {
+      const { pendingOrders } = await deactivateLocation(
+        actor,
+        data.locationId,
+      );
+      revalidatePath(`/admin/preparateurs/${data.preparerId}`);
+      return {
+        ok: true,
+        message: pendingOrders
+          ? `Lieu désactivé — ${pendingOrders} commande(s) encore en route vers ce lieu.`
+          : "Lieu désactivé.",
+      };
+    },
+  );
 }
 
 function dayBoundary(v: unknown, end: boolean) {
@@ -281,34 +542,63 @@ function dayBoundary(v: unknown, end: boolean) {
   return new Date(`${v}T${end ? "23:59:59" : "00:00:00"}`);
 }
 
-export async function declareAbsenceAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function declareAbsenceAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const schema = z.object({
     preparerId: z.string().min(1),
-    startsAt: z.preprocess((v) => dayBoundary(v, false), z.date({ error: "Date de début invalide" })),
-    endsAt: z.preprocess((v) => dayBoundary(v, true), z.date({ error: "Date de fin invalide" })),
+    startsAt: z.preprocess(
+      (v) => dayBoundary(v, false),
+      z.date({ error: "Date de début invalide" }),
+    ),
+    endsAt: z.preprocess(
+      (v) => dayBoundary(v, true),
+      z.date({ error: "Date de fin invalide" }),
+    ),
     reason: optionalText(300),
   });
   return runAction(schema, formToObject(formData), async (actor, data) => {
     await declareAbsence(actor, data);
     revalidatePath(`/admin/preparateurs/${data.preparerId}`);
-    return { ok: true, message: "Absence enregistrée. Les clients attribués ont été prévenus." };
+    return {
+      ok: true,
+      message: "Absence enregistrée. Les clients attribués ont été prévenus.",
+    };
   });
 }
 
-export async function cancelAbsenceAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ absenceId: z.string().min(1), preparerId: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    await cancelAbsence(actor, data.absenceId);
-    revalidatePath(`/admin/preparateurs/${data.preparerId}`);
-    return { ok: true, message: "Absence annulée." };
-  });
+export async function cancelAbsenceAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    z.object({ absenceId: z.string().min(1), preparerId: z.string().min(1) }),
+    formToObject(formData),
+    async (actor, data) => {
+      await cancelAbsence(actor, data.absenceId);
+      revalidatePath(`/admin/preparateurs/${data.preparerId}`);
+      return { ok: true, message: "Absence annulée." };
+    },
+  );
 }
 
 /** Conversation directe administration ↔ préparateur (conversation de support). */
-export async function messagePreparerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const schema = z.object({ preparerId: z.string().min(1), subject: requiredText("Objet", 3, 140), body: requiredText("Message", 2, 5000) });
+export async function messagePreparerAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const schema = z.object({
+    preparerId: z.string().min(1),
+    subject: requiredText("Objet", 3, 140),
+    body: requiredText("Message", 2, 5000),
+  });
   return runAction(schema, formToObject(formData), async (actor, data) => {
     assertAdmin(actor, "support.manage");
-    const preparer = await db.preparerProfile.findUnique({ where: { id: data.preparerId }, select: { id: true, userId: true } });
+    const preparer = await db.preparerProfile.findUnique({
+      where: { id: data.preparerId },
+      select: { id: true, userId: true },
+    });
     if (!preparer) throw new NotFoundError("Préparateur introuvable.");
     let conversation = await db.conversation.findFirst({
       where: {
@@ -327,49 +617,94 @@ export async function messagePreparerAction(_prev: ActionState, formData: FormDa
           type: "SUPPORT",
           subject: data.subject,
           preparerId: preparer.id,
-          participants: { create: [{ userId: preparer.userId }, { userId: actor.userId, lastReadAt: new Date() }] },
+          participants: {
+            create: [
+              { userId: preparer.userId },
+              { userId: actor.userId, lastReadAt: new Date() },
+            ],
+          },
         },
       });
     }
-    await sendMessage(actor, { conversationId: conversation.id, body: data.body });
-    await audit({ actor, action: "preparer.message", entityType: "preparer", entityId: preparer.id, summary: data.subject });
-    return { ok: true, message: "Message envoyé au préparateur.", redirectTo: `/admin/support?c=${conversation.id}` };
+    await sendMessage(actor, {
+      conversationId: conversation.id,
+      body: data.body,
+    });
+    await audit({
+      actor,
+      action: "preparer.message",
+      entityType: "preparer",
+      entityId: preparer.id,
+      summary: data.subject,
+    });
+    return {
+      ok: true,
+      message: "Message envoyé au préparateur.",
+      redirectTo: `/admin/support?c=${conversation.id}`,
+    };
   });
 }
 
 // ----------------------------------------------------------------------------- Support / contact
 
-export async function markContactHandledAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  return runAction(z.object({ id: z.string().min(1) }), formToObject(formData), async (actor, data) => {
-    assertAdmin(actor, "support.manage");
-    const res = await db.contactRequest.updateMany({
-      where: { id: data.id, status: "NEW" },
-      data: { status: "HANDLED", handledById: actor.userId, handledAt: new Date() },
-    });
-    if (res.count === 0) throw new DomainError("ALREADY", "Cette demande est déjà traitée.");
-    await audit({ actor, action: "contact.handled", entityType: "contact_request", entityId: data.id });
-    revalidatePath("/admin/support");
-    return { ok: true, message: "Demande marquée comme traitée." };
-  });
+export async function markContactHandledAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  return runAction(
+    z.object({ id: z.string().min(1) }),
+    formToObject(formData),
+    async (actor, data) => {
+      assertAdmin(actor, "support.manage");
+      const res = await db.contactRequest.updateMany({
+        where: { id: data.id, status: "NEW" },
+        data: {
+          status: "HANDLED",
+          handledById: actor.userId,
+          handledAt: new Date(),
+        },
+      });
+      if (res.count === 0)
+        throw new DomainError("ALREADY", "Cette demande est déjà traitée.");
+      await audit({
+        actor,
+        action: "contact.handled",
+        entityType: "contact_request",
+        entityId: data.id,
+      });
+      revalidatePath("/admin/support");
+      return { ok: true, message: "Demande marquée comme traitée." };
+    },
+  );
 }
 
 // ----------------------------------------------------------------------------- Incidents
 
-export async function assignIncidentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function assignIncidentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const schema = z.object({
     incidentId: z.string().min(1),
     adminId: optionalText(40),
     priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]),
   });
   return runAction(schema, formToObject(formData), async (actor, data) => {
-    await assignIncident(actor, { incidentId: data.incidentId, adminId: data.adminId ?? null, priority: data.priority });
+    await assignIncident(actor, {
+      incidentId: data.incidentId,
+      adminId: data.adminId ?? null,
+      priority: data.priority,
+    });
     revalidatePath(`/admin/incidents/${data.incidentId}`);
     revalidatePath("/admin/incidents");
     return { ok: true, message: "Prise en charge mise à jour." };
   });
 }
 
-export async function reclassifyShipmentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function reclassifyShipmentAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const schema = z.object({
     incidentId: z.string().min(1),
     shipmentId: z.string().min(1),
@@ -377,8 +712,15 @@ export async function reclassifyShipmentAction(_prev: ActionState, formData: For
     reason: requiredText("Justification", 5, 500),
   });
   return runAction(schema, formToObject(formData), async (actor, data) => {
-    await adminReclassify(actor, { shipmentId: data.shipmentId, size: data.size, reason: data.reason });
+    await adminReclassify(actor, {
+      shipmentId: data.shipmentId,
+      size: data.size,
+      reason: data.reason,
+    });
     revalidatePath(`/admin/incidents/${data.incidentId}`);
-    return { ok: true, message: "Classification corrigée. Le client a été notifié." };
+    return {
+      ok: true,
+      message: "Classification corrigée. Le client a été notifié.",
+    };
   });
 }
