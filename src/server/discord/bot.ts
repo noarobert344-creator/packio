@@ -140,9 +140,10 @@ async function replyError(
 ) {
   console.error(`[discord] ${what}`, err);
   const reason = err instanceof Error ? err.message : String(err);
+  // Droits manquants : lien pour les donner ; sinon la vraie raison (les droits sont bons).
   const content =
     permissionProblem(interaction.guild) ??
-    `${what} impossible (${reason.slice(0, 150)}). Vérifie que le bot a le droit de gérer les salons et les rôles : ${botInviteUrl(interaction.client.user.id)}`;
+    `${what} impossible : ${reason.slice(0, 200)}. Réessaie dans un instant ; si ça continue, envoie une capture à l'équipe technique.`;
   if (interaction.deferred || interaction.replied)
     await interaction.editReply(content).catch(() => undefined);
   else

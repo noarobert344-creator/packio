@@ -6,6 +6,7 @@ import {
   parseRating,
   pricingMessage,
   reviewEmbed,
+  sameChannelName,
   serverMessages,
   startMessage,
   type Links,
@@ -87,6 +88,10 @@ describe("Bot Discord : installation du serveur", () => {
       "results",
       "ideas",
     ]);
+    // Ancien nom sans séparateur : renommé ; nom déjà enregistré par Discord (sans apostrophe) : gardé.
+    expect(sameChannelName("👋commencer-ici", "👋｜commencer-ici")).toBe(false);
+    expect(sameChannelName("🛟｜centre-daide", "🛟｜centre-d’aide")).toBe(true);
+    expect(sameChannelName("👋｜bienvenue", "👋｜bienvenue")).toBe(true);
   });
 
   it("commencer-ici : bannière, parcours avec les salons, bouton pour créer son compte", () => {

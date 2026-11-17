@@ -28,6 +28,7 @@ import {
   helpMessage,
   missingBotPermissions,
   parseRating,
+  sameChannelName,
   reviewEmbed,
   reviewPromptMessage,
   serverMessages,
@@ -148,9 +149,7 @@ async function keepAtBottom(channel: TextChannel, message: InfoMessage) {
 // Salons
 // -----------------------------------------------------------------------------
 
-const sameName = (current: string, wanted: string) =>
-  [...current][0] === [...wanted][0] &&
-  normalizeChannelName(current) === normalizeChannelName(wanted);
+const sameName = sameChannelName;
 
 async function applyLayout(guild: Guild) {
   await guild.channels.fetch();
@@ -165,6 +164,7 @@ async function applyLayout(guild: Guild) {
   );
   const ids = {} as Record<ChannelKey, string>;
   const created: string[] = [];
+  const delayed: string[] = [];
   const positions: ChannelPosition[] = [];
   const me = guild.client.user.id;
 
@@ -216,17 +216,29 @@ async function applyLayout(guild: Guild) {
         });
         created.push(`<#${channel.id}>`);
       } else {
-        if (!sameName(channel.name, spec.name))
-          await channel.setName(spec.name);
-        if (channel.topic !== spec.topic) await channel.setTopic(spec.topic);
+        // Nom, sujet et catégorie en une seule modification (Discord limite
+        // les changements par salon) ; un salon à la fois.
+        const changes = {
+          ...(sameName(channel.name, spec.name) ? {} : { name: spec.name }),
+          ...(channel.topic === spec.topic ? {} : { topic: spec.topic }),
+          ...(channel.parentId === category.id
+            ? {}
+            : { parent: category.id, lockPermissions: false }),
+        };
+        if (Object.keys(changes).length) {
+          const done = await Promise.race([
+            channel.edit(changes).then(() => true),
+            new Promise<false>((resolve) =>
+              setTimeout(() => resolve(false), 20_000),
+            ),
+          ]);
+          // Limite de Discord atteinte : la modification se fera d'elle-même dans quelques minutes.
+          if (!done) delayed.push(`<#${channel.id}>`);
+        }
       }
       usedChannels.add(channel.id);
       ids[spec.key] = channel.id;
-      positions.push({
-        channel: channel.id,
-        parent: category.id,
-        position: index,
-      });
+      positions.push({ channel: channel.id, position: index });
       // Information : lecture seule pour les membres ; discussion : ouvert.
       await channel.permissionOverwrites.edit(guild.roles.everyone, {
         SendMessages: spec.readOnly ? false : null,
@@ -247,8 +259,11 @@ async function applyLayout(guild: Guild) {
     channel: tickets.category.id,
     position: SERVER_LAYOUT.length,
   });
-  await guild.channels.setPositions(positions);
-  return { ids, created };
+  // Ordre d'affichage : utile mais pas indispensable, l'installation continue en cas de refus.
+  await guild.channels
+    .setPositions(positions)
+    .catch((err) => console.warn("[discord] ordre des salons", err));
+  return { ids, created, delayed };
 }
 
 async function publicOffers(appUrl: string): Promise<PublicOffers | null> {
@@ -290,7 +305,7 @@ export async function installServer(
   await interaction.editReply(
     "⏳ Installation en cours : salons, messages, tickets et avis…",
   );
-  const { ids, created } = await applyLayout(guild);
+  const { ids, created, delayed } = await applyLayout(guild);
   const links = siteLinks(ids);
   const offers = await publicOffers(links.appUrl);
   const messages = serverMessages(links, offers);
@@ -316,6 +331,11 @@ export async function installServer(
     [
       "✅ **Serveur Packio installé**",
       `• Salons rangés en 3 catégories : Bienvenue, Communauté, Aide et avis${created.length ? ` (créés : ${created.join(", ")})` : ""}.`,
+      ...(delayed.length
+        ? [
+            `• ⏳ Discord limite les changements de nom : ${delayed.join(" ")} seront renommés d'eux-mêmes dans quelques minutes.`,
+          ]
+        : []),
       `• Messages publiés ou mis à jour : ${done.join(" ")}${offers ? " (prix du site)" : " (prix indisponibles : lien vers le site)"}.`,
       "• Salons d'information en lecture seule ; Général, Vos résultats et Idées ouverts à tous.",
       "• Tickets : bouton dans le centre d'aide ; donne le rôle **Équipe Packio** à ceux qui doivent les voir.",

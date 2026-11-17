@@ -63,6 +63,14 @@ export type ChannelSpec = {
   readOnly: boolean;
 };
 
+/** Nom tel que Discord l'enregistre : en minuscules, sans apostrophe (« centre-d'aide » → « centre-daide »). */
+export const discordChannelName = (name: string) =>
+  name.toLowerCase().replace(/['’]/g, "");
+
+/** Le salon porte déjà le bon nom, séparateur « ｜ » et émoji compris. */
+export const sameChannelName = (current: string, wanted: string) =>
+  discordChannelName(current) === discordChannelName(wanted);
+
 export type CategorySpec = {
   name: string;
   match: readonly string[];
@@ -158,7 +166,7 @@ export const SERVER_LAYOUT: CategorySpec[] = [
     channels: [
       {
         key: "help",
-        name: "🛟｜centre-d'aide",
+        name: "🛟｜centre-d’aide",
         match: ["centredaide", "centredaid", "aide", "support", "questions"],
         topic: "Une question ? Ouvre un ticket privé avec l'équipe.",
         readOnly: true,
