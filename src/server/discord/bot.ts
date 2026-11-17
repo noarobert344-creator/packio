@@ -12,6 +12,7 @@ import {
 } from "discord.js";
 import { buildWelcome, CHANNEL_KEYWORDS, findChannelId } from "./welcome";
 import { CLOSE_ID, OPEN_ID, closeTicket, installTickets, openTicket } from "./tickets";
+import { explainDiscordError, setDiscordStatus } from "./status";
 
 /**
  * BOT DISCORD « PACKIO »
@@ -82,10 +83,12 @@ export async function startDiscordBot() {
   const token = process.env.DISCORD_BOT_TOKEN?.trim();
   if (started || !token) return;
   started = true;
+  setDiscordStatus({ state: "connexion" });
   const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
   client.once(Events.ClientReady, (ready) => {
     console.log(`[discord] connecté en tant que ${ready.user.tag} (${ready.guilds.cache.size} serveur(s))`);
+    setDiscordStatus({ state: "connecté", detail: `${ready.user.tag} · ${ready.guilds.cache.size} serveur(s) : ${ready.guilds.cache.map((g) => g.name).join(", ") || "aucun (invitez le bot)"}` });
     for (const guild of ready.guilds.cache.values()) registerCommands(guild).catch((err) => console.error("[discord] commandes", err));
   });
   client.on(Events.GuildCreate, (guild) => registerCommands(guild).catch((err) => console.error("[discord] commandes", err)));
@@ -133,5 +136,11 @@ export async function startDiscordBot() {
   });
   // Une erreur du bot n'arrête jamais le site.
   client.on(Events.Error, (err) => console.error("[discord]", err));
-  await client.login(token);
+  client.on(Events.GuildCreate, (guild) => setDiscordStatus({ state: "connecté", detail: `${client.user?.tag} · ${client.guilds.cache.size} serveur(s), dernier ajouté : ${guild.name}` }));
+  try {
+    await client.login(token);
+  } catch (err) {
+    setDiscordStatus({ state: "erreur", detail: explainDiscordError(err instanceof Error ? err.message : String(err)) });
+    throw err;
+  }
 }
