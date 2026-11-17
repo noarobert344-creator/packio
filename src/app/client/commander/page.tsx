@@ -138,6 +138,7 @@ export default async function OrderPage({ searchParams }: { searchParams: Search
       <div id="nouvelle-commande" className="scroll-mt-24">
         <Section title="Nouvelle commande" description="Ces informations permettent à votre préparateur d'identifier et de contrôler votre colis.">
           <NewOrderForm
+            addressDeliveryCredits={shipping.addressDeliveryCredits}
             defaultSupplier={one(sp.fournisseur)?.toUpperCase()}
             linkedSale={linkedSale}
             suppliers={info.suppliers.map((s) => ({

@@ -214,7 +214,7 @@ describe("Stockage, retours, dropshipping et délai de 48 h", () => {
     await retryAwaitingCredits(client.customerId);
     expect(await db.outboundShipment.findUniqueOrThrow({ where: { id: s.id } })).toMatchObject({ status: "CLASSIFIED", creditState: "RESERVED" });
 
-    await updateSettings(admin, "shipping", { slaHours: 48, returnCredits: 0 });
+    await updateSettings(admin, "shipping", { slaHours: 48, returnCredits: 0, addressDeliveryCredits: 0 });
     const { item: other } = await stocked(client.actor, prep.actor, prep.location.id, 1);
     const free = await requestShipment(client.actor, { items: [{ itemId: other.id, quantity: 1 }], ...address, labelMode: "CUSTOMER_PROVIDED", labelFileId: (await labelFile(client.actor)).id, kind: "RETURN_TO_CUSTOMER" });
     expect(free).toMatchObject({ status: "CLASSIFIED", creditCost: 0, creditState: "NONE" });

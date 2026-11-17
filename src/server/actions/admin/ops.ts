@@ -241,6 +241,7 @@ const platformSchema = z.object({
   supportHours: optionalText(120),
   shippingSlaHours: intField("Délai d'expédition", { min: 1, max: 336 }),
   shippingReturnCredits: intField("Coût d'un retour à domicile", { min: 0, max: 100 }),
+  shippingAddressDeliveryCredits: intField("Supplément livraison à une adresse", { min: 0, max: 100 }),
   storageIncludedDays: intField("Durée incluse", { min: 1, max: 365 }),
   storageExtensionDays: intField("Durée d'une prolongation", { min: 1, max: 365 }),
   storageExtensionCredits: intField("Coût d'une prolongation", { min: 0, max: 100 }),
@@ -254,7 +255,11 @@ export async function savePlatformSettingsAction(_prev: ActionState, formData: F
     await updateSettings(actor, "assignment", { slaHours: data.slaHours });
     await updateSettings(actor, "messaging", { supervisionMinutes: data.supervisionMinutes });
     await updateSettings(actor, "support", { email: data.supportEmail, phone: data.supportPhone ?? "", hours: data.supportHours ?? "" });
-    await updateSettings(actor, "shipping", { slaHours: data.shippingSlaHours, returnCredits: data.shippingReturnCredits });
+    await updateSettings(actor, "shipping", {
+      slaHours: data.shippingSlaHours,
+      returnCredits: data.shippingReturnCredits,
+      addressDeliveryCredits: data.shippingAddressDeliveryCredits,
+    });
     await updateSettings(actor, "storage", {
       includedDays: data.storageIncludedDays,
       extensionDays: data.storageExtensionDays,

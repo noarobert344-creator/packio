@@ -32,6 +32,7 @@ export function Pricing({
   storage,
   shippingHours,
   returnCredits,
+  addressDeliveryCredits = 0,
 }: {
   plans: PricingPlan[];
   sizeRules: SizeRule[];
@@ -39,6 +40,7 @@ export function Pricing({
   storage: StorageRules;
   shippingHours: number;
   returnCredits: number;
+  addressDeliveryCredits?: number;
 }) {
   const annualBadge = commonAnnualBadge(plans);
   const extension = `${storage.extensionCredits} crédit${storage.extensionCredits > 1 ? "s" : ""}`;
@@ -131,6 +133,8 @@ export function Pricing({
           <p className="leading-relaxed text-muted-foreground">
             <span className="font-medium text-foreground">Frais de transport non inclus.</span> Vous fournissez votre étiquette (celle de Vinted, par exemple). Un
             retour à votre domicile coûte {returnCredits} crédit{returnCredits > 1 ? "s" : ""}, avec votre propre bordereau prépayé.
+            {addressDeliveryCredits > 0 &&
+              ` Une commande livrée à une adresse (poste restante) coûte ${addressDeliveryCredits} crédit${addressDeliveryCredits > 1 ? "s" : ""} de plus ; points relais et lockers : sans supplément.`}
           </p>
         </div>
       </Container>

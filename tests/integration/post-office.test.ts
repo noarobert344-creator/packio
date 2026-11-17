@@ -3,7 +3,7 @@ import { assignPreparer } from "@/server/services/assignments";
 import { createSupplierOrder, customerUpdateOrder } from "@/server/services/orders";
 import { saveLocation } from "@/server/services/preparers";
 import { checkCompatibility } from "@/lib/compatibility";
-import { createAdmin, createCustomer, createPreparerWithLocation, db, resetDb } from "../helpers";
+import { createAdmin, createCustomer, createPreparerWithLocation, db, ledgerInvariant, resetDb, wallet } from "../helpers";
 
 describe("Poste restante : livrer sans jamais passer par le domicile du préparateur", () => {
   beforeEach(resetDb);
@@ -72,5 +72,59 @@ describe("Poste restante : livrer sans jamais passer par le domicile du prépara
       expect((await db.supplier.findUniqueOrThrow({ where: { code } })).acceptedLocationTypes).toContain("POST_OFFICE");
     }
     expect(checkCompatibility(zen, { type: "POST_OFFICE", network: "LA_POSTE" }).ok).toBe(true);
+  });
+
+  it("commande livrée à une adresse (poste restante) : supplément en crédits, rendu si annulée ; locker sans supplément", async () => {
+    const admin = await createAdmin();
+    const prep = await createPreparerWithLocation(admin, { locationType: "LOCKER" });
+    const office = await saveLocation(admin, {
+      preparerId: prep.preparer.id,
+      type: "POST_OFFICE",
+      label: "Poste restante",
+      relayName: "Bureau de poste Lyon Bellecour",
+      addressLine1: "10 place Antonin Poncet",
+      postalCode: "69002",
+      city: "Lyon",
+      country: "FR",
+      recipientName: "Paul P.",
+      isPrimary: false,
+      validate: true,
+    });
+    await db.appSetting.update({ where: { key: "shipping" }, data: { value: { addressDeliveryCredits: 1 } } });
+    const client = await createCustomer({ plan: "PRO" });
+    await assignPreparer(admin, { customerId: client.customerId, preparerId: prep.preparer.id });
+    const zen = await db.supplier.findUniqueOrThrow({ where: { code: "ZENMARKET" } });
+    const vinted = await db.supplier.findUniqueOrThrow({ where: { code: "VINTED" } });
+    const balance = async () => {
+      const w = await wallet(client.customerId);
+      return w.monthlyBalance + w.purchasedBalance;
+    };
+    const start = await balance();
+
+    const toLocker = await createSupplierOrder(client.actor, { supplierId: vinted.id, locationId: prep.location.id, description: "Veste", quantity: 1 });
+    expect(toLocker.addressCreditsCharged).toBe(0);
+    expect(await balance()).toBe(start);
+
+    const toOffice = await createSupplierOrder(client.actor, { supplierId: zen.id, locationId: office.id, description: "Figurine", quantity: 1 });
+    expect(toOffice.addressCreditsCharged).toBe(1);
+    expect(await balance()).toBe(start - 1);
+    const fee = await db.creditTransaction.findFirstOrThrow({ where: { type: "DELIVERY_FEE" } });
+    expect(fee).toMatchObject({ amount: -1 });
+    expect(fee.description).toContain(toOffice.reference);
+
+    // Annulée avant son arrivée : le supplément est rendu.
+    await customerUpdateOrder(client.actor, { orderId: toOffice.id, status: "CANCELLED" });
+    expect(await balance()).toBe(start);
+    expect(await db.creditTransaction.count({ where: { type: "DELIVERY_FEE_REFUND" } })).toBe(1);
+    const inv = await ledgerInvariant(client.customerId);
+    expect(inv.available).toBe(inv.ledgerAvailable);
+
+    // Solde insuffisant : message clair, rien n'est enregistré.
+    await db.creditLot.updateMany({ where: { wallet: { customerId: client.customerId } }, data: { remaining: 0 } });
+    await db.creditWallet.update({ where: { customerId: client.customerId }, data: { monthlyBalance: 0, purchasedBalance: 0 } });
+    await expect(createSupplierOrder(client.actor, { supplierId: zen.id, locationId: office.id, description: "Encore", quantity: 1 })).rejects.toMatchObject({
+      code: "INSUFFICIENT_CREDITS",
+    });
+    expect(await db.supplierOrder.count({ where: { description: "Encore" } })).toBe(0);
   });
 });

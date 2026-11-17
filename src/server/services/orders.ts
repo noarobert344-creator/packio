@@ -4,7 +4,7 @@ import { db, type Tx } from "@/server/db";
 import { DomainError, ForbiddenError, NotFoundError } from "@/server/errors";
 import { assertCustomer, assertPreparer, can, type Actor } from "@/server/auth/actor";
 import { reference } from "@/server/lib/ids";
-import { ARRIVAL_OTHER, checkCompatibility } from "@/lib/compatibility";
+import { ADDRESS_LOCATION_TYPES, ARRIVAL_OTHER, checkCompatibility } from "@/lib/compatibility";
 import { SUPPLIER_ORDER_STATUS } from "@/lib/labels";
 import { withEffects, type Effects } from "./notifications";
 import { assertCustomerOperational } from "./customers";
@@ -12,6 +12,8 @@ import { createStockItem, linkPhotos } from "./inventory";
 import { createIncidentTx } from "./incidents";
 import { ensureCapacityForOrder } from "./storage";
 import { createShipmentTx } from "./shipments";
+import { availableCredits, debitCredits, grantCredits, purchasedCreditsExpiry } from "./credits";
+import { getSetting } from "./settings";
 
 /**
  * COMMANDES FOURNISSEURS (saisie manuelle — V1)
@@ -228,11 +230,34 @@ export async function createSupplierOrder(actor: Actor, input: CreateOrderInput)
       ? { credits: 0, slots: 0 }
       : await ensureCapacityForOrder(tx, { customerId, quantity: input.quantity, acceptCharge: !!input.acceptStorageCharge, actorId: actor.userId, orderReference: ref });
 
+    // Livraison à une adresse (poste restante, domiciliation) : supplément en crédits.
+    // Points relais et lockers : aucun supplément.
+    const addressFee = !arrivalOther && ADDRESS_LOCATION_TYPES.includes(location.type) ? (await getSetting("shipping", tx)).addressDeliveryCredits : 0;
+    if (addressFee > 0) {
+      const available = await availableCredits(tx, customerId);
+      if (available < addressFee) {
+        throw new DomainError(
+          "INSUFFICIENT_CREDITS",
+          `Une commande livrée à une adresse (poste restante) coûte ${addressFee} crédit${addressFee > 1 ? "s" : ""} ; votre solde est de ${available}. Rechargez vos crédits, ou choisissez un point relais ou un locker (sans supplément).`,
+          { fieldErrors: { locationId: "Crédits insuffisants pour une livraison à une adresse" } },
+        );
+      }
+      await debitCredits(tx, {
+        customerId,
+        amount: addressFee,
+        type: "DELIVERY_FEE",
+        description: `Commande ${ref} livrée à une adresse (${location.relayName ?? location.label})`,
+        actorId: actor.userId,
+        idempotencyKey: `address-order:${ref}`,
+      });
+    }
+
     const order = await tx.supplierOrder.create({
       data: {
         reference: ref,
         mode: dropship ? "DROPSHIP" : "STOCK",
         storageCreditsCharged: storage.credits,
+        addressCreditsCharged: addressFee,
         ...(dropship
           ? {
               salePlatform: sale?.platform ?? input.salePlatform ?? null,
@@ -347,6 +372,21 @@ export async function customerUpdateOrder(
     if (nextStatus && nextStatus !== order.status) {
       assertTransition(CUSTOMER_TRANSITIONS, order.status, nextStatus);
       order = await setStatus(tx, order, nextStatus, actor.userId, input.note);
+      // Commande annulée avant son arrivée : le supplément « livraison à une adresse » est rendu.
+      if (nextStatus === "CANCELLED" && order.addressCreditsCharged > 0) {
+        await grantCredits(tx, {
+          customerId: order.customerId,
+          bucket: "PURCHASED",
+          amount: order.addressCreditsCharged,
+          source: "RELEASE",
+          sourceRef: order.reference,
+          expiresAt: await purchasedCreditsExpiry(tx),
+          type: "DELIVERY_FEE_REFUND",
+          description: `Commande ${order.reference} annulée : supplément de livraison rendu`,
+          idempotencyKey: `address-order-refund:${order.reference}`,
+          actorId: actor.userId,
+        });
+      }
       if (nextStatus === "AT_LOCKER") {
         await tx.inboundParcel.updateMany({ where: { supplierOrderId: order.id, status: "EXPECTED" }, data: { status: "AT_LOCKER" } });
       }

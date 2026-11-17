@@ -14,6 +14,7 @@ export type FaqContext = {
   storageRules: Settings["storage"];
   shippingHours: number;
   returnCredits: number;
+  addressDeliveryCredits?: number;
   /** Avantage de la formule annuelle (« 1 mois offert »), null si non proposée. */
   annualBadge: string | null;
 };
@@ -66,6 +67,14 @@ export function Faq({ ctx }: { ctx: FaqContext }) {
       q: "Les frais de port sont-ils inclus ?",
       a: "Non. Les crédits couvrent la préparation ; l'affranchissement est distinct : vous fournissez votre propre étiquette (celle de Vinted, par exemple), ou les frais vous sont indiqués séparément.",
     },
+    ...(ctx.addressDeliveryCredits
+      ? [
+          {
+            q: "La poste restante coûte-t-elle plus cher ?",
+            a: `Oui : une commande livrée à une adresse (poste restante) coûte ${ctx.addressDeliveryCredits} crédit${ctx.addressDeliveryCredits > 1 ? "s" : ""} de plus, débité${ctx.addressDeliveryCredits > 1 ? "s" : ""} à son enregistrement et rendu${ctx.addressDeliveryCredits > 1 ? "s" : ""} si vous l'annulez. Les commandes livrées en point relais ou en locker n'ont aucun supplément.`,
+          },
+        ]
+      : []),
     {
       q: "Puis-je me faire renvoyer un article ?",
       a: `Oui. Depuis la fiche de l'article, demandez son retour à votre adresse : cela coûte ${ctx.returnCredits} crédit${ctx.returnCredits > 1 ? "s" : ""}, quelle que soit la taille du colis. Les frais de port sont à votre charge : vous joignez un bordereau prépayé, que votre préparateur imprime avant de déposer le colis.`,

@@ -584,6 +584,9 @@ enum CreditTransactionType {
   STORAGE_FEE
   /// Retrait par le préparateur attitré, justifié au client par message.
   PREPARER_DEBIT
+  /// Supplément d'une commande livrée à une adresse (poste restante), et son remboursement si elle est annulée.
+  DELIVERY_FEE
+  DELIVERY_FEE_REFUND
 }
 
 /// Registre transactionnel des crédits (ajout seul). La clé d'idempotence
@@ -707,6 +710,8 @@ model SupplierOrder {
   buyerCountry           String?
   /// Places de stock supplémentaires achetées lors de la commande.
   storageCreditsCharged  Int                  @default(0)
+  /// Supplément débité pour une livraison à une adresse (poste restante) ; rendu si la commande est annulée.
+  addressCreditsCharged  Int                  @default(0)
   /// Expédition créée automatiquement à la réception (dropshipping).
   dropshipShipmentId     String?              @unique
   createdAt              DateTime             @default(now())

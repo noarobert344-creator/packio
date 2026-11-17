@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink, MessagesSquare, PackagePlus, Zap } from "lucide-react";
+import { ExternalLink, MessagesSquare, PackagePlus, Zap, Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader, Section } from "@/components/shared/page-header";
 import { StatusFrom } from "@/components/shared/status-badge";
@@ -48,6 +48,13 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </Link>
           )}
         </div>
+      )}
+      {order.addressCreditsCharged > 0 && (
+        <p className="flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+          <Coins className="size-4" /> {order.addressCreditsCharged} crédit{order.addressCreditsCharged > 1 ? "s" : ""}{" "}
+          {order.status === "CANCELLED" ? "rendu" : "débité"}
+          {order.addressCreditsCharged > 1 ? "s" : ""} : commande livrée à une adresse (poste restante).
+        </p>
       )}
       {order.storageCreditsCharged > 0 && (
         <p className="flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">

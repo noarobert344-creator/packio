@@ -25,3 +25,10 @@ export function checkCompatibility(supplier: SupplierCompat, location: LocationC
 
 /** Valeur du point d'arrivée « un autre point relais ou locker (à préciser) ». */
 export const ARRIVAL_OTHER = "AUTRE";
+
+/**
+ * Points de réception « à une adresse » (poste restante, domiciliation) : le
+ * fournisseur livre comme à domicile. Une commande livrée ainsi coûte un
+ * supplément en crédits ; points relais et lockers : aucun supplément.
+ */
+export const ADDRESS_LOCATION_TYPES: LocationType[] = ["POST_OFFICE", "BUSINESS_ADDRESS"];

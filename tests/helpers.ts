@@ -13,6 +13,8 @@ export async function resetDb() {
     SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
   await db.$executeRawUnsafe(`TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(", ")} RESTART IDENTITY CASCADE`);
   await seedReferenceData(db);
+  // Supplément « livraison à une adresse » neutralisé par défaut dans les tests ; post-office.test.ts le vérifie.
+  await db.appSetting.create({ data: { key: "shipping", value: { addressDeliveryCredits: 0 } } });
 }
 
 export async function actorFor(userId: string): Promise<Actor> {

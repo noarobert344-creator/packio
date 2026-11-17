@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BadgeEuro, CircleCheck, CircleX, ExternalLink, PackagePlus, Phone, Warehouse, Zap } from "lucide-react";
+import { BadgeEuro, CircleCheck, CircleX, ExternalLink, PackagePlus, Phone, Warehouse, Zap, Coins } from "lucide-react";
 import { CopyButton } from "@/components/shared/copy-button";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "@/components/shared/form-field";
@@ -45,6 +45,7 @@ export function NewOrderForm({
   storage,
   defaultMode = "STOCK",
   linkedSale = null,
+  addressDeliveryCredits = 0,
 }: {
   suppliers: OrderSupplier[];
   locations: {
@@ -64,6 +65,8 @@ export function NewOrderForm({
   defaultMode?: "STOCK" | "DROPSHIP";
   /** Vente d'un compte lié déclarée « Vendu en dropshipping ». */
   linkedSale?: { id: string; title: string; platformLabel: string; externalOrderId: string; hasLabel: boolean } | null;
+  /** Supplément d'une commande livrée à une adresse (poste restante) ; points relais et lockers : aucun. */
+  addressDeliveryCredits?: number;
 }) {
   const [mode, setModeState] = useState<"STOCK" | "DROPSHIP">(defaultMode);
   const modeSuppliers = useMemo(() => suppliers.filter((s) => s.orderModes.includes(mode)), [suppliers, mode]);
@@ -174,7 +177,10 @@ export function NewOrderForm({
           value={arrivalOther ? ARRIVAL_OTHER : effectiveLocation}
           onChange={(e) => setLocationId(e.target.value)}
           options={[
-            ...compatible.map((l) => ({ value: l.id, label: `${l.label} — ${l.detail}` })),
+            ...compatible.map((l) => ({
+              value: l.id,
+              label: `${l.label} — ${l.detail}${addressDeliveryCredits > 0 && (l.type === "POST_OFFICE" || l.type === "BUSINESS_ADDRESS") ? ` (+${addressDeliveryCredits} crédit${addressDeliveryCredits > 1 ? "s" : ""})` : ""}`,
+            })),
             { value: ARRIVAL_OTHER, label: "Un autre point relais ou locker (à préciser)" },
           ]}
           hint={compatible.length === 0 ? "Aucun point de votre préparateur n'est compatible avec ce fournisseur : précisez le point choisi lors de l'achat." : undefined}
@@ -186,6 +192,22 @@ export function NewOrderForm({
           placeholder={arrivalOther ? "Ex. : Locker Mondial Relay Gare Part-Dieu, 5 place Charles Béraudier, 69003 Lyon" : "Ex. : casier n° 12, livraison prévue en point relais, etc."}
           hint="Votre préparateur voit cette information sur la commande."
         />
+        {(() => {
+          const loc = arrivalOther ? undefined : compatible.find((l) => l.id === effectiveLocation);
+          if (!loc || addressDeliveryCredits <= 0 || (loc.type !== "POST_OFFICE" && loc.type !== "BUSINESS_ADDRESS")) return null;
+          return (
+            <p className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning-soft px-3 py-2.5 text-sm text-warning">
+              <Coins className="mt-0.5 size-4 shrink-0" />
+              <span>
+                <span className="font-semibold">
+                  Livraison à une adresse : +{addressDeliveryCredits} crédit{addressDeliveryCredits > 1 ? "s" : ""}
+                </span>{" "}
+                débité{addressDeliveryCredits > 1 ? "s" : ""} à l&apos;enregistrement de la commande (rendu{addressDeliveryCredits > 1 ? "s" : ""} si vous l&apos;annulez). Les points relais et
+                les lockers ne coûtent rien de plus.
+              </span>
+            </p>
+          );
+        })()}
         {(() => {
           const loc = arrivalOther ? undefined : compatible.find((l) => l.id === effectiveLocation);
           return loc?.type === "POST_OFFICE" ? (

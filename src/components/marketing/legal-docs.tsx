@@ -20,6 +20,7 @@ export type LegalContext = {
   shippingHours: number;
   /** Coût fixe d'un retour à domicile (crédits). */
   returnCredits: number;
+  addressDeliveryCredits?: number;
 };
 
 /** Durée lisible : 14 → « 2 semaines », 30 → « 30 jours ». */
@@ -298,6 +299,13 @@ export function Cgv({ ctx }: { ctx: LegalContext }) {
         au dépôt du colis. Les frais de transport sont à la charge du Client, qui joint à sa demande un bordereau prépayé ; le Préparateur l&apos;imprime et dépose le
         colis.
       </p>
+      {!!ctx.addressDeliveryCredits && (
+        <p>
+          Une commande que le Client fait livrer à une adresse du Préparateur (poste restante ou adresse de domiciliation) coûte un supplément de{" "}
+          {creditsLabel(ctx.addressDeliveryCredits)}, débité à l&apos;enregistrement de la commande et rendu si le Client l&apos;annule avant son arrivée. Les
+          commandes livrées en point relais ou en locker n&apos;entraînent aucun supplément.
+        </p>
+      )}
       <h2>8. Dropshipping</h2>
       <p>
         Lorsqu&apos;un article est déjà vendu, le Client peut le commander auprès de son fournisseur en livraison vers le Préparateur et déclarer la commande en

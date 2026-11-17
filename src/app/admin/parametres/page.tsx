@@ -82,6 +82,16 @@ async function PlatformTab() {
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField name="shippingSlaHours" label="Délai d'expédition garanti (heures)" type="number" min={1} max={336} defaultValue={s.shipping.slaHours} required hint="48 h par défaut, à compter de la demande d'expédition." />
           <TextField name="shippingReturnCredits" label="Coût d'un retour à domicile (crédits)" type="number" min={0} max={100} defaultValue={s.shipping.returnCredits} required hint="Fixe, quelle que soit la taille du colis. Frais de port payés par le client (bordereau prépayé)." />
+          <TextField
+            name="shippingAddressDeliveryCredits"
+            label="Supplément commande livrée à une adresse (crédits)"
+            type="number"
+            min={0}
+            max={100}
+            defaultValue={s.shipping.addressDeliveryCredits}
+            required
+            hint="Débité à l'enregistrement d'une commande livrée en poste restante (ou à une adresse de domiciliation) ; rendu si elle est annulée. Points relais et lockers : aucun supplément."
+          />
         </div>
       </Section>
       <Section title="Stockage" description="Durée de stockage par article, prolongations prélevées en crédits et places supplémentaires. Affiché sur le site, dans les CGV et dans l'espace client.">

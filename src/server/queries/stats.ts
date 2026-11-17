@@ -22,7 +22,7 @@ function consumed(t: { type: string; amount: number; reservedDelta: number }) {
 }
 
 const PAID = ["SUCCEEDED", "REFUNDED", "PARTIALLY_REFUNDED"] as const;
-const CONSUMING = ["CAPTURE", "STORAGE_FEE", "PREPARER_DEBIT", "ADMIN_DEBIT"] as const;
+const CONSUMING = ["CAPTURE", "STORAGE_FEE", "PREPARER_DEBIT", "ADMIN_DEBIT", "DELIVERY_FEE"] as const;
 
 export async function getCustomerStats(customerId: string, months = 6, now = new Date()) {
   const start = startOfMonth(subMonths(now, months - 1));

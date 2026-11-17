@@ -202,7 +202,7 @@ export type GrantInput = {
   source: CreditLotSource;
   sourceRef?: string;
   expiresAt: Date | null;
-  type: Extract<CreditTransactionType, "MONTHLY_GRANT" | "PLAN_CHANGE_GRANT" | "PURCHASE" | "ADMIN_CREDIT">;
+  type: Extract<CreditTransactionType, "MONTHLY_GRANT" | "PLAN_CHANGE_GRANT" | "PURCHASE" | "ADMIN_CREDIT" | "DELIVERY_FEE_REFUND">;
   description: string;
   idempotencyKey: string;
   actorId?: string | null;
@@ -436,7 +436,7 @@ export async function debitCredits(
     customerId: string;
     amount: number;
     bucket?: CreditBucket;
-    type: Extract<CreditTransactionType, "ADMIN_DEBIT" | "REFUND_DEBIT" | "STORAGE_FEE" | "PREPARER_DEBIT">;
+    type: Extract<CreditTransactionType, "ADMIN_DEBIT" | "REFUND_DEBIT" | "STORAGE_FEE" | "PREPARER_DEBIT" | "DELIVERY_FEE">;
     description: string;
     reason?: string | null;
     actorId?: string | null;

@@ -47,7 +47,7 @@ export default async function HomePage() {
       <Preparers shippingHours={shipping.slaHours} />
       <Services shippingHours={shipping.slaHours} returnCredits={shipping.returnCredits} />
       <Testimonials />
-      <Pricing plans={plans} sizeRules={sizeRules} packs={packs} storage={storage} shippingHours={shipping.slaHours} returnCredits={shipping.returnCredits} />
+      <Pricing plans={plans} sizeRules={sizeRules} packs={packs} storage={storage} shippingHours={shipping.slaHours} returnCredits={shipping.returnCredits} addressDeliveryCredits={shipping.addressDeliveryCredits} />
       <Faq
         ctx={{
           slaHours: assignment.slaHours,
@@ -60,6 +60,7 @@ export default async function HomePage() {
           storageRules: storage,
           shippingHours: shipping.slaHours,
           returnCredits: shipping.returnCredits,
+          addressDeliveryCredits: shipping.addressDeliveryCredits,
           annualBadge: commonAnnualBadge(plans),
         }}
       />
