@@ -3,31 +3,72 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/lib/action-types";
-import { emailField, optionalText, requiredText } from "@/lib/forms";
+import { emailField } from "@/lib/forms";
 import { toActionError, zodFieldErrors, formToObject } from "@/server/action";
-import { endSession, getSession, homePathFor, requestMeta, startSession } from "@/server/auth/current";
+import {
+  endSession,
+  getSession,
+  homePathFor,
+  requestMeta,
+  startSession,
+} from "@/server/auth/current";
 import { setSessionSpace, toActor } from "@/server/auth/session-store";
 import { audit } from "@/server/services/audit";
 import { enableAdminPreparerProfile } from "@/server/services/preparers";
 import { db } from "@/server/db";
 import { DomainError } from "@/server/errors";
-import { acceptInvitation, authenticate, enableAdminCustomerProfile, registerCustomer, requestPasswordReset, resetPassword } from "@/server/services/auth";
+import {
+  acceptInvitation,
+  authenticate,
+  enableAdminCustomerProfile,
+  registerCustomer,
+  requestPasswordReset,
+  resetPassword,
+} from "@/server/services/auth";
 
 function safeNext(next: unknown) {
-  return typeof next === "string" && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/api/") ? next : null;
+  return typeof next === "string" &&
+    next.startsWith("/") &&
+    !next.startsWith("//") &&
+    !next.startsWith("/api/")
+    ? next
+    : null;
 }
 
-const loginSchema = z.object({ email: emailField(), password: z.string().min(1, { error: "Mot de passe requis" }).max(200), suivant: z.string().optional() });
+const loginSchema = z.object({
+  email: emailField(),
+  password: z.string().min(1, { error: "Mot de passe requis" }).max(200),
+  suivant: z.string().optional(),
+});
 
-export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function loginAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const parsed = loginSchema.safeParse(formToObject(formData));
-  if (!parsed.success) return { ok: false, error: "Vérifiez vos identifiants.", fieldErrors: zodFieldErrors(parsed.error) };
+  if (!parsed.success)
+    return {
+      ok: false,
+      error: "Vérifiez vos identifiants.",
+      fieldErrors: zodFieldErrors(parsed.error),
+    };
   let destination: string;
   try {
     const { ip } = await requestMeta();
-    const user = await authenticate(parsed.data.email, parsed.data.password, ip);
+    const user = await authenticate(
+      parsed.data.email,
+      parsed.data.password,
+      ip,
+    );
     await startSession(user.id);
-    const full = await db.user.findUniqueOrThrow({ where: { id: user.id }, include: { staffRole: true, customerProfile: { select: { id: true } }, preparerProfile: { select: { id: true } } } });
+    const full = await db.user.findUniqueOrThrow({
+      where: { id: user.id },
+      include: {
+        staffRole: true,
+        customerProfile: { select: { id: true } },
+        preparerProfile: { select: { id: true } },
+      },
+    });
     const actor = toActor(full);
     const next = safeNext(parsed.data.suivant);
     const home = homePathFor(actor);
@@ -38,34 +79,35 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   redirect(destination);
 }
 
+// Inscription minimale : e-mail et mot de passe. Nom, téléphone et adresse
+// sont demandés juste après le paiement (formulaire imposé dans l'espace client).
 const registerSchema = z.object({
-  firstName: requiredText("Prénom", 1, 60),
-  lastName: requiredText("Nom", 1, 60),
   email: emailField(),
-  // Téléphone et adresse obligatoires : les préparateurs peuvent confier leur adresse à leurs clients.
-  phone: z.preprocess(
-    (v) => (typeof v === "string" ? v.trim() : v),
-    z.string({ error: "Téléphone requis" }).regex(/^\+?[0-9 ().-]{6,20}$/, { error: "Numéro de téléphone invalide" }).refine((v) => v.replace(/\D/g, "").length >= 9, { error: "Numéro de téléphone invalide" }),
-  ),
-  addressLine1: requiredText("Adresse", 3, 200),
-  addressLine2: optionalText(200),
-  postalCode: requiredText("Code postal", 2, 12),
-  city: requiredText("Ville", 1, 100),
-  country: z.enum(["FR", "BE", "LU", "CH", "DE", "ES", "IT", "NL", "PT"], { error: "Pays requis" }).catch("FR"),
-  companyName: optionalText(120),
   password: z.string().min(1, { error: "Mot de passe requis" }).max(200),
-  acceptTerms: z.literal("on", { error: "Vous devez accepter les conditions pour créer un compte" }),
+  acceptTerms: z.literal("on", {
+    error: "Vous devez accepter les conditions pour créer un compte",
+  }),
   offre: z.string().optional(),
   periodicite: z.enum(["mensuel", "annuel"]).optional().catch(undefined),
 });
 
-export async function registerAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function registerAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const parsed = registerSchema.safeParse(formToObject(formData));
-  if (!parsed.success) return { ok: false, error: "Certains champs sont invalides.", fieldErrors: zodFieldErrors(parsed.error) };
+  if (!parsed.success)
+    return {
+      ok: false,
+      error: "Certains champs sont invalides.",
+      fieldErrors: zodFieldErrors(parsed.error),
+    };
   let offre: string | undefined;
   try {
-    const { addressLine1, addressLine2, postalCode, city, country, ...rest } = parsed.data;
-    const user = await registerCustomer({ ...rest, address: { line1: addressLine1, line2: addressLine2 ?? null, postalCode, city, country } });
+    const user = await registerCustomer({
+      email: parsed.data.email,
+      password: parsed.data.password,
+    });
     await startSession(user.id);
     offre = parsed.data.offre?.toUpperCase();
   } catch (err) {
@@ -78,7 +120,11 @@ export async function registerAction(_prev: ActionState, formData: FormData): Pr
 }
 
 /** Administrateur et préparateur : bascule entre les deux espaces. */
-const SPACE_LABEL = { ADMIN: "Mode administration", PREPARER: "Mode préparateur", CUSTOMER: "Espace client" } as const;
+const SPACE_LABEL = {
+  ADMIN: "Mode administration",
+  PREPARER: "Mode préparateur",
+  CUSTOMER: "Espace client",
+} as const;
 
 export async function switchSpaceAction(formData: FormData) {
   const session = await getSession();
@@ -86,7 +132,13 @@ export async function switchSpaceAction(formData: FormData) {
   const raw = formData.get("target");
   const target = raw === "PREPARER" || raw === "CUSTOMER" ? raw : "ADMIN";
   if (await setSessionSpace(session.sessionId, session.actor.userId, target)) {
-    await audit({ actor: session.actor, action: "session.space_switched", entityType: "user", entityId: session.actor.userId, summary: SPACE_LABEL[target] });
+    await audit({
+      actor: session.actor,
+      action: "session.space_switched",
+      entityType: "user",
+      entityId: session.actor.userId,
+      summary: SPACE_LABEL[target],
+    });
   }
   redirect(homePathFor({ role: target }));
 }
@@ -114,24 +166,53 @@ export async function logoutAction() {
   redirect("/");
 }
 
-export async function forgotPasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const parsed = z.object({ email: emailField() }).safeParse(formToObject(formData));
-  if (!parsed.success) return { ok: false, error: "Adresse e-mail invalide.", fieldErrors: zodFieldErrors(parsed.error) };
+export async function forgotPasswordAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = z
+    .object({ email: emailField() })
+    .safeParse(formToObject(formData));
+  if (!parsed.success)
+    return {
+      ok: false,
+      error: "Adresse e-mail invalide.",
+      fieldErrors: zodFieldErrors(parsed.error),
+    };
   try {
     await requestPasswordReset(parsed.data.email);
   } catch (err) {
     return toActionError(err);
   }
-  return { ok: true, message: "Si un compte existe pour cette adresse, un lien de réinitialisation vient d'être envoyé." };
+  return {
+    ok: true,
+    message:
+      "Si un compte existe pour cette adresse, un lien de réinitialisation vient d'être envoyé.",
+  };
 }
 
 const passwordSchema = z
-  .object({ token: z.string().min(10), password: z.string().max(200), confirm: z.string().max(200) })
-  .refine((v) => v.password === v.confirm, { error: "Les mots de passe ne correspondent pas", path: ["confirm"] });
+  .object({
+    token: z.string().min(10),
+    password: z.string().max(200),
+    confirm: z.string().max(200),
+  })
+  .refine((v) => v.password === v.confirm, {
+    error: "Les mots de passe ne correspondent pas",
+    path: ["confirm"],
+  });
 
-export async function resetPasswordAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function resetPasswordAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const parsed = passwordSchema.safeParse(formToObject(formData));
-  if (!parsed.success) return { ok: false, error: "Vérifiez le formulaire.", fieldErrors: zodFieldErrors(parsed.error) };
+  if (!parsed.success)
+    return {
+      ok: false,
+      error: "Vérifiez le formulaire.",
+      fieldErrors: zodFieldErrors(parsed.error),
+    };
   try {
     await resetPassword(parsed.data.token, parsed.data.password);
   } catch (err) {
@@ -140,12 +221,23 @@ export async function resetPasswordAction(_prev: ActionState, formData: FormData
   redirect("/connexion?reinitialise=1");
 }
 
-export async function acceptInvitationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function acceptInvitationAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const parsed = passwordSchema.safeParse(formToObject(formData));
-  if (!parsed.success) return { ok: false, error: "Vérifiez le formulaire.", fieldErrors: zodFieldErrors(parsed.error) };
+  if (!parsed.success)
+    return {
+      ok: false,
+      error: "Vérifiez le formulaire.",
+      fieldErrors: zodFieldErrors(parsed.error),
+    };
   let home = "/";
   try {
-    const userId = await acceptInvitation(parsed.data.token, parsed.data.password);
+    const userId = await acceptInvitation(
+      parsed.data.token,
+      parsed.data.password,
+    );
     await startSession(userId);
     const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
     home = homePathFor(user);
@@ -162,7 +254,10 @@ export async function redirectIfAuthenticated() {
 }
 
 export async function assertNotDemoInProduction() {
-  if (process.env.NODE_ENV === "production" && process.env.BILLING_MODE === "dev") {
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.BILLING_MODE === "dev"
+  ) {
     throw new DomainError("CONFIG", "Configuration invalide.");
   }
 }

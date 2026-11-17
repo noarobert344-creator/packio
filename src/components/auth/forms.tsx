@@ -2,18 +2,35 @@
 
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/shared/action-form";
-import { CheckboxField, SelectField, TextField } from "@/components/shared/form-field";
+import { CheckboxField, TextField } from "@/components/shared/form-field";
 import { PasswordField } from "./password-input";
-import { acceptInvitationAction, forgotPasswordAction, loginAction, registerAction, resetPasswordAction } from "@/server/actions/auth";
+import {
+  acceptInvitationAction,
+  forgotPasswordAction,
+  loginAction,
+  registerAction,
+  resetPasswordAction,
+} from "@/server/actions/auth";
 
 export function LoginForm({ next }: { next?: string }) {
   return (
     <ActionForm action={loginAction} silent className="grid gap-4">
       <input type="hidden" name="suivant" value={next ?? ""} />
-      <TextField name="email" label="Adresse e-mail" type="email" autoComplete="email" required autoFocus placeholder="vous@exemple.fr" />
+      <TextField
+        name="email"
+        label="Adresse e-mail"
+        type="email"
+        autoComplete="email"
+        required
+        autoFocus
+        placeholder="vous@exemple.fr"
+      />
       <PasswordField name="password" label="Mot de passe" />
       <div className="-mt-1 text-right">
-        <Link href="/mot-de-passe-oublie" className="text-xs text-muted-foreground hover:text-foreground">
+        <Link
+          href="/mot-de-passe-oublie"
+          className="text-xs text-muted-foreground hover:text-foreground"
+        >
           Mot de passe oublié ?
         </Link>
       </div>
@@ -24,76 +41,97 @@ export function LoginForm({ next }: { next?: string }) {
   );
 }
 
-export function RegisterForm({ offre, periodicite }: { offre?: string; periodicite?: "mensuel" | "annuel" }) {
+export function RegisterForm({
+  offre,
+  periodicite,
+}: {
+  offre?: string;
+  periodicite?: "mensuel" | "annuel";
+}) {
   return (
     <ActionForm action={registerAction} silent className="grid gap-4">
       <input type="hidden" name="offre" value={offre ?? ""} />
-      <input type="hidden" name="periodicite" value={periodicite ?? "mensuel"} />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <TextField name="firstName" label="Prénom" autoComplete="given-name" required />
-        <TextField name="lastName" label="Nom" autoComplete="family-name" required />
-      </div>
-      <TextField name="email" label="Adresse e-mail" type="email" autoComplete="email" required placeholder="vous@exemple.fr" />
-      <TextField name="phone" label="Téléphone" type="tel" autoComplete="tel" required placeholder="06 12 34 56 78" />
-      <TextField name="addressLine1" label="Adresse" autoComplete="address-line1" required placeholder="Numéro et rue" />
-      <TextField name="addressLine2" label="Complément d'adresse" autoComplete="address-line2" placeholder="Facultatif" />
-      <div className="grid gap-4 sm:grid-cols-[8rem_1fr_9rem]">
-        <TextField name="postalCode" label="Code postal" autoComplete="postal-code" required />
-        <TextField name="city" label="Ville" autoComplete="address-level2" required />
-        <SelectField
-          name="country"
-          label="Pays"
-          required
-          defaultValue="FR"
-          options={[
-            { value: "FR", label: "France" },
-            { value: "BE", label: "Belgique" },
-            { value: "LU", label: "Luxembourg" },
-            { value: "CH", label: "Suisse" },
-            { value: "DE", label: "Allemagne" },
-            { value: "ES", label: "Espagne" },
-            { value: "IT", label: "Italie" },
-            { value: "NL", label: "Pays-Bas" },
-            { value: "PT", label: "Portugal" },
-          ]}
-        />
-      </div>
-      <p className="-mt-1 text-xs text-muted-foreground">
-        Votre téléphone et votre adresse servent à vérifier votre compte et à vous renvoyer vos articles. Ils ne sont jamais montrés aux autres clients.
-      </p>
-      <PasswordField name="password" label="Mot de passe" autoComplete="new-password" hint="Au moins 8 caractères." />
+      <input
+        type="hidden"
+        name="periodicite"
+        value={periodicite ?? "mensuel"}
+      />
+      <TextField
+        name="email"
+        label="Adresse e-mail"
+        type="email"
+        autoComplete="email"
+        required
+        placeholder="vous@exemple.fr"
+      />
+      <PasswordField
+        name="password"
+        label="Mot de passe"
+        autoComplete="new-password"
+        hint="Au moins 8 caractères."
+      />
       <CheckboxField
         name="acceptTerms"
         required
         label={
           <>
             J&apos;accepte les{" "}
-            <Link href="/legal/cgu" className="underline underline-offset-2" target="_blank">
+            <Link
+              href="/legal/cgu"
+              className="underline underline-offset-2"
+              target="_blank"
+            >
               conditions d&apos;utilisation
             </Link>
             , les{" "}
-            <Link href="/legal/cgv" className="underline underline-offset-2" target="_blank">
+            <Link
+              href="/legal/cgv"
+              className="underline underline-offset-2"
+              target="_blank"
+            >
               conditions de vente
             </Link>{" "}
             et la{" "}
-            <Link href="/legal/confidentialite" className="underline underline-offset-2" target="_blank">
+            <Link
+              href="/legal/confidentialite"
+              className="underline underline-offset-2"
+              target="_blank"
+            >
               politique de confidentialité
             </Link>
             .
           </>
         }
       />
-      <SubmitButton size="lg" className="h-10 w-full" pendingLabel="Création du compte…">
+      <SubmitButton
+        size="lg"
+        className="h-10 w-full"
+        pendingLabel="Création du compte…"
+      >
         Créer mon compte
       </SubmitButton>
+      <p className="text-center text-xs text-muted-foreground">
+        Votre nom, votre téléphone et votre adresse vous seront demandés juste
+        après le paiement.
+      </p>
     </ActionForm>
   );
 }
 
 export function ForgotPasswordForm() {
   return (
-    <ActionForm action={forgotPasswordAction} resetOnSuccess className="grid gap-4">
-      <TextField name="email" label="Adresse e-mail" type="email" autoComplete="email" required />
+    <ActionForm
+      action={forgotPasswordAction}
+      resetOnSuccess
+      className="grid gap-4"
+    >
+      <TextField
+        name="email"
+        label="Adresse e-mail"
+        type="email"
+        autoComplete="email"
+        required
+      />
       <SubmitButton size="lg" className="h-10 w-full" pendingLabel="Envoi…">
         Recevoir un lien de réinitialisation
       </SubmitButton>
@@ -101,14 +139,39 @@ export function ForgotPasswordForm() {
   );
 }
 
-export function NewPasswordForm({ token, mode }: { token: string; mode: "reset" | "invitation" }) {
+export function NewPasswordForm({
+  token,
+  mode,
+}: {
+  token: string;
+  mode: "reset" | "invitation";
+}) {
   return (
-    <ActionForm action={mode === "reset" ? resetPasswordAction : acceptInvitationAction} silent className="grid gap-4">
+    <ActionForm
+      action={mode === "reset" ? resetPasswordAction : acceptInvitationAction}
+      silent
+      className="grid gap-4"
+    >
       <input type="hidden" name="token" value={token} />
-      <PasswordField name="password" label="Nouveau mot de passe" autoComplete="new-password" hint="Au moins 8 caractères." />
-      <PasswordField name="confirm" label="Confirmation" autoComplete="new-password" />
-      <SubmitButton size="lg" className="h-10 w-full" pendingLabel="Enregistrement…">
-        {mode === "reset" ? "Réinitialiser le mot de passe" : "Activer mon compte"}
+      <PasswordField
+        name="password"
+        label="Nouveau mot de passe"
+        autoComplete="new-password"
+        hint="Au moins 8 caractères."
+      />
+      <PasswordField
+        name="confirm"
+        label="Confirmation"
+        autoComplete="new-password"
+      />
+      <SubmitButton
+        size="lg"
+        className="h-10 w-full"
+        pendingLabel="Enregistrement…"
+      >
+        {mode === "reset"
+          ? "Réinitialiser le mot de passe"
+          : "Activer mon compte"}
       </SubmitButton>
     </ActionForm>
   );

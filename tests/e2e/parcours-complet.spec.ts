@@ -20,10 +20,18 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 const PASSWORD = "MotDePasse-E2E-2026";
 const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD ?? "Demo-Packio-2026";
 const stamp = Date.now().toString(36);
-const client = { first: "Alice", last: `Parcours ${stamp}`, email: `e2e-${stamp}@exemple.test` };
+const client = {
+  first: "Alice",
+  last: `Parcours ${stamp}`,
+  email: `e2e-${stamp}@exemple.test`,
+};
 const thanks = `Merci pour l'envoi rapide ! (${stamp})`;
 
-async function login(browser: Browser, email: string, password = DEMO_PASSWORD): Promise<Page> {
+async function login(
+  browser: Browser,
+  email: string,
+  password = DEMO_PASSWORD,
+): Promise<Page> {
   const context = await browser.newContext();
   const page = await context.newPage();
   await page.goto("/connexion");
@@ -34,18 +42,20 @@ async function login(browser: Browser, email: string, password = DEMO_PASSWORD):
   return page;
 }
 
-test("parcours complet client → admin → préparateur", async ({ page, browser }) => {
+test("parcours complet client → admin → préparateur", async ({
+  page,
+  browser,
+}) => {
   // 1. Choix de l'offre Starter, inscription et paiement (simulé)
   await page.goto("/");
-  await page.getByRole("link", { name: /Choisir Starter/ }).first().click();
+  await page
+    .getByRole("link", { name: /Choisir Starter/ })
+    .first()
+    .click();
   await expect(page).toHaveURL(/\/inscription\?offre=STARTER/);
-  await page.locator('input[name="firstName"]').fill(client.first);
-  await page.locator('input[name="lastName"]').fill(client.last);
+  // Inscription : e-mail et mot de passe seulement.
+  await expect(page.locator('input[name="phone"]')).toHaveCount(0);
   await page.locator('input[name="email"]').fill(client.email);
-  await page.locator('input[name="phone"]').fill("06 12 34 56 78");
-  await page.locator('input[name="addressLine1"]').fill("12 rue de la Paix");
-  await page.locator('input[name="postalCode"]').fill("75002");
-  await page.locator('input[name="city"]').fill("Paris");
   await page.locator('input[name="password"]').fill(PASSWORD);
   await page.locator('input[name="acceptTerms"]').check();
   await page.getByRole("button", { name: "Créer mon compte" }).click();
@@ -54,15 +64,41 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   await expect(page).toHaveURL(/\/paiement-demo/);
   await page.getByRole("button", { name: /Simuler le paiement/ }).click();
   await expect(page).toHaveURL(/\/client\?abonnement=confirme/);
-  await expect(page.getByRole("heading", { name: "Bienvenue sur Packio !" })).toBeVisible();
-  await expect(page.getByText("Un préparateur de commandes personnel vous sera attribué sous 24 heures.", { exact: false })).toBeVisible();
+  // Après le paiement : formulaire imposé (nom, téléphone, adresse) avant d'accéder à l'espace.
+  await expect(
+    page.getByRole("heading", { name: "Complétez vos informations" }),
+  ).toBeVisible();
+  await page.locator('input[name="firstName"]').fill(client.first);
+  await page.locator('input[name="lastName"]').fill(client.last);
+  await page.locator('input[name="phone"]').fill("06 12 34 56 78");
+  await page.locator('input[name="addressLine1"]').fill("12 rue de la Paix");
+  await page.locator('input[name="postalCode"]').fill("75002");
+  await page.locator('input[name="city"]').fill("Paris");
+  await page
+    .getByRole("button", { name: "Valider et accéder à mon espace" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Bienvenue sur Packio !" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Un préparateur de commandes personnel vous sera attribué sous 24 heures.",
+      { exact: false },
+    ),
+  ).toBeVisible();
   await expect(page.getByText("Échéance des 24 h")).toBeVisible();
 
   // 2. L'administrateur attribue manuellement un préparateur
   const admin = await login(browser, "admin@demo.packio.local");
   await admin.goto(`/admin/clients?q=${encodeURIComponent(client.email)}`);
-  await admin.getByRole("link", { name: new RegExp(client.last) }).first().click();
-  await admin.getByRole("button", { name: "Attribuer un préparateur" }).first().click();
+  await admin
+    .getByRole("link", { name: new RegExp(client.last) })
+    .first()
+    .click();
+  await admin
+    .getByRole("button", { name: "Attribuer un préparateur" })
+    .first()
+    .click();
   // Préparateur de démonstration disposant encore de capacité (la capacité maximale est appliquée).
   const candidates = [
     { name: "Camille Martin", email: "camille.martin@demo.packio.local" },
@@ -77,22 +113,35 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
       break;
     }
   }
-  if (!preparer) throw new Error("Aucun préparateur de démonstration n'a de capacité disponible : réinitialisez la base de développement.");
+  if (!preparer)
+    throw new Error(
+      "Aucun préparateur de démonstration n'a de capacité disponible : réinitialisez la base de développement.",
+    );
   await admin.getByRole("button", { name: "Confirmer l'attribution" }).click();
-  await expect(admin.getByText("est désormais le préparateur attitré", { exact: false })).toBeVisible();
+  await expect(
+    admin.getByText("est désormais le préparateur attitré", { exact: false }),
+  ).toBeVisible();
 
   // 3. Le client voit son préparateur et son point de réception, puis commande sur ZenMarket (commande vers le stock)
   await expect(async () => {
     await page.goto("/client/preparateur");
-    await expect(page.getByRole("heading", { name: preparer!.name })).toBeVisible({ timeout: 3_000 });
+    await expect(
+      page.getByRole("heading", { name: preparer!.name }),
+    ).toBeVisible({ timeout: 3_000 });
   }).toPass({ timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "Adresses de réception validées" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Adresses de réception validées" }),
+  ).toBeVisible();
   await page.goto("/client/commander");
   const form = page.locator("#nouvelle-commande");
   // Juste après le chargement, le formulaire peut apparaître deux fois le temps de l'hydratation.
   await expect(form.locator('select[name="supplierId"]')).toHaveCount(1);
-  await form.locator('select[name="supplierId"]').selectOption({ label: "ZenMarket" });
-  await form.locator('input[name="description"]').fill("Coque de téléphone transparente");
+  await form
+    .locator('select[name="supplierId"]')
+    .selectOption({ label: "ZenMarket" });
+  await form
+    .locator('input[name="description"]')
+    .fill("Coque de téléphone transparente");
   await form.locator('input[name="quantity"]').fill("2");
   await form.locator('input[name="trackingNumber"]').fill("LPE2E000000001CN");
   await form.getByRole("button", { name: "Enregistrer la commande" }).click();
@@ -100,7 +149,9 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   const orderUrl = new URL(page.url());
   const orderId = orderUrl.pathname.split("/").pop()!;
   await expect(page.getByText("En cours d'acheminement").first()).toBeVisible();
-  await expect(page.getByText("Numéro de suivi fourni à l'enregistrement")).toBeVisible();
+  await expect(
+    page.getByText("Numéro de suivi fourni à l'enregistrement"),
+  ).toBeVisible();
 
   // 4. Le préparateur récupère, réceptionne et met en stock
   const prep = await login(browser, preparer.email);
@@ -108,12 +159,18 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   // Livraison à l'adresse professionnelle : réception directe (pas de retrait au locker).
   await expect(prep.getByText("En cours d'acheminement").first()).toBeVisible();
   await prep.getByRole("button", { name: /Valider la réception/ }).click();
-  await expect(prep.getByRole("button", { name: /Mettre en stock/ })).toBeVisible();
+  await expect(
+    prep.getByRole("button", { name: /Mettre en stock/ }),
+  ).toBeVisible();
   await prep.getByRole("button", { name: /Mettre en stock/ }).click();
-  await expect(prep.getByRole("button", { name: /Mettre en stock/ })).toBeHidden();
+  await expect(
+    prep.getByRole("button", { name: /Mettre en stock/ }),
+  ).toBeHidden();
 
   // 5. Le client demande l'expédition d'un article stocké
-  const stockedItem = page.getByRole("link", { name: /Coque de téléphone transparente/ }).first();
+  const stockedItem = page
+    .getByRole("link", { name: /Coque de téléphone transparente/ })
+    .first();
   await expect(async () => {
     await page.goto("/client/stock");
     await expect(stockedItem).toBeVisible({ timeout: 3_000 });
@@ -129,17 +186,27 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   await page.getByRole("button", { name: "Demander l'expédition" }).click();
   await expect(page).toHaveURL(/\/client\/expeditions\/[a-z0-9]+$/);
   const shipmentId = new URL(page.url()).pathname.split("/").pop()!;
-  await expect(page.getByText("En attente de classification").first()).toBeVisible();
+  await expect(
+    page.getByText("En attente de classification").first(),
+  ).toBeVisible();
 
   // 6. Le préparateur classe le colis (Moyen = 2 crédits), prépare, étiquette et dépose
   await prep.goto(`/preparateur/expeditions/${shipmentId}`);
   await prep.getByText("Moyen colis", { exact: true }).first().click();
-  await prep.getByRole("button", { name: /Confirmer la classification/ }).click();
-  await expect(prep.getByRole("button", { name: /Commencer la préparation/ })).toBeVisible();
+  await prep
+    .getByRole("button", { name: /Confirmer la classification/ })
+    .click();
+  await expect(
+    prep.getByRole("button", { name: /Commencer la préparation/ }),
+  ).toBeVisible();
   await prep.getByRole("button", { name: /Commencer la préparation/ }).click();
-  await expect(prep.getByRole("button", { name: /Le colis est prêt/ })).toBeVisible();
+  await expect(
+    prep.getByRole("button", { name: /Le colis est prêt/ }),
+  ).toBeVisible();
   await prep.getByRole("button", { name: /Le colis est prêt/ }).click();
-  const labelButton = prep.getByRole("button", { name: /Enregistrer l'étiquette/ });
+  const labelButton = prep.getByRole("button", {
+    name: /Enregistrer l'étiquette/,
+  });
   await expect(labelButton).toBeVisible();
   const labelCard = prep.locator("form", { has: labelButton });
   await labelCard.locator('input[type="file"]').setInputFiles({
@@ -160,16 +227,23 @@ test("parcours complet client → admin → préparateur", async ({ page, browse
   await page.goto(`/client/expeditions/${shipmentId}`);
   await expect(page.getByText("Déposé au transporteur").first()).toBeVisible();
   await expect(page.getByText("Crédits débités").first()).toBeVisible();
-  await expect(page.getByRole("link", { name: /Suivre le colis/ })).toHaveAttribute("href", /laposte\.fr.*6AE2E00000001/);
+  await expect(
+    page.getByRole("link", { name: /Suivre le colis/ }),
+  ).toHaveAttribute("href", /laposte\.fr.*6AE2E00000001/);
   await page.goto("/client/credits");
-  await expect(page.getByText("Solde disponible").locator("..")).toContainText("18");
+  await expect(page.getByText("Solde disponible").locator("..")).toContainText(
+    "18",
+  );
   await page.goto("/client/preparateur");
   await page.getByRole("link", { name: /Envoyer un message/ }).click();
   await page.getByLabel("Message", { exact: true }).fill(thanks);
   await page.getByRole("button", { name: "Envoyer", exact: true }).click();
   await expect(page.getByText(thanks).last()).toBeVisible();
   await prep.goto("/preparateur/messages");
-  await prep.getByRole("link", { name: new RegExp(client.last) }).first().click();
+  await prep
+    .getByRole("link", { name: new RegExp(client.last) })
+    .first()
+    .click();
   await expect(prep.getByText(thanks).last()).toBeVisible();
 
   // 8. L'administrateur supervise l'avancement logistique
