@@ -79,10 +79,17 @@ async function registerCommands(guild: Guild) {
   ]);
 }
 
+/** Nouvelle tentative de connexion après un refus (option à activer, jeton changé…). */
+const RETRY_MS = 2 * 60 * 1000;
+
 export async function startDiscordBot() {
   const token = process.env.DISCORD_BOT_TOKEN?.trim();
   if (started || !token) return;
   started = true;
+  await connect(token);
+}
+
+async function connect(token: string): Promise<void> {
   setDiscordStatus({ state: "connexion" });
   const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
@@ -140,7 +147,12 @@ export async function startDiscordBot() {
   try {
     await client.login(token);
   } catch (err) {
-    setDiscordStatus({ state: "erreur", detail: explainDiscordError(err instanceof Error ? err.message : String(err)) });
-    throw err;
+    const message = err instanceof Error ? err.message : String(err);
+    setDiscordStatus({ state: "erreur", detail: `${explainDiscordError(message)} Nouvel essai automatique dans 2 minutes.` });
+    console.error("[discord] connexion refusée :", message);
+    await client.destroy().catch(() => undefined);
+    setTimeout(() => {
+      connect(token).catch((e) => console.error("[discord] reconnexion", e));
+    }, RETRY_MS);
   }
 }

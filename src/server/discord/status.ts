@@ -18,7 +18,7 @@ export function getDiscordStatus(): DiscordStatus {
 
 /** Explication en clair des erreurs de connexion les plus courantes. */
 export function explainDiscordError(message: string) {
-  if (/disallowed intents/i.test(message)) return "Activez « Server Members Intent » (portail développeur Discord → Bot), puis redémarrez le site.";
+  if (/disallowed intents/i.test(message)) return "Activez « Server Members Intent » (portail développeur Discord → Bot).";
   if (/invalid token|TokenInvalid|401/i.test(message)) return "Jeton invalide : refaites « Reset Token » et recollez-le dans Render (DISCORD_BOT_TOKEN).";
   return message.slice(0, 200);
 }
