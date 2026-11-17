@@ -1,4 +1,5 @@
 import "server-only";
+import { WhopApiError } from "@/server/billing/whop";
 import { z } from "zod";
 import { DomainError } from "@/server/errors";
 import { getActor } from "@/server/auth/current";
@@ -44,6 +45,12 @@ export function toActionError(err: unknown): { ok: false; error: string; fieldEr
     if (digest.startsWith("NEXT_REDIRECT") || digest.startsWith("NEXT_HTTP_ERROR_FALLBACK") || digest === "NEXT_NOT_FOUND") {
       throw err;
     }
+  }
+  // Paiement refusé par Whop : la raison exacte est montrée (et journalisée) pour pouvoir corriger.
+  if (err instanceof WhopApiError) {
+    console.error("[action] erreur Whop", err.status, err.message);
+    const reason = err.message.replace(/^Whop : /, "");
+    return { ok: false, error: `Le paiement n'a pas pu être préparé chez Whop (${reason}, code ${err.status}). Réessayez dans un instant ; si cela continue, contactez le support.` };
   }
   console.error("[action] erreur inattendue", err);
   return { ok: false, error: "Une erreur inattendue est survenue. Veuillez réessayer." };

@@ -50,7 +50,13 @@ async function whopRequest<T>(method: "GET" | "POST" | "PATCH", path: string, bo
     cache: "no-store",
   });
   const text = await res.text();
-  const json = text ? (JSON.parse(text) as unknown) : {};
+  let json: unknown = {};
+  try {
+    json = text ? (JSON.parse(text) as unknown) : {};
+  } catch {
+    // Réponse non JSON (page d'erreur) : le code HTTP suffit.
+    if (res.ok) throw new WhopApiError("Whop : réponse illisible.", 502);
+  }
   if (!res.ok) {
     const err = asObj(asObj(json).error);
     const message = (typeof err.message === "string" && err.message) || (typeof asObj(json).message === "string" && (asObj(json).message as string)) || `HTTP ${res.status}`;
