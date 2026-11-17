@@ -57,19 +57,21 @@ export const env = {
   whop: {
     /** Clé API du compte Whop (Developer → API keys). */
     get apiKey() {
-      return process.env.WHOP_API_KEY ?? "";
+      return (process.env.WHOP_API_KEY ?? "").trim();
     },
     /** Secret de signature du webhook (commence par « ws_ »). */
     get webhookSecret() {
-      return process.env.WHOP_WEBHOOK_SECRET ?? "";
+      return (process.env.WHOP_WEBHOOK_SECRET ?? "").trim();
     },
-    /** Identifiant du compte / de l'entreprise Whop (biz_…). */
+    /** Identifiant du compte / de l'entreprise Whop (biz_…), repris même si un lien entier ou des espaces ont été collés. */
     get accountId() {
-      return process.env.WHOP_ACCOUNT_ID ?? "";
+      const raw = (process.env.WHOP_ACCOUNT_ID ?? "").trim();
+      return raw.match(/biz_[A-Za-z0-9]+/)?.[0] ?? raw;
     },
     /** Produit Whop auquel rattacher les plans créés à la volée (prod_…), facultatif. */
     get productId() {
-      return process.env.WHOP_PRODUCT_ID ?? "";
+      const raw = (process.env.WHOP_PRODUCT_ID ?? "").trim();
+      return raw.match(/prod_[A-Za-z0-9]+/)?.[0] ?? raw;
     },
     /** "production" (défaut) ou "sandbox". */
     get environment(): "production" | "sandbox" {
